@@ -101,7 +101,12 @@ struct Index {
         } else if (event.keyText === "KEYCODE_EQUALS") {
           let buffer = new ArrayBuffer(1);
           let view = new Uint8Array(buffer);
-          view[0] = 0x3d;
+          // workaround
+          if (event.unicode === 0x3d) {
+            view[0] = 0x2b;
+          } else {
+            view[0] = 0x3d;
+          }
           testNapi.send(buffer);
         } else if (event.unicode !== 0) {
           let textEncoder = util.TextEncoder.create('utf-8');
@@ -121,6 +126,9 @@ struct Index {
             testNapi.send(buffer);
           } else if (event.keyText === "KEYCODE_TAB") {
             view[0] = 0x09;
+            testNapi.send(buffer);
+          } else if (event.keyText === "KEYCODE_ESCAPE") {
+            view[0] = 0x1b;
             testNapi.send(buffer);
           } else if (event.keyText === "KEYCODE_CTRL_LEFT") {
             this.leftCtrlPressed = true;

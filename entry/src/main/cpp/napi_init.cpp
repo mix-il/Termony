@@ -164,11 +164,26 @@ static napi_value Read(napi_env env, napi_callback_info info) {
                         if (parts.size() == 2) {
                             sscanf(parts[0].c_str(), "%d", &row);
                             sscanf(parts[1].c_str(), "%d", &col);
+                            // convert from 1-based to 0-based
+                            row --;
+                            col --;
+                            if (row < 0) {
+                                row = 0;
+                            }
+                            if (col < 0) {
+                                col = 0;
+                            }
                         }
                         escape_state = 0;
                     } else if (buffer[i] == 'J') {
                         // clear screen
                         terminal.clear();
+                        escape_state = 0;
+                    } else if (buffer[i] == 'K') {
+                        // erase from cursor to end of line
+                        if (row < terminal.size() && col < terminal[row].size()) {
+                            terminal[row].resize(col);
+                        }
                         escape_state = 0;
                     } else if (buffer[i] == 'l' && escape_buffer == "?25") {
                         // make cursor invisible
