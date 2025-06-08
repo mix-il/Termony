@@ -91,13 +91,6 @@ static napi_value Read(napi_env env, napi_callback_info info) {
         if (r > 0) {
             // parse output
             for (int i = 0; i < r; i++) {
-                while (row >= terminal.size()) {
-                    terminal.push_back(std::vector<term_char>());
-                }
-                while (col >= terminal[row].size()) {
-                    terminal[row].push_back(term_char());
-                }
-
                 if (escape_state != 0) {
                     if (buffer[i] == 91) {
                         // opening bracket, CSI
@@ -152,6 +145,13 @@ static napi_value Read(napi_env env, napi_callback_info info) {
                     }
                 } else {
                     if (buffer[i] >= ' ' && buffer[i] < 127) {
+                        while (row >= terminal.size()) {
+                            terminal.push_back(std::vector<term_char>());
+                        }
+                        while (col >= terminal[row].size()) {
+                            terminal[row].push_back(term_char());
+                        }
+
                         // printable
                         terminal[row][col].ch = buffer[i];
                         terminal[row][col].style = current_style;
@@ -161,6 +161,13 @@ static napi_value Read(napi_env env, napi_callback_info info) {
                     } else if (buffer[i] == '\n') {
                         row += 1;
                     } else if (buffer[i] == '\b') {
+                        while (row >= terminal.size()) {
+                            terminal.push_back(std::vector<term_char>());
+                        }
+                        while (col >= terminal[row].size()) {
+                            terminal[row].push_back(term_char());
+                        }
+
                         terminal[row][col].ch = ' ';
                         col -= 1;
                     } else if (buffer[i] == 0x1b) {
