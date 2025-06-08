@@ -6,10 +6,10 @@ all: download/ncurses-6.5.tar.gz
 	mkdir -p temp build
 	cd temp && tar xvf ../download/ncurses-6.5.tar.gz
 	cd temp/ncurses-6.5 && mkdir build
-	cd temp/ncurses-6.5/build && ../configure --host aarch64-unknown-linux-musl CC=/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/native/llvm/bin/aarch64-unknown-linux-ohos-clang CXX=/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/native/llvm/bin/aarch64-unknown-linux-ohos-clang
+	cd temp/ncurses-6.5/build && ../configure --disable-mixed-case --prefix=/data/app/base.org/base_1.0 --host aarch64-unknown-linux-musl CC=/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/native/llvm/bin/aarch64-unknown-linux-ohos-clang CXX=/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/native/llvm/bin/aarch64-unknown-linux-ohos-clang
 	cd temp/ncurses-6.5/build && make -j $(shell nproc) && make install DESTDIR=$(shell pwd)/build
 	mkdir -p ../sysroot
-	cp -rfv build/usr/. ../sysroot
+	cp -rfv build/data/app/base.org/base_1.0/. ../sysroot
 
 download/ncurses-6.5.tar.gz:
 	mkdir -p download
