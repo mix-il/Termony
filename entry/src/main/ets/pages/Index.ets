@@ -2,6 +2,7 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import testNapi from 'libentry.so';
 import { taskpool } from '@kit.ArkTS';
 import { util } from '@kit.ArkTS';
+import fs from '@ohos.file.fs';
 
 const DOMAIN = 0x0000;
 
@@ -186,25 +187,6 @@ struct Index {
   build() {
     Row() {
       Column() {
-        Scroll(this.scroller) {
-          Column() {
-            ForEach(this.terminal, (row: ObservedArray<Character>) => {
-              Text() {
-                ForEach(row, (ch: Character) => {
-                  Span(ch.text)
-                    .fontColor(ch.style.fontColor)
-                    .fontWeight(ch.style.fontWeight)
-                })
-              }
-              .textAlign(TextAlign.Start)
-              .fontFamily("monospace")
-              .width("100%")
-            })
-          }
-          .align(Alignment.Top)
-        }
-        .align(Alignment.Top)
-        .height("50%")
         XComponent({
           type: XComponentType.SURFACE,
           controller: this.xComponentController

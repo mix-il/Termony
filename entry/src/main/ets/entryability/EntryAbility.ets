@@ -1,6 +1,7 @@
 import { AbilityConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
+import fs from '@ohos.file.fs';
 
 const DOMAIN = 0x0000;
 
@@ -16,6 +17,14 @@ export default class EntryAbility extends UIAbility {
   onWindowStageCreate(windowStage: window.WindowStage): void {
     // Main window is created, set main page for this ability
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
+
+    // extract font to rawfiles directory
+    let value: Uint8Array = this.context.resourceManager.getRawFileContentSync("Inconsolata-Regular.ttf");
+    let filePath = this.context.filesDir + "/Inconsolata-Regular.ttf";
+    let file = fs.openSync(filePath, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE);
+    fs.writeSync(file.fd, value.buffer);
+    fs.closeSync(file);
+    hilog.info(DOMAIN, 'testTag', 'Got font: %{public}s', filePath);
 
     windowStage.loadContent('pages/Index', (err) => {
       if (err.code) {
