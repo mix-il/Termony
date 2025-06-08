@@ -9,6 +9,7 @@
 #include <pty.h>
 #include <stdio.h>
 #include <string>
+#include <sys/time.h>
 #include <unistd.h>
 #include <vector>
 
@@ -351,6 +352,10 @@ static void *Worker(void *) {
     glBindVertexArray(0);
 
     // poll from fd, and render
+    struct timeval tv;
+    gettimeofday(&tv, nullptr);
+    uint64_t msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+
     while (1) {
         struct pollfd fds[1];
         fds[0].fd = fd;
@@ -534,7 +539,12 @@ static void *Worker(void *) {
         }
 
         // redraw
-        Draw();
+        struct timeval tv;
+        gettimeofday(&tv, nullptr);
+        uint64_t now_msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+        if (now_msec - msec > 16) {
+            Draw();
+        }
     }
 }
 
