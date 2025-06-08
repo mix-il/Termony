@@ -154,9 +154,17 @@ static napi_value Read(napi_env env, napi_callback_info info) {
                         // make cursor visible
                         show_cursor = true;
                         escape_state = 0;
-                    } else if (buffer[i] == 'H') {
+                    } else if (buffer[i] == 'H' && escape_buffer == "") {
                         // move cursor to upper left corner
                         row = col = 0;
+                        escape_state = 0;
+                    } else if (buffer[i] == 'H' && escape_buffer != "") {
+                        // move cursor to x, y
+                        std::vector<std::string> parts = splitString(escape_buffer, ";");
+                        if (parts.size() == 2) {
+                            sscanf(parts[0].c_str(), "%d", &row);
+                            sscanf(parts[1].c_str(), "%d", &col);
+                        }
                         escape_state = 0;
                     } else if (buffer[i] == 'J') {
                         // clear screen
