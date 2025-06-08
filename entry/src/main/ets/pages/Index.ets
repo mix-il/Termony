@@ -88,6 +88,11 @@ struct Index {
           let view = new Uint8Array(buffer);
           view[0] = event.unicode as number - 97 + 1; // ^A is 0x1
           testNapi.send(buffer);
+        } else if (event.keyText === "KEYCODE_EQUALS") {
+          let buffer = new ArrayBuffer(1);
+          let view = new Uint8Array(buffer);
+          view[0] = 0x3d;
+          testNapi.send(buffer);
         } else if (event.unicode !== 0) {
           let textEncoder = util.TextEncoder.create('utf-8');
           let encodeResult = textEncoder.encode(String.fromCharCode(event.unicode as number)); 
