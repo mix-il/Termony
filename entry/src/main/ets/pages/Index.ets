@@ -22,7 +22,7 @@ function stringToHex(str: ArrayBuffer) {
       hex += '\\x';
       hex += byte.toString(16).padStart(2, '0');
     } else {
-      // hex += String.fromCharCode(charCode);
+      hex += String.fromCharCode(byte);
     }
   }
   return hex;
