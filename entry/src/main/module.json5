@@ -9,9 +9,6 @@
     ],
     "requestPermissions": [
       {
-        "name": "ohos.permission.READ_WRITE_USER_FILE"
-      },
-      {
         "name": "ohos.permission.FILE_ACCESS_PERSIST"
       },
       {
