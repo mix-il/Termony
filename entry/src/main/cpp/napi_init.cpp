@@ -296,10 +296,13 @@ static void Draw() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUniform2f(surface_location, width, height);
 
-    for (int i = 0; i < terminal.size(); i++) {
+    int line_height = 50;
+    int max_lines = height / line_height;
+    int first_line = terminal.size() < max_lines ? 0 : (terminal.size () - max_lines);
+    for (int i = first_line; i < terminal.size(); i++) {
         float scale = 1;
         float x = 0.0;
-        float y = height - 50 - i * 50;
+        float y = height - line_height - (i - first_line) * line_height;
 
         glActiveTexture(GL_TEXTURE0);
         glBindVertexArray(vertex_array);
