@@ -51,15 +51,26 @@ static bool show_cursor = true;
 static GLint surface_location = -1;
 static GLint text_color_location = -1;
 static GLint background_color_location = -1;
+static int font_height = 48;
+static int font_width = 24;
+static int baseline_height = 10;
+static int term_col = 80;
+static int term_row = 24;
 
 static napi_value Run(napi_env env, napi_callback_info info) {
     if (fd != -1) {
         return nullptr;
     }
 
+    terminal.resize(term_row);
+    for (int i = 0;i < term_row;i++) {
+        terminal[i].resize(term_col);
+    }
+
     struct winsize ws = {};
-    ws.ws_col = 80;
-    ws.ws_row = 24;
+    ws.ws_col = term_col;
+    ws.ws_row = term_row;
+
     int pid = forkpty(&fd, nullptr, nullptr, &ws);
     if (!pid) {
         execl("/bin/sh", "/bin/sh", nullptr);
@@ -138,11 +149,15 @@ static napi_value Read(napi_env env, napi_callback_info info) {
                         escape_state = 0;
                     } else if (buffer[i] == 'B') {
                         // cursor down
-                        row++;
+                        if (row < term_row - 1) {
+                            row++;
+                        }
                         escape_state = 0;
                     } else if (buffer[i] == 'C') {
                         // cursor right
-                        col++;
+                        if (col < term_col - 1) {
+                            col++;
+                        }
                         escape_state = 0;
                     } else if (buffer[i] == 'D') {
                         // cursor left
@@ -169,21 +184,27 @@ static napi_value Read(napi_env env, napi_callback_info info) {
                             col --;
                             if (row < 0) {
                                 row = 0;
+                            } else if (row > term_row - 1) {
+                                row = term_row - 1;
                             }
                             if (col < 0) {
                                 col = 0;
+                            } else if (col > term_col - 1) {
+                                col = term_col - 1;
                             }
                         }
                         escape_state = 0;
                     } else if (buffer[i] == 'J') {
                         // clear screen
-                        terminal.clear();
+                        for (int i = 0;i < term_row;i++) {
+                            terminal[i].clear();
+                            terminal[i].resize(term_col);
+                        }
                         escape_state = 0;
                     } else if (buffer[i] == 'K') {
                         // erase from cursor to end of line
-                        if (row < terminal.size() && col < terminal[row].size()) {
-                            terminal[row].resize(col);
-                        }
+                        terminal[row].resize(col);
+                        terminal[row].resize(term_col);
                         escape_state = 0;
                     } else if (buffer[i] == 'l' && escape_buffer == "?25") {
                         // make cursor invisible
@@ -200,21 +221,34 @@ static napi_value Read(napi_env env, napi_callback_info info) {
                     }
                 } else {
                     if (buffer[i] >= ' ' && buffer[i] < 127) {
-                        while (row >= terminal.size()) {
-                            terminal.push_back(std::vector<term_char>());
-                        }
-                        while (col >= terminal[row].size()) {
-                            terminal[row].push_back(term_char());
-                        }
-
                         // printable
+                        assert(row >= 0 && row < term_row);
+                        assert(col >= 0 && col < term_col);
                         terminal[row][col].ch = buffer[i];
                         terminal[row][col].style = current_style;
                         col++;
+                        if (col == term_col) {
+                            col = 0;
+                            row ++;
+                            if (row == term_row) {
+                                // drop first line
+                                terminal.erase(terminal.begin());
+                                terminal.resize(term_row);
+                                terminal[term_row - 1].resize(term_col);
+                                row--;
+                            }
+                        }
                     } else if (buffer[i] == '\r') {
                         col = 0;
                     } else if (buffer[i] == '\n') {
                         row += 1;
+                        if (row == term_row) {
+                            // drop first line
+                            terminal.erase(terminal.begin());
+                            terminal.resize(term_row);
+                            terminal[term_row - 1].resize(term_col);
+                            row--;
+                        }
                     } else if (buffer[i] == '\b') {
                         if (col > 0) {
                             col -= 1;
@@ -285,9 +319,6 @@ struct character {
 
 std::map<char, std::array<struct character, NUM_WEIGHT>> characters;
 
-static int font_height = 48;
-static int font_width = 24;
-static int baseline_height = 10;
 // load font
 static void LoadFont() {
     FT_Library ft;
@@ -365,13 +396,6 @@ static GLuint vertex_array;
 static GLuint vertex_buffer;
 
 static void Draw() {
-    while (row >= terminal.size()) {
-        terminal.push_back(std::vector<term_char>());
-    }
-    while (col >= terminal[row].size()) {
-        terminal[row].push_back(term_char());
-    }
-
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUniform2f(surface_location, width, height);
@@ -380,12 +404,9 @@ static void Draw() {
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
     glViewport(0, 0, width, height);
 
-    int line_height = font_height + 2;
-    int max_lines = height / line_height;
-    int first_line = terminal.size() < max_lines ? 0 : (terminal.size() - max_lines);
-    for (int i = first_line; i < terminal.size(); i++) {
+    for (int i = 0; i < terminal.size(); i++) {
         float x = 0.0;
-        float y = height - line_height - (i - first_line) * line_height;
+        float y = height - (i + 1) * font_height;
 
         int cur_col = 0;
         for (auto c : terminal[i]) {
@@ -583,6 +604,26 @@ static napi_value ResizeSurface(napi_env env, napi_callback_info info) {
 
     napi_get_value_int32(env, args[1], &width);
     napi_get_value_int32(env, args[2], &height);
+
+    term_col = width / font_width;
+    term_row = height / font_height;
+    terminal.resize(term_row);
+    for (int i = 0;i < term_row;i++) {
+        terminal[i].resize(term_col);
+    }
+
+    if (row > term_row - 1) {
+        row = term_row - 1;
+    }
+
+    if (col > term_col - 1) {
+        col = term_col - 1;
+    }
+
+    struct winsize ws = {};
+    ws.ws_col = term_col;
+    ws.ws_row = term_row;
+    ioctl(fd, TIOCSWINSZ, &ws);
 
     Draw();
     return nullptr;
