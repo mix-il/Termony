@@ -44,10 +44,6 @@
       {
         "package": "coremark.hnp",
         "type": "private"
-      },
-      {
-        "package": "base.hnp",
-        "type": "private"
       }
     ]
   }
