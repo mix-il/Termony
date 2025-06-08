@@ -2,7 +2,7 @@
 
 Termux for HarmonyOS Computer. Working in Progress.
 
-It can run bash & busybox.static on Huawei MateBook Pro now:
+It can run some basic commands on Huawei MateBook Pro now:
 
 ![](./screenshot.jpg)
 
