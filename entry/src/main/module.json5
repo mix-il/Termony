@@ -44,6 +44,14 @@
       {
         "package": "coremark.hnp",
         "type": "private"
+      },
+      {
+        "package": "openssl.hnp",
+        "type": "private"
+      },
+      {
+        "package": "make.hnp",
+        "type": "private"
       }
     ]
   }

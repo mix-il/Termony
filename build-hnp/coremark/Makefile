@@ -1,6 +1,6 @@
-all: bash.hnp
+all: coremark.hnp
 
-bash.hnp: download/main.zip
+coremark.hnp: download/main.zip
 	rm -rf temp build
 	mkdir -p temp build/bin
 	cd temp && unzip ../download/main.zip

@@ -1,6 +1,8 @@
 HNPS:=busybox.hnp \
 	bash.hnp \
-	coremark.hnp
+	coremark.hnp \
+	openssl.hnp \
+	make.hnp
 
 all: copy
 

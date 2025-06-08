@@ -2,29 +2,6 @@
 set -e -x
 make -C build-hnp
 
-wget -c https://github.com/openssl/openssl/releases/download/openssl-3.5.0/openssl-3.5.0.tar.gz
-rm -rf base
-rm -rf openssl-source
-mkdir openssl-source
-pushd openssl-source
-tar xvf ../openssl-3.5.0.tar.gz
-cd openssl-3.5.0
-./Configure linux-aarch64 no-shared no-tests --prefix=/ CC=/Applications/DevEco-Studio.app/Contents//sdk/default/openharmony/native/llvm/bin/aarch64-unknown-linux-ohos-clang AR=/Applications/DevEco-Studio.app/Contents//sdk/default/openharmony/native/llvm/bin/llvm-ar RANLIB=/Applications/DevEco-Studio.app/Contents//sdk/default/openharmony/native/llvm/bin/llvm-ranlib STRIP=/Applications/DevEco-Studio.app/Contents//sdk/default/openharmony/native/llvm/bin/llvm-strip
-make -j $(nproc)
-make install DESTDIR=$PWD/../../base
-popd
-
-wget -c https://mirrors.tuna.tsinghua.edu.cn/gnu/make/make-4.4.1.tar.gz
-rm -rf make-source
-mkdir make-source
-pushd make-source
-tar xvf ../make-4.4.1.tar.gz
-cd make-4.4.1
-./configure --host aarch64-unknown-linux-musl --prefix=/ CC=/Applications/DevEco-Studio.app/Contents//sdk/default/openharmony/native/llvm/bin/aarch64-unknown-linux-ohos-clang AR=/Applications/DevEco-Studio.app/Contents//sdk/default/openharmony/native/llvm/bin/llvm-ar RANLIB=/Applications/DevEco-Studio.app/Contents//sdk/default/openharmony/native/llvm/bin/llvm-ranlib STRIP=/Applications/DevEco-Studio.app/Contents//sdk/default/openharmony/native/llvm/bin/llvm-strip
-make -j $(nproc)
-make install DESTDIR=$PWD/../../base
-popd
-
 wget -c https://github.com/Cyan4973/xxHash/archive/refs/tags/v0.8.3.tar.gz
 rm -rf xxhash-source
 mkdir xxhash-source
