@@ -62,6 +62,7 @@ struct Index {
             .align(Alignment.Top)
             .textAlign(TextAlign.Start)
             .fontWeight(FontWeight.Bold)
+            .fontFamily("monospace")
             .width("100%")
         }
         .align(Alignment.Top)
