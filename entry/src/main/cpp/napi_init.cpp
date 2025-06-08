@@ -73,7 +73,7 @@ static napi_value Run(napi_env env, napi_callback_info info) {
 
     int pid = forkpty(&fd, nullptr, nullptr, &ws);
     if (!pid) {
-        execl("/bin/sh", "/bin/sh", nullptr);
+        execl("/data/app/bin/bash", "/data/app/bin/bash", nullptr);
     }
 
     assert(fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == 0);
