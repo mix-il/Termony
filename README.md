@@ -8,15 +8,16 @@ It can run some basic commands on Huawei MateBook Pro now:
 
 Bundled packages:
 
-- busybox.static
 - bash
+- binutils
+- busybox
 - coremark
-- openssl
-- make
-- xxhash
 - lz4
-- tree
+- make
+- openssl
 - tar
+- tree
+- xxhash
 
 Usage:
 

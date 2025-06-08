@@ -1,4 +1,5 @@
 PKGS=bash \
+	binutils \
 	busybox \
 	coremark \
 	lz4 \
