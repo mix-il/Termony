@@ -40,29 +40,21 @@ static napi_value Read(napi_env env, napi_callback_info info)
         if (r > 0) {
             buffer[r] = '\0';
             napi_value ret;
-            napi_create_string_utf8(env, buffer, r, &ret);
+            void *data = nullptr;
+            assert(napi_create_arraybuffer(env, r, &data, &ret) == napi_ok);
+            memcpy(data, buffer, r);
             return ret;
         } else if (r == -1 && errno != EAGAIN) {
             // error
             return nullptr;
         }
     }
-    // empty string: no more available
-    buffer[0] = '\0';
+
+    // empty: nothing available yet
     napi_value ret;
-    napi_create_string_utf8(env, buffer, 1, &ret);
+    void *data = nullptr;
+    assert(napi_create_arraybuffer(env, 0, &data, &ret) == napi_ok);
     return ret;
-}
-
-static std::string get_str(napi_env env, napi_value value) {
-    size_t size = 0;
-    assert(napi_get_value_string_utf8(env, value, NULL, 0, &size) == napi_ok);
-    std::vector<char> buffer(size + 1);
-
-    assert(napi_get_value_string_utf8(env, value, buffer.data(), buffer.size(),
-                                        &size) == napi_ok);
-    std::string s(buffer.data(), size);
-    return s;
 }
 
 static napi_value Send(napi_env env, napi_callback_info info)
@@ -75,10 +67,12 @@ static napi_value Send(napi_env env, napi_callback_info info)
     napi_value args[1] = {nullptr};
     napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
 
-    std::string benchmark = get_str(env, args[0]);
+    void *data;
+    size_t length;
+    assert(napi_get_arraybuffer_info(env, args[0], &data, &length) == napi_ok);
     int written = 0;
-    while (written < benchmark.size()) {
-        int size = write(fd, benchmark.c_str() + written, benchmark.size() - written);
+    while (written < length) {
+        int size = write(fd, (uint8_t *)data + written, length - written);
         assert(size >= 0);
         written += size;
     }

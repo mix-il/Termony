@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e -x
 # build the project on macOS
 # assume deveco studio is downloaded from:
 # https://developer.huawei.com/consumer/cn/download/
