@@ -299,7 +299,7 @@ static void Draw() {
     for (int i = 0; i < terminal.size(); i++) {
         float scale = 1;
         float x = 0.0;
-        float y = (terminal.size() - i - 1) * 50 + 25;
+        float y = height - 50 - i * 50;
 
         glActiveTexture(GL_TEXTURE0);
         glBindVertexArray(vertex_array);
@@ -487,7 +487,7 @@ static napi_value ResizeSurface(napi_env env, napi_callback_info info) {
     napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
 
     napi_get_value_int32(env, args[1], &width);
-    napi_get_value_int32(env, args[1], &height);
+    napi_get_value_int32(env, args[2], &height);
 
     Draw();
     return nullptr;
