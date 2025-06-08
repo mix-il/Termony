@@ -52,6 +52,7 @@ struct Index {
   @State escapeState: number = 0;
   @State buffer: string = "";
   @State currentStyle: Style = new Style();
+  @State leftCtrlPressed: boolean = false;
   scroller: Scroller = new Scroller();
 
   onPageShow() {
@@ -110,8 +111,13 @@ struct Index {
                 this.row = 0;
                 this.col = 0;
                 this.escapeState = 0;
-              } else {
+              } else if (view[i] === 59 || (view[i] >= 48 && view[i] <= 57)) {
+                // ';' or number
                 this.buffer += String.fromCharCode(view[i]);
+              } else {
+                // unknown
+                this.escapeState = 0;
+                hilog.info(DOMAIN, 'testTag', 'Unknown escape sequence: %{public}s', view[i]);
               }
               continue;
             }
@@ -181,27 +187,48 @@ struct Index {
           .align(Alignment.Top)
         }
         .align(Alignment.Top)
-        .height("90%")
-        Row() {
-          TextInput({ text: this.input })
-            .onChange((value: string) => {
-              this.input = value;
-              console.info(value);
-            })
-            .onSubmit(() => {
-              let data = this.input + "\n";
-              let textEncoder = util.TextEncoder.create('utf-8');
-              let encodeResult = textEncoder.encode(data); 
-              testNapi.send(encodeResult.buffer);
-              this.input = "";
-              focusControl.requestFocus("input");
-            })
-            .id("input")
-            .width("70%")
-        }
+        .height("100%")
       }
       .width('100%')
     }
     .height('100%')
+    .onKeyEvent((event: KeyEvent) => {
+      hilog.info(DOMAIN, 'testTag', 'Got key: %{public}s', JSON.stringify(event));
+      if (event.type === KeyType.Down) {
+        if (this.leftCtrlPressed && event.unicode as number >= 97 && event.unicode as number <= 122) {
+          // Ctrl-A to Ctrl-Z
+          let buffer = new ArrayBuffer(1);
+          let view = new Uint8Array(buffer);
+          view[0] = event.unicode as number - 97 + 1; // ^A is 0x1
+          testNapi.send(buffer);
+        } else if (event.unicode !== 0) {
+          let textEncoder = util.TextEncoder.create('utf-8');
+          let encodeResult = textEncoder.encode(String.fromCharCode(event.unicode as number)); 
+          testNapi.send(encodeResult.buffer);
+        } else {
+          let buffer = new ArrayBuffer(1);
+          let view = new Uint8Array(buffer);
+          if (event.keyText === "KEYCODE_SPACE") {
+            view[0] = 0x20;
+            testNapi.send(buffer);
+          } else if (event.keyText === "KEYCODE_ENTER") {
+            view[0] = 0x0d;
+            testNapi.send(buffer);
+          } else if (event.keyText === "KEYCODE_DEL") {
+            view[0] = 0x7f;
+            testNapi.send(buffer);
+          } else if (event.keyText === "KEYCODE_TAB") {
+            view[0] = 0x09;
+            testNapi.send(buffer);
+          } else if (event.keyText === "KEYCODE_CTRL_LEFT") {
+            this.leftCtrlPressed = true;
+          }
+        }
+      } else if (event.type === KeyType.Up) {
+        if (event.keyText === "KEYCODE_CTRL_LEFT") {
+          this.leftCtrlPressed = false;
+        }
+      }
+    })
   }
 }
