@@ -42,6 +42,22 @@ class Character {
 class ObservedArray<T> extends Array<T> {
 }
 
+class MyXComponentController extends XComponentController {
+  onSurfaceCreated(surfaceId: string): void {
+    hilog.info(DOMAIN, 'testTag', 'onSurfaceCreated surfaceId: %{public}s', surfaceId);
+    testNapi.createSurface(BigInt(surfaceId));
+  }
+
+  onSurfaceChanged(surfaceId: string, rect: SurfaceRect): void {
+    hilog.info(DOMAIN, 'testTag', 'onSurfaceChanged surfaceId: %{public}s rect: %{public}s', surfaceId, JSON.stringify(rect));
+  }
+
+  onSurfaceDestroyed(surfaceId: string): void {
+    hilog.info(DOMAIN, 'testTag', 'onSurfaceDestroyed surfaceId: %{public}s', surfaceId);
+    testNapi.destroySurface(BigInt(surfaceId))
+  }
+}
+
 @Entry
 @Component
 struct Index {
@@ -54,6 +70,7 @@ struct Index {
   @State currentStyle: Style = new Style();
   @State leftCtrlPressed: boolean = false;
   scroller: Scroller = new Scroller();
+  xComponentController: XComponentController = new MyXComponentController();
 
   onPageShow() {
     (async () => {
@@ -187,7 +204,11 @@ struct Index {
           .align(Alignment.Top)
         }
         .align(Alignment.Top)
-        .height("100%")
+        .height("50%")
+        XComponent({
+          type: XComponentType.SURFACE,
+          controller: this.xComponentController
+        })
       }
       .width('100%')
     }
