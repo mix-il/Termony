@@ -131,22 +131,26 @@ static napi_value Read(napi_env env, napi_callback_info info) {
                     } else if (buffer[i] == 'A') {
                         // cursor up
                         if (row > 0) {
-                            row --;
+                            row--;
                         }
                         escape_state = 0;
                     } else if (buffer[i] == 'B') {
                         // cursor down
-                        row ++;
+                        row++;
                         escape_state = 0;
                     } else if (buffer[i] == 'C') {
                         // cursor right
-                        col ++;
+                        col++;
                         escape_state = 0;
                     } else if (buffer[i] == 'D') {
                         // cursor left
                         if (col > 0) {
-                            col --;
+                            col--;
                         }
+                        escape_state = 0;
+                    } else if (buffer[i] == 'h' && escape_buffer == "?25") {
+                        // make cursor visible
+                        // TODO
                         escape_state = 0;
                     } else if (buffer[i] == 'H') {
                         // move cursor to upper left corner
@@ -156,11 +160,16 @@ static napi_value Read(napi_env env, napi_callback_info info) {
                         // clear screen
                         terminal.clear();
                         escape_state = 0;
-                    } else if (buffer[i] == ';' || (buffer[i] >= '0' && buffer[i] <= '9')) {
-                        // ';' or number
+                    } else if (buffer[i] == 'l' && escape_buffer == "?25") {
+                        // make cursor invisible
+                        // TODO
+                        escape_state = 0;
+                    } else if (buffer[i] == '?' || buffer[i] == ';' || (buffer[i] >= '0' && buffer[i] <= '9')) {
+                        // '?', ';' or number
                         escape_buffer += buffer[i];
                     } else {
                         // unknown
+                        OH_LOG_INFO(LOG_APP, "Unknown escape sequence: %{public}s %{public}c", escape_buffer.c_str(), buffer[i]);
                         escape_state = 0;
                     }
                 } else {
@@ -291,7 +300,7 @@ static void LoadFont() {
             glGenTextures(1, &texture);
             glBindTexture(GL_TEXTURE_2D, texture);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, face->glyph->bitmap.width, face->glyph->bitmap.rows, 0, GL_RED,
-                        GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
+                         GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
 
             // set texture options
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -301,8 +310,8 @@ static void LoadFont() {
 
             // now store character for later use
             character character = {texture, ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
-                                ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
-                                (unsigned int)face->glyph->advance.x};
+                                   ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
+                                   (unsigned int)face->glyph->advance.x};
             characters[c][weight] = character;
         }
 
@@ -328,7 +337,7 @@ static void Draw() {
 
     int line_height = 50;
     int max_lines = height / line_height;
-    int first_line = terminal.size() < max_lines ? 0 : (terminal.size () - max_lines);
+    int first_line = terminal.size() < max_lines ? 0 : (terminal.size() - max_lines);
     for (int i = first_line; i < terminal.size(); i++) {
         float scale = 1;
         float x = 0.0;
