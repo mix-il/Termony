@@ -95,7 +95,20 @@ struct Index {
                     hilog.info(DOMAIN, 'testTag', 'Unknown color: %{public}s', part);
                   }
                 }
-                this.buffer = "";
+                this.escapeState = 0;
+              } else if (view[i] === 74) {
+                // J
+                if (this.buffer === "2") {
+                  // clear screen
+                  for (let i = 0;i < this.row;i ++) {
+                    this.terminal[i] = [];
+                  }
+                }
+                this.escapeState = 0;
+              } else if (view[i] === 72) {
+                // H, move cursor to upper left corner
+                this.row = 0;
+                this.col = 0;
                 this.escapeState = 0;
               } else {
                 this.buffer += String.fromCharCode(view[i]);
@@ -122,7 +135,9 @@ struct Index {
             } else if (view[i] === 0x0a) {
               // line feed
               this.row += 1;
-              this.terminal.push(new ObservedArray<Character>());
+              while (this.row >= this.terminal.length) {
+                this.terminal.push(new ObservedArray<Character>());
+              }
             } else if (view[i] === 0x08) {
               // backspace
               while (this.col >= this.terminal[this.row].length) {
@@ -133,6 +148,7 @@ struct Index {
               this.col -= 1;
             } else if (view[i] === 0x1b) {
               // escape
+              this.buffer = "";
               this.escapeState = 1;
             }
           }
