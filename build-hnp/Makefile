@@ -8,6 +8,7 @@ PKGS=bash \
 	openssl \
 	tar \
 	tree \
+	vim \
 	xxhash
 STAMP=$(patsubst %,%/.stamp,$(PKGS))
 

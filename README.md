@@ -14,9 +14,11 @@ Bundled packages:
 - coremark
 - lz4
 - make
+- ncurses
 - openssl
 - tar
 - tree
+- vim
 - xxhash
 
 Usage:
