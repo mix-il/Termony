@@ -19,12 +19,14 @@ export default class EntryAbility extends UIAbility {
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
 
     // extract font to rawfiles directory
-    let value: Uint8Array = this.context.resourceManager.getRawFileContentSync("Inconsolata-Regular.ttf");
-    let filePath = this.context.filesDir + "/Inconsolata-Regular.ttf";
-    let file = fs.openSync(filePath, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE);
-    fs.writeSync(file.fd, value.buffer);
-    fs.closeSync(file);
-    hilog.info(DOMAIN, 'testTag', 'Got font: %{public}s', filePath);
+    for (let font of ["Inconsolata-Regular.ttf", "Inconsolata-Bold.ttf"]) {
+      let value: Uint8Array = this.context.resourceManager.getRawFileContentSync(font);
+      let filePath = this.context.filesDir + "/" + font;
+      let file = fs.openSync(filePath, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE);
+      fs.writeSync(file.fd, value.buffer);
+      fs.closeSync(file);
+      hilog.info(DOMAIN, 'testTag', 'Got font: %{public}s', filePath);
+    }
 
     windowStage.loadContent('pages/Index', (err) => {
       if (err.code) {

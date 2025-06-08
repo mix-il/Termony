@@ -21,9 +21,15 @@
 
 static int fd = -1;
 
+enum weight {
+    regular = 0,
+    bold = 1,
+    NUM_WEIGHT,
+};
+
 // maintain terminal status
 struct style {
-    bool bold = false;
+    weight weight = regular;
     float red = 0.0;
     float green = 0.0;
     float blue = 0.0;
@@ -102,7 +108,7 @@ static napi_value Read(napi_env env, napi_callback_info info) {
                         for (auto part : parts) {
                             if (part == "1") {
                                 // set bold
-                                current_style.bold = true;
+                                current_style.weight = weight::bold;
                             } else if (part == "31") {
                                 // red foreground
                                 current_style.red = 1.0;
@@ -224,48 +230,58 @@ struct character {
     unsigned int advance;   // Offset to advance to next glyph
 };
 
-std::map<char, struct character> characters;
+std::map<char, std::array<struct character, NUM_WEIGHT>> characters;
 
 // load font
 static void LoadFont() {
     FT_Library ft;
     assert(FT_Init_FreeType(&ft) == 0);
 
-    FT_Face face;
-    assert(FT_New_Face(ft, "/data/storage/el2/base/haps/entry/files/Inconsolata-Regular.ttf", 0, &face) == 0);
-    FT_Set_Pixel_Sizes(face, 0, 48);
-    assert(FT_Load_Char(face, 'X', FT_LOAD_RENDER) == 0);
+    std::vector<std::pair<const char *, weight>> fonts = {
+        {"/data/storage/el2/base/haps/entry/files/Inconsolata-Regular.ttf", weight::regular},
+        {"/data/storage/el2/base/haps/entry/files/Inconsolata-Bold.ttf", weight::bold},
+    };
 
     // disable byte-alignment restriction
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    for (unsigned char c = 0; c < 128; c++) {
-        // load character glyph
-        if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
-            continue;
+    for (auto pair : fonts) {
+        const char *font = pair.first;
+        weight weight = pair.second;
+
+        FT_Face face;
+        assert(FT_New_Face(ft, font, 0, &face) == 0);
+        FT_Set_Pixel_Sizes(face, 0, 48);
+
+        for (unsigned char c = 0; c < 128; c++) {
+            // load character glyph
+            if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
+                continue;
+            }
+
+            // generate texture
+            unsigned int texture;
+            glGenTextures(1, &texture);
+            glBindTexture(GL_TEXTURE_2D, texture);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, face->glyph->bitmap.width, face->glyph->bitmap.rows, 0, GL_RED,
+                        GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
+
+            // set texture options
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+            // now store character for later use
+            character character = {texture, ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
+                                ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
+                                (unsigned int)face->glyph->advance.x};
+            characters[c][weight] = character;
         }
 
-        // generate texture
-        unsigned int texture;
-        glGenTextures(1, &texture);
-        glBindTexture(GL_TEXTURE_2D, texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, face->glyph->bitmap.width, face->glyph->bitmap.rows, 0, GL_RED,
-                     GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
-
-        // set texture options
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-        // now store character for later use
-        character character = {texture, ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
-                               ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
-                               (unsigned int)face->glyph->advance.x};
-        characters.insert(std::pair<char, struct character>(c, character));
+        FT_Done_Face(face);
     }
 
-    FT_Done_Face(face);
     FT_Done_FreeType(ft);
 }
 
@@ -290,7 +306,7 @@ static void Draw() {
         for (auto c : terminal[i]) {
             glUniform3f(text_color_location, c.style.red, c.style.green, c.style.blue);
 
-            character ch = characters[c.ch];
+            character ch = characters[c.ch][c.style.weight];
             float xpos = x + ch.bearing.x * scale;
             float ypos = y - (ch.size.y - ch.bearing.y) * scale;
             float w = ch.size.x * scale;
