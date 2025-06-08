@@ -11,7 +11,11 @@ Bundled packages:
 - bash
 - binutils
 - busybox
+- c-ares
 - coremark
+- curl
+- libidn2
+- libunistring
 - lz4
 - make
 - ncurses
