@@ -4,6 +4,7 @@ PKGS=bash \
 	coremark \
 	lz4 \
 	make \
+	ncurses \
 	openssl \
 	tar \
 	tree \
