@@ -2,7 +2,11 @@ HNPS:=busybox.hnp \
 	bash.hnp \
 	coremark.hnp \
 	openssl.hnp \
-	make.hnp
+	make.hnp \
+	xxhash.hnp \
+	lz4.hnp \
+	tree.hnp \
+	tar.hnp
 
 all: copy
 

@@ -52,6 +52,22 @@
       {
         "package": "make.hnp",
         "type": "private"
+      },
+      {
+        "package": "xxhash.hnp",
+        "type": "private"
+      },
+      {
+        "package": "lz4.hnp",
+        "type": "private"
+      },
+      {
+        "package": "tree.hnp",
+        "type": "private"
+      },
+      {
+        "package": "tar.hnp",
+        "type": "private"
       }
     ]
   }
