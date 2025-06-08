@@ -109,6 +109,34 @@ struct Index {
             testNapi.send(buffer);
           } else if (event.keyText === "KEYCODE_CTRL_LEFT") {
             this.leftCtrlPressed = true;
+          } else if (event.keyText === "KEYCODE_DPAD_UP") {
+            let buffer = new ArrayBuffer(3);
+            let view = new Uint8Array(buffer);
+            view[0] = 0x1b;
+            view[1] = 0x5b;
+            view[2] = 0x41;
+            testNapi.send(buffer);
+          } else if (event.keyText === "KEYCODE_DPAD_DOWN") {
+            let buffer = new ArrayBuffer(3);
+            let view = new Uint8Array(buffer);
+            view[0] = 0x1b;
+            view[1] = 0x5b;
+            view[2] = 0x42;
+            testNapi.send(buffer);
+          } else if (event.keyText === "KEYCODE_DPAD_RIGHT") {
+            let buffer = new ArrayBuffer(3);
+            let view = new Uint8Array(buffer);
+            view[0] = 0x1b;
+            view[1] = 0x5b;
+            view[2] = 0x43;
+            testNapi.send(buffer);
+          } else if (event.keyText === "KEYCODE_DPAD_LEFT") {
+            let buffer = new ArrayBuffer(3);
+            let view = new Uint8Array(buffer);
+            view[0] = 0x1b;
+            view[1] = 0x5b;
+            view[2] = 0x44;
+            testNapi.send(buffer);
           }
         }
       } else if (event.type === KeyType.Up) {

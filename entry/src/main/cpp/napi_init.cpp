@@ -128,13 +128,33 @@ static napi_value Read(napi_env env, napi_callback_info info) {
                             }
                         }
                         escape_state = 0;
-                    } else if (buffer[i] == 'J') {
-                        // clear screen
-                        terminal.clear();
+                    } else if (buffer[i] == 'A') {
+                        // cursor up
+                        if (row > 0) {
+                            row --;
+                        }
+                        escape_state = 0;
+                    } else if (buffer[i] == 'B') {
+                        // cursor down
+                        row ++;
+                        escape_state = 0;
+                    } else if (buffer[i] == 'C') {
+                        // cursor right
+                        col ++;
+                        escape_state = 0;
+                    } else if (buffer[i] == 'D') {
+                        // cursor left
+                        if (col > 0) {
+                            col --;
+                        }
                         escape_state = 0;
                     } else if (buffer[i] == 'H') {
                         // move cursor to upper left corner
                         row = col = 0;
+                        escape_state = 0;
+                    } else if (buffer[i] == 'J') {
+                        // clear screen
+                        terminal.clear();
                         escape_state = 0;
                     } else if (buffer[i] == ';' || (buffer[i] >= '0' && buffer[i] <= '9')) {
                         // ';' or number
@@ -302,6 +322,9 @@ static void Draw() {
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUniform2f(surface_location, width, height);
+    glActiveTexture(GL_TEXTURE0);
+    glBindVertexArray(vertex_array);
+    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
 
     int line_height = 50;
     int max_lines = height / line_height;
@@ -311,8 +334,6 @@ static void Draw() {
         float x = 0.0;
         float y = height - line_height - (i - first_line) * line_height;
 
-        glActiveTexture(GL_TEXTURE0);
-        glBindVertexArray(vertex_array);
         for (auto c : terminal[i]) {
             glUniform3f(text_color_location, c.style.red, c.style.green, c.style.blue);
 
@@ -327,17 +348,15 @@ static void Draw() {
                                                 xpos + w, ypos,     1.0f, 1.0f, xpos,     ypos + h, 0.0f, 0.0f,
                                                 xpos + w, ypos,     1.0f, 1.0f, xpos + w, ypos + h, 1.0f, 0.0f};
             glBindTexture(GL_TEXTURE_2D, ch.textureID);
-            glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
             glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(g_vertex_buffer_data), g_vertex_buffer_data);
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
             glDrawArrays(GL_TRIANGLES, 0, 6);
 
             x += ((float)ch.advance / 64) * scale;
         }
-        glBindVertexArray(0);
-        glBindTexture(GL_TEXTURE_2D, 0);
     }
 
+    glBindVertexArray(0);
+    glBindTexture(GL_TEXTURE_2D, 0);
     glFlush();
     glFinish();
     eglSwapBuffers(egl_display, egl_surface);
