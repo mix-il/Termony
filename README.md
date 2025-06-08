@@ -16,6 +16,7 @@ Bundled packages:
 - make
 - ncurses
 - openssl
+- strace
 - tar
 - tree
 - vim

@@ -6,6 +6,7 @@ PKGS=bash \
 	make \
 	ncurses \
 	openssl \
+	strace \
 	tar \
 	tree \
 	vim \
