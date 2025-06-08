@@ -6,7 +6,7 @@ all: download/make-4.4.1.tar.gz
 	cd temp/make-4.4.1 && make -j $(shell nproc)
 	cd temp/make-4.4.1 && make install DESTDIR=$(shell pwd)/build
 	mkdir -p ../sysroot
-	cp -ar ./build/usr/local/. ../sysroot
+	cp -rv ./build/usr/local/. ../sysroot
 
 download/make-4.4.1.tar.gz:
 	mkdir -p download

@@ -7,7 +7,7 @@ all: download/lz4-1.10.0.tar.gz
 	cd temp/lz4-1.10.0/build-lz4 && make -j $(shell nproc)
 	cd temp/lz4-1.10.0/build-lz4 && make install DESTDIR=$(shell pwd)/build
 	mkdir -p ../sysroot
-	cp -ar build/usr/local/. ../sysroot/
+	cp -rv build/usr/local/. ../sysroot/
 
 download/lz4-1.10.0.tar.gz:
 	mkdir -p download
