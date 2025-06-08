@@ -5,9 +5,9 @@ tar.hnp: download/tar-1.35.tar.xz
 	mkdir -p temp build
 	cd temp && tar xvf ../download/tar-1.35.tar.xz
 	cd temp/tar-1.35 && mkdir build
-	cd temp/tar-1.35/build && ../configure --host aarch64-unknown-linux-musl --prefix=/ CC=/Applications/DevEco-Studio.app/Contents//sdk/default/openharmony/native/llvm/bin/aarch64-unknown-linux-ohos-clang AR=/Applications/DevEco-Studio.app/Contents//sdk/default/openharmony/native/llvm/bin/llvm-ar RANLIB=/Applications/DevEco-Studio.app/Contents//sdk/default/openharmony/native/llvm/bin/llvm-ranlib STRIP=/Applications/DevEco-Studio.app/Contents//sdk/default/openharmony/native/llvm/bin/llvm-strip
+	cd temp/tar-1.35/build && ../configure --host aarch64-unknown-linux-musl CC=/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/native/llvm/bin/aarch64-unknown-linux-ohos-clang AR=/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/native/llvm/bin/llvm-ar RANLIB=/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/native/llvm/bin/llvm-ranlib STRIP=/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/native/llvm/bin/llvm-strip
 	cd temp/tar-1.35/build && make -j $(shell nproc) && make install DESTDIR=$(shell pwd)/build
-	/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hnpcli pack -i build -n tar -v 1.35
+	/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hnpcli pack -i build/usr/local -n tar -v 1.35
 
 download/tar-1.35.tar.xz:
 	mkdir -p download
