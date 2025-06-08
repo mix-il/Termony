@@ -63,7 +63,7 @@ static napi_value Run(napi_env env, napi_callback_info info) {
     }
 
     terminal.resize(term_row);
-    for (int i = 0;i < term_row;i++) {
+    for (int i = 0; i < term_row; i++) {
         terminal[i].resize(term_col);
     }
 
@@ -91,192 +91,6 @@ std::vector<std::string> splitString(const std::string &str, const std::string &
     }
     result.push_back(str.substr(start));
     return result;
-}
-
-static napi_value Read(napi_env env, napi_callback_info info) {
-    struct pollfd fds[1];
-    fds[0].fd = fd;
-    fds[0].events = POLLIN;
-    int res = poll(fds, 1, 5000);
-    static char buffer[16384];
-    if (res > 0) {
-        ssize_t r = read(fd, buffer, sizeof(buffer) - 1);
-        if (r > 0) {
-            // parse output
-            for (int i = 0; i < r; i++) {
-                if (escape_state != 0) {
-                    if (buffer[i] == 91) {
-                        // opening bracket, CSI
-                        escape_state = 2;
-                    } else if (buffer[i] == 'm') {
-                        // set color
-                        std::vector<std::string> parts = splitString(escape_buffer, ";");
-                        for (auto part : parts) {
-                            if (part == "1") {
-                                // set bold
-                                current_style.weight = weight::bold;
-                            } else if (part == "31") {
-                                // red foreground
-                                current_style.red = 1.0;
-                                current_style.green = 0.0;
-                                current_style.blue = 0.0;
-                            } else if (part == "32") {
-                                // green foreground
-                                current_style.red = 0.0;
-                                current_style.green = 1.0;
-                                current_style.blue = 0.0;
-                            } else if (part == "34") {
-                                // blue foreground
-                                current_style.red = 0.0;
-                                current_style.green = 0.0;
-                                current_style.blue = 1.0;
-                            } else if (part == "36") {
-                                // cyan foreground
-                                current_style.red = 0.0;
-                                current_style.green = 1.0;
-                                current_style.blue = 1.0;
-                            } else if (part == "0") {
-                                // reset
-                                current_style = style();
-                            }
-                        }
-                        escape_state = 0;
-                    } else if (buffer[i] == 'A') {
-                        // cursor up
-                        if (row > 0) {
-                            row--;
-                        }
-                        escape_state = 0;
-                    } else if (buffer[i] == 'B') {
-                        // cursor down
-                        if (row < term_row - 1) {
-                            row++;
-                        }
-                        escape_state = 0;
-                    } else if (buffer[i] == 'C') {
-                        // cursor right
-                        if (col < term_col - 1) {
-                            col++;
-                        }
-                        escape_state = 0;
-                    } else if (buffer[i] == 'D') {
-                        // cursor left
-                        if (col > 0) {
-                            col--;
-                        }
-                        escape_state = 0;
-                    } else if (buffer[i] == 'h' && escape_buffer == "?25") {
-                        // make cursor visible
-                        show_cursor = true;
-                        escape_state = 0;
-                    } else if (buffer[i] == 'H' && escape_buffer == "") {
-                        // move cursor to upper left corner
-                        row = col = 0;
-                        escape_state = 0;
-                    } else if (buffer[i] == 'H' && escape_buffer != "") {
-                        // move cursor to x, y
-                        std::vector<std::string> parts = splitString(escape_buffer, ";");
-                        if (parts.size() == 2) {
-                            sscanf(parts[0].c_str(), "%d", &row);
-                            sscanf(parts[1].c_str(), "%d", &col);
-                            // convert from 1-based to 0-based
-                            row --;
-                            col --;
-                            if (row < 0) {
-                                row = 0;
-                            } else if (row > term_row - 1) {
-                                row = term_row - 1;
-                            }
-                            if (col < 0) {
-                                col = 0;
-                            } else if (col > term_col - 1) {
-                                col = term_col - 1;
-                            }
-                        }
-                        escape_state = 0;
-                    } else if (buffer[i] == 'J') {
-                        // clear screen
-                        for (int i = 0;i < term_row;i++) {
-                            terminal[i].clear();
-                            terminal[i].resize(term_col);
-                        }
-                        escape_state = 0;
-                    } else if (buffer[i] == 'K') {
-                        // erase from cursor to end of line
-                        terminal[row].resize(col);
-                        terminal[row].resize(term_col);
-                        escape_state = 0;
-                    } else if (buffer[i] == 'l' && escape_buffer == "?25") {
-                        // make cursor invisible
-                        show_cursor = false;
-                        escape_state = 0;
-                    } else if (buffer[i] == '?' || buffer[i] == ';' || (buffer[i] >= '0' && buffer[i] <= '9')) {
-                        // '?', ';' or number
-                        escape_buffer += buffer[i];
-                    } else {
-                        // unknown
-                        OH_LOG_INFO(LOG_APP, "Unknown escape sequence: %{public}s %{public}c", escape_buffer.c_str(),
-                                    buffer[i]);
-                        escape_state = 0;
-                    }
-                } else {
-                    if (buffer[i] >= ' ' && buffer[i] < 127) {
-                        // printable
-                        assert(row >= 0 && row < term_row);
-                        assert(col >= 0 && col < term_col);
-                        terminal[row][col].ch = buffer[i];
-                        terminal[row][col].style = current_style;
-                        col++;
-                        if (col == term_col) {
-                            col = 0;
-                            row ++;
-                            if (row == term_row) {
-                                // drop first line
-                                terminal.erase(terminal.begin());
-                                terminal.resize(term_row);
-                                terminal[term_row - 1].resize(term_col);
-                                row--;
-                            }
-                        }
-                    } else if (buffer[i] == '\r') {
-                        col = 0;
-                    } else if (buffer[i] == '\n') {
-                        row += 1;
-                        if (row == term_row) {
-                            // drop first line
-                            terminal.erase(terminal.begin());
-                            terminal.resize(term_row);
-                            terminal[term_row - 1].resize(term_col);
-                            row--;
-                        }
-                    } else if (buffer[i] == '\b') {
-                        if (col > 0) {
-                            col -= 1;
-                        }
-                    } else if (buffer[i] == 0x1b) {
-                        escape_buffer = "";
-                        escape_state = 1;
-                    }
-                }
-            }
-
-            buffer[r] = '\0';
-            napi_value ret;
-            void *data = nullptr;
-            assert(napi_create_arraybuffer(env, r, &data, &ret) == napi_ok);
-            memcpy(data, buffer, r);
-            return ret;
-        } else if (r == -1 && errno != EAGAIN) {
-            // error
-            return nullptr;
-        }
-    }
-
-    // empty: nothing available yet
-    napi_value ret;
-    void *data = nullptr;
-    assert(napi_create_arraybuffer(env, 0, &data, &ret) == napi_ok);
-    return ret;
 }
 
 static napi_value Send(napi_env env, napi_callback_info info) {
@@ -350,7 +164,8 @@ static void LoadFont() {
             std::vector<uint8_t> bitmap;
             bitmap.resize(font_width * font_height);
             OH_LOG_INFO(LOG_APP,
-                        "Font: %{public}d %{public}d Glyph: %{public}d %{public}d Left: %{public}d Top: %{public}d Advance: %{public}d",
+                        "Font: %{public}d %{public}d Glyph: %{public}d %{public}d Left: %{public}d Top: %{public}d "
+                        "Advance: %{public}d",
                         font_width, font_height, face->glyph->bitmap.width, face->glyph->bitmap.rows,
                         face->glyph->bitmap_left, face->glyph->bitmap_top, face->glyph->advance);
             for (int i = 0; i < face->glyph->bitmap.rows; i++) {
@@ -391,6 +206,7 @@ static void LoadFont() {
 
 static EGLDisplay egl_display;
 static EGLSurface egl_surface;
+static EGLContext egl_context;
 static GLuint program_id;
 static GLuint vertex_array;
 static GLuint vertex_buffer;
@@ -444,60 +260,7 @@ static void Draw() {
     eglSwapBuffers(egl_display, egl_surface);
 }
 
-static napi_value CreateSurface(napi_env env, napi_callback_info info) {
-    size_t argc = 1;
-    napi_value args[1] = {nullptr};
-    napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
-
-    int64_t surface_id = 0;
-    bool lossless = true;
-    assert(napi_get_value_bigint_int64(env, args[0], &surface_id, &lossless) == napi_ok);
-
-    // create windows and display
-    OHNativeWindow *native_window;
-    OH_NativeWindow_CreateNativeWindowFromSurfaceId(surface_id, &native_window);
-    assert(native_window);
-    EGLNativeWindowType egl_window = (EGLNativeWindowType)native_window;
-    egl_display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-    assert(egl_display != EGL_NO_DISPLAY);
-
-    // initialize egl
-    EGLint major_version;
-    EGLint minor_version;
-    assert(eglInitialize(egl_display, &major_version, &minor_version) == EGL_TRUE);
-
-    const EGLint attrib[] = {EGL_SURFACE_TYPE,
-                             EGL_WINDOW_BIT,
-                             EGL_RENDERABLE_TYPE,
-                             EGL_OPENGL_ES2_BIT,
-                             EGL_RED_SIZE,
-                             8,
-                             EGL_GREEN_SIZE,
-                             8,
-                             EGL_BLUE_SIZE,
-                             8,
-                             EGL_ALPHA_SIZE,
-                             8,
-                             EGL_DEPTH_SIZE,
-                             24,
-                             EGL_STENCIL_SIZE,
-                             8,
-                             EGL_SAMPLE_BUFFERS,
-                             1,
-                             EGL_SAMPLES,
-                             4, // Request 4 samples for multisampling
-                             EGL_NONE};
-
-    const EGLint max_config_size = 1;
-    EGLint num_configs;
-    EGLConfig egl_config;
-    assert(eglChooseConfig(egl_display, attrib, &egl_config, max_config_size, &num_configs) == EGL_TRUE);
-
-    egl_surface = eglCreateWindowSurface(egl_display, egl_config, egl_window, NULL);
-
-    EGLint context_attributes[] = {EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE};
-    EGLContext egl_context = eglCreateContext(egl_display, egl_config, EGL_NO_CONTEXT, context_attributes);
-
+static void *Worker(void *) {
     eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context);
 
     // build vertex and fragment shader
@@ -587,13 +350,250 @@ static napi_value CreateSurface(napi_env env, napi_callback_info info) {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    Draw();
+    // poll from fd, and render
+    while (1) {
+        struct pollfd fds[1];
+        fds[0].fd = fd;
+        fds[0].events = POLLIN;
+        int res = poll(fds, 1, 16); // 16ms
+        uint8_t buffer[1024];
+        if (res > 0) {
+            ssize_t r = read(fd, buffer, sizeof(buffer) - 1);
+            if (r > 0) {
+                // pretty print
+                std::string hex;
+                for (int i = 0; i < r; i++) {
+                    if (buffer[i] >= 127 || buffer[i] < 32) {
+                        char temp[8];
+                        snprintf(temp, sizeof(temp), "\\x%02x", buffer[i]);
+                        hex += temp;
+                    } else {
+                        hex += (char)buffer[i];
+                    }
+                }
+                OH_LOG_INFO(LOG_APP, "Got: %{public}s", hex.c_str());
 
-    return nullptr;
+                // parse output
+                for (int i = 0; i < r; i++) {
+                    if (escape_state != 0) {
+                        if (buffer[i] == 91) {
+                            // opening bracket, CSI
+                            escape_state = 2;
+                        } else if (buffer[i] == 'm') {
+                            // set color
+                            std::vector<std::string> parts = splitString(escape_buffer, ";");
+                            for (auto part : parts) {
+                                if (part == "1") {
+                                    // set bold
+                                    current_style.weight = weight::bold;
+                                } else if (part == "31") {
+                                    // red foreground
+                                    current_style.red = 1.0;
+                                    current_style.green = 0.0;
+                                    current_style.blue = 0.0;
+                                } else if (part == "32") {
+                                    // green foreground
+                                    current_style.red = 0.0;
+                                    current_style.green = 1.0;
+                                    current_style.blue = 0.0;
+                                } else if (part == "34") {
+                                    // blue foreground
+                                    current_style.red = 0.0;
+                                    current_style.green = 0.0;
+                                    current_style.blue = 1.0;
+                                } else if (part == "36") {
+                                    // cyan foreground
+                                    current_style.red = 0.0;
+                                    current_style.green = 1.0;
+                                    current_style.blue = 1.0;
+                                } else if (part == "0") {
+                                    // reset
+                                    current_style = style();
+                                }
+                            }
+                            escape_state = 0;
+                        } else if (buffer[i] == 'A') {
+                            // cursor up
+                            if (row > 0) {
+                                row--;
+                            }
+                            escape_state = 0;
+                        } else if (buffer[i] == 'B') {
+                            // cursor down
+                            if (row < term_row - 1) {
+                                row++;
+                            }
+                            escape_state = 0;
+                        } else if (buffer[i] == 'C') {
+                            // cursor right
+                            if (col < term_col - 1) {
+                                col++;
+                            }
+                            escape_state = 0;
+                        } else if (buffer[i] == 'D') {
+                            // cursor left
+                            if (col > 0) {
+                                col--;
+                            }
+                            escape_state = 0;
+                        } else if (buffer[i] == 'h' && escape_buffer == "?25") {
+                            // make cursor visible
+                            show_cursor = true;
+                            escape_state = 0;
+                        } else if (buffer[i] == 'H' && escape_buffer == "") {
+                            // move cursor to upper left corner
+                            row = col = 0;
+                            escape_state = 0;
+                        } else if (buffer[i] == 'H' && escape_buffer != "") {
+                            // move cursor to x, y
+                            std::vector<std::string> parts = splitString(escape_buffer, ";");
+                            if (parts.size() == 2) {
+                                sscanf(parts[0].c_str(), "%d", &row);
+                                sscanf(parts[1].c_str(), "%d", &col);
+                                // convert from 1-based to 0-based
+                                row--;
+                                col--;
+                                if (row < 0) {
+                                    row = 0;
+                                } else if (row > term_row - 1) {
+                                    row = term_row - 1;
+                                }
+                                if (col < 0) {
+                                    col = 0;
+                                } else if (col > term_col - 1) {
+                                    col = term_col - 1;
+                                }
+                            }
+                            escape_state = 0;
+                        } else if (buffer[i] == 'J') {
+                            // clear screen
+                            for (int i = 0; i < term_row; i++) {
+                                terminal[i].clear();
+                                terminal[i].resize(term_col);
+                            }
+                            escape_state = 0;
+                        } else if (buffer[i] == 'K') {
+                            // erase from cursor to end of line
+                            terminal[row].resize(col);
+                            terminal[row].resize(term_col);
+                            escape_state = 0;
+                        } else if (buffer[i] == 'l' && escape_buffer == "?25") {
+                            // make cursor invisible
+                            show_cursor = false;
+                            escape_state = 0;
+                        } else if (buffer[i] == '?' || buffer[i] == ';' || (buffer[i] >= '0' && buffer[i] <= '9')) {
+                            // '?', ';' or number
+                            escape_buffer += buffer[i];
+                        } else {
+                            // unknown
+                            OH_LOG_INFO(LOG_APP, "Unknown escape sequence: %{public}s %{public}c",
+                                        escape_buffer.c_str(), buffer[i]);
+                            escape_state = 0;
+                        }
+                    } else {
+                        if (buffer[i] >= ' ' && buffer[i] < 127) {
+                            // printable
+                            assert(row >= 0 && row < term_row);
+                            assert(col >= 0 && col < term_col);
+                            terminal[row][col].ch = buffer[i];
+                            terminal[row][col].style = current_style;
+                            col++;
+                            if (col == term_col) {
+                                col = 0;
+                                row++;
+                                if (row == term_row) {
+                                    // drop first line
+                                    terminal.erase(terminal.begin());
+                                    terminal.resize(term_row);
+                                    terminal[term_row - 1].resize(term_col);
+                                    row--;
+                                }
+                            }
+                        } else if (buffer[i] == '\r') {
+                            col = 0;
+                        } else if (buffer[i] == '\n') {
+                            row += 1;
+                            if (row == term_row) {
+                                // drop first line
+                                terminal.erase(terminal.begin());
+                                terminal.resize(term_row);
+                                terminal[term_row - 1].resize(term_col);
+                                row--;
+                            }
+                        } else if (buffer[i] == '\b') {
+                            if (col > 0) {
+                                col -= 1;
+                            }
+                        } else if (buffer[i] == 0x1b) {
+                            escape_buffer = "";
+                            escape_state = 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        // redraw
+        Draw();
+    }
 }
 
-static napi_value Redraw(napi_env env, napi_callback_info info) {
-    Draw();
+static napi_value CreateSurface(napi_env env, napi_callback_info info) {
+    size_t argc = 1;
+    napi_value args[1] = {nullptr};
+    napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+
+    int64_t surface_id = 0;
+    bool lossless = true;
+    assert(napi_get_value_bigint_int64(env, args[0], &surface_id, &lossless) == napi_ok);
+
+    // create windows and display
+    OHNativeWindow *native_window;
+    OH_NativeWindow_CreateNativeWindowFromSurfaceId(surface_id, &native_window);
+    assert(native_window);
+    EGLNativeWindowType egl_window = (EGLNativeWindowType)native_window;
+    egl_display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    assert(egl_display != EGL_NO_DISPLAY);
+
+    // initialize egl
+    EGLint major_version;
+    EGLint minor_version;
+    assert(eglInitialize(egl_display, &major_version, &minor_version) == EGL_TRUE);
+
+    const EGLint attrib[] = {EGL_SURFACE_TYPE,
+                             EGL_WINDOW_BIT,
+                             EGL_RENDERABLE_TYPE,
+                             EGL_OPENGL_ES2_BIT,
+                             EGL_RED_SIZE,
+                             8,
+                             EGL_GREEN_SIZE,
+                             8,
+                             EGL_BLUE_SIZE,
+                             8,
+                             EGL_ALPHA_SIZE,
+                             8,
+                             EGL_DEPTH_SIZE,
+                             24,
+                             EGL_STENCIL_SIZE,
+                             8,
+                             EGL_SAMPLE_BUFFERS,
+                             1,
+                             EGL_SAMPLES,
+                             4, // Request 4 samples for multisampling
+                             EGL_NONE};
+
+    const EGLint max_config_size = 1;
+    EGLint num_configs;
+    EGLConfig egl_config;
+    assert(eglChooseConfig(egl_display, attrib, &egl_config, max_config_size, &num_configs) == EGL_TRUE);
+
+    egl_surface = eglCreateWindowSurface(egl_display, egl_config, egl_window, NULL);
+
+    EGLint context_attributes[] = {EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE};
+    egl_context = eglCreateContext(egl_display, egl_config, EGL_NO_CONTEXT, context_attributes);
+
+    pthread_t thread;
+    pthread_create(&thread, NULL, Worker, NULL);
     return nullptr;
 }
 
@@ -608,7 +608,7 @@ static napi_value ResizeSurface(napi_env env, napi_callback_info info) {
     term_col = width / font_width;
     term_row = height / font_height;
     terminal.resize(term_row);
-    for (int i = 0;i < term_row;i++) {
+    for (int i = 0; i < term_row; i++) {
         terminal[i].resize(term_col);
     }
 
@@ -625,7 +625,6 @@ static napi_value ResizeSurface(napi_env env, napi_callback_info info) {
     ws.ws_row = term_row;
     ioctl(fd, TIOCSWINSZ, &ws);
 
-    Draw();
     return nullptr;
 }
 
@@ -635,9 +634,7 @@ EXTERN_C_START
 static napi_value Init(napi_env env, napi_value exports) {
     napi_property_descriptor desc[] = {
         {"run", nullptr, Run, nullptr, nullptr, nullptr, napi_default, nullptr},
-        {"read", nullptr, Read, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"send", nullptr, Send, nullptr, nullptr, nullptr, napi_default, nullptr},
-        {"redraw", nullptr, Redraw, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"createSurface", nullptr, CreateSurface, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"destroySurface", nullptr, DestroySurface, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"resizeSurface", nullptr, ResizeSurface, nullptr, nullptr, nullptr, napi_default, nullptr},

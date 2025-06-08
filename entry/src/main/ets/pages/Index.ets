@@ -6,28 +6,7 @@ import fs from '@ohos.file.fs';
 
 const DOMAIN = 0x0000;
 
-@Concurrent
-function worker() {
-  return testNapi.read();
-}
-
 testNapi.run();
-
-// escape non printable characters
-function stringToHex(str: ArrayBuffer) {
-  let view: Uint8Array = new Uint8Array(str);
-  let hex: string = '';
-  for (let i = 0; i < view.length; i++) {
-    const byte: number = view[i];
-    if (byte >= 127 || byte < 32) {
-      hex += '\\x';
-      hex += byte.toString(16).padStart(2, '0');
-    } else {
-      hex += String.fromCharCode(byte);
-    }
-  }
-  return hex;
-}
 
 class MyXComponentController extends XComponentController {
   onSurfaceCreated(surfaceId: string): void {
@@ -52,30 +31,6 @@ struct Index {
   @State leftCtrlPressed: boolean = false;
   scroller: Scroller = new Scroller();
   xComponentController: XComponentController = new MyXComponentController();
-  timer: number = -1;
-
-  onPageShow() {
-    testNapi.redraw();
-    this.timer = setInterval(() => {
-      testNapi.redraw();
-    }, 100);
-
-    (async () => {
-      let task: taskpool.Task = new taskpool.Task(worker);
-      while(1) {
-        let content: ArrayBuffer = await taskpool.execute(task) as ArrayBuffer;
-        if (content === undefined) {
-          break;
-        } else if (content.byteLength > 0) {
-          hilog.info(DOMAIN, 'testTag', 'Got input: %{public}s', stringToHex(content));
-        }
-      }
-    })();
-  }
-
-  onPageHide() {
-    clearInterval(this.timer);
-  }
 
   build() {
     Row() {
