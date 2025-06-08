@@ -1,6 +1,4 @@
-all: lz4.hnp
-
-lz4.hnp: download/lz4-1.10.0.tar.gz
+all: download/lz4-1.10.0.tar.gz
 	rm -rf temp build
 	mkdir -p temp build/bin
 	cd temp && tar xvf ../download/lz4-1.10.0.tar.gz
@@ -8,7 +6,8 @@ lz4.hnp: download/lz4-1.10.0.tar.gz
 	cd temp/lz4-1.10.0/build-lz4 && cmake ../build/cmake/ -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_C_COMPILER=/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/native/llvm/bin/aarch64-unknown-linux-ohos-clang  -DCMAKE_BUILD_TYPE=RelWithDebInfo
 	cd temp/lz4-1.10.0/build-lz4 && make -j $(shell nproc)
 	cd temp/lz4-1.10.0/build-lz4 && make install DESTDIR=$(shell pwd)/build
-	/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hnpcli pack -i build/usr/local -n lz4 -v 1.10.0
+	mkdir -p ../sysroot
+	cp -ar build/usr/local/. ../sysroot/
 
 download/lz4-1.10.0.tar.gz:
 	mkdir -p download

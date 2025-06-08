@@ -34,39 +34,7 @@
     ],
     "hnpPackages": [
       {
-        "package": "busybox.hnp",
-        "type": "private"
-      },
-      {
-        "package": "bash.hnp",
-        "type": "private"
-      },
-      {
-        "package": "coremark.hnp",
-        "type": "private"
-      },
-      {
-        "package": "openssl.hnp",
-        "type": "private"
-      },
-      {
-        "package": "make.hnp",
-        "type": "private"
-      },
-      {
-        "package": "xxhash.hnp",
-        "type": "private"
-      },
-      {
-        "package": "lz4.hnp",
-        "type": "private"
-      },
-      {
-        "package": "tree.hnp",
-        "type": "private"
-      },
-      {
-        "package": "tar.hnp",
+        "package": "base.hnp",
         "type": "private"
       }
     ]

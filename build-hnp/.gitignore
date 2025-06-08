@@ -1,3 +1,5 @@
 temp
 download
 *.hnp
+.stamp
+sysroot

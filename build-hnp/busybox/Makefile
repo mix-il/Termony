@@ -1,10 +1,9 @@
-all: busybox.hnp
-
-busybox.hnp: download/busybox-static-1.37.0-r18.apk
+all: download/busybox-static-1.37.0-r18.apk
 	rm -rf build
 	mkdir -p build
 	cd build && tar xvf ../download/busybox-static-1.37.0-r18.apk
-	/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hnpcli pack -i build -n busybox -v 1.37.0
+	mkdir -p ../sysroot/bin
+	cp -v build/bin/busybox.static ../sysroot/bin
 
 download/busybox-static-1.37.0-r18.apk:
 	mkdir -p download

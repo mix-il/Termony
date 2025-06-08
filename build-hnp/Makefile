@@ -1,20 +1,27 @@
-HNPS:=busybox.hnp \
-	bash.hnp \
-	coremark.hnp \
-	openssl.hnp \
-	make.hnp \
-	xxhash.hnp \
-	lz4.hnp \
-	tree.hnp \
-	tar.hnp
+PKGS=bash \
+	busybox \
+	coremark \
+	lz4 \
+	make \
+	openssl \
+	tar \
+	tree \
+	xxhash
+STAMP=$(patsubst %,%/.stamp,$(PKGS))
 
 all: copy
 
-output/%.hnp:
-	mkdir -p output
-	make -C $(patsubst output/%.hnp,%,$@)
-	cp $(patsubst output/%.hnp,%,$@)/$(patsubst output/%.hnp,%,$@).hnp $@
-
-copy: $(patsubst %,output/%, $(HNPS))
+copy: base.hnp
 	rm -f ../entry/hnp/arm64-v8a/*.hnp
 	cp $^ ../entry/hnp/arm64-v8a
+
+base.hnp: $(STAMP)
+	/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hnpcli pack -i sysroot -n base -v 1.0
+
+%/.stamp: %/Makefile
+	make -C $(patsubst %/.stamp,%,$@)
+	touch $@
+
+clean:
+	rm -f $(STAMP)
+	rm -rf sysroot
