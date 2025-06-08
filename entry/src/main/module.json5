@@ -7,6 +7,17 @@
     "deviceTypes": [
       "2in1"
     ],
+    "requestPermissions": [
+      {
+        "name": "ohos.permission.READ_WRITE_USER_FILE"
+      },
+      {
+        "name": "ohos.permission.FILE_ACCESS_PERSIST"
+      },
+      {
+        "name": "ohos.permission.INTERNET"
+      }
+    ],
     "deliveryWithInstall": true,
     "installationFree": false,
     "pages": "$profile:main_pages",
