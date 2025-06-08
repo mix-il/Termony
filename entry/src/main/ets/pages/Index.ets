@@ -68,7 +68,6 @@ struct Index {
           break;
         } else if (content.byteLength > 0) {
           hilog.info(DOMAIN, 'testTag', 'Got input: %{public}s', stringToHex(content));
-          testNapi.redraw();
         }
       }
     })();
