@@ -355,6 +355,7 @@ static void Draw() {
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(vertex_array);
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
+    glViewport(0, 0, width, height);
 
     int line_height = font_height + 2;
     int max_lines = height / line_height;
