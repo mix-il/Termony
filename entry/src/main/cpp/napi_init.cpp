@@ -47,8 +47,10 @@ static std::string escape_buffer;
 static style current_style;
 static int width = 0;
 static int height = 0;
+static bool show_cursor = true;
 static GLint surface_location = -1;
 static GLint text_color_location = -1;
+static GLint background_color_location = -1;
 
 static napi_value Run(napi_env env, napi_callback_info info) {
     if (fd != -1) {
@@ -150,7 +152,7 @@ static napi_value Read(napi_env env, napi_callback_info info) {
                         escape_state = 0;
                     } else if (buffer[i] == 'h' && escape_buffer == "?25") {
                         // make cursor visible
-                        // TODO
+                        show_cursor = true;
                         escape_state = 0;
                     } else if (buffer[i] == 'H') {
                         // move cursor to upper left corner
@@ -162,14 +164,15 @@ static napi_value Read(napi_env env, napi_callback_info info) {
                         escape_state = 0;
                     } else if (buffer[i] == 'l' && escape_buffer == "?25") {
                         // make cursor invisible
-                        // TODO
+                        show_cursor = false;
                         escape_state = 0;
                     } else if (buffer[i] == '?' || buffer[i] == ';' || (buffer[i] >= '0' && buffer[i] <= '9')) {
                         // '?', ';' or number
                         escape_buffer += buffer[i];
                     } else {
                         // unknown
-                        OH_LOG_INFO(LOG_APP, "Unknown escape sequence: %{public}s %{public}c", escape_buffer.c_str(), buffer[i]);
+                        OH_LOG_INFO(LOG_APP, "Unknown escape sequence: %{public}s %{public}c", escape_buffer.c_str(),
+                                    buffer[i]);
                         escape_state = 0;
                     }
                 } else {
@@ -190,15 +193,9 @@ static napi_value Read(napi_env env, napi_callback_info info) {
                     } else if (buffer[i] == '\n') {
                         row += 1;
                     } else if (buffer[i] == '\b') {
-                        while (row >= terminal.size()) {
-                            terminal.push_back(std::vector<term_char>());
+                        if (col > 0) {
+                            col -= 1;
                         }
-                        while (col >= terminal[row].size()) {
-                            terminal[row].push_back(term_char());
-                        }
-
-                        terminal[row][col].ch = ' ';
-                        col -= 1;
                     } else if (buffer[i] == 0x1b) {
                         escape_buffer = "";
                         escape_state = 1;
@@ -261,13 +258,13 @@ struct ivec2 {
 
 struct character {
     unsigned int textureID; // ID handle of the glyph texture
-    ivec2 size;             // Size of glyph
-    ivec2 bearing;          // Offset from baseline to left/top of glyph
-    unsigned int advance;   // Offset to advance to next glyph
 };
 
 std::map<char, std::array<struct character, NUM_WEIGHT>> characters;
 
+static int font_height = 48;
+static int font_width = 24;
+static int baseline_height = 10;
 // load font
 static void LoadFont() {
     FT_Library ft;
@@ -287,7 +284,7 @@ static void LoadFont() {
 
         FT_Face face;
         assert(FT_New_Face(ft, font, 0, &face) == 0);
-        FT_Set_Pixel_Sizes(face, 0, 48);
+        FT_Set_Pixel_Sizes(face, 0, font_height);
 
         for (unsigned char c = 0; c < 128; c++) {
             // load character glyph
@@ -295,12 +292,31 @@ static void LoadFont() {
                 continue;
             }
 
+            // convert to bitmap of font_width * font_height
+            std::vector<uint8_t> bitmap;
+            bitmap.resize(font_width * font_height);
+            OH_LOG_INFO(LOG_APP,
+                        "Font: %{public}d %{public}d Glyph: %{public}d %{public}d Left: %{public}d Top: %{public}d Advance: %{public}d",
+                        font_width, font_height, face->glyph->bitmap.width, face->glyph->bitmap.rows,
+                        face->glyph->bitmap_left, face->glyph->bitmap_top, face->glyph->advance);
+            for (int i = 0; i < face->glyph->bitmap.rows; i++) {
+                for (int j = 0; j < face->glyph->bitmap.width; j++) {
+                    // origin is (font_height - baseline_height, 0)
+                    // (0, 0) becomes (font_height - baseline_height - bitmap_top, bitmap_left)
+                    int xoff = font_height - baseline_height - face->glyph->bitmap_top;
+                    int yoff = face->glyph->bitmap_left;
+                    assert(i + xoff >= 0 && i + xoff < font_height);
+                    assert(j + yoff >= 0 && j + yoff < font_width);
+                    bitmap[(i + xoff) * font_width + (j + yoff)] =
+                        face->glyph->bitmap.buffer[i * face->glyph->bitmap.width + j];
+                }
+            }
+
             // generate texture
             unsigned int texture;
             glGenTextures(1, &texture);
             glBindTexture(GL_TEXTURE_2D, texture);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, face->glyph->bitmap.width, face->glyph->bitmap.rows, 0, GL_RED,
-                         GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, font_width, font_height, 0, GL_RED, GL_UNSIGNED_BYTE, bitmap.data());
 
             // set texture options
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -309,9 +325,7 @@ static void LoadFont() {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
             // now store character for later use
-            character character = {texture, ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
-                                   ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
-                                   (unsigned int)face->glyph->advance.x};
+            character character = {texture};
             characters[c][weight] = character;
         }
 
@@ -328,6 +342,13 @@ static GLuint vertex_array;
 static GLuint vertex_buffer;
 
 static void Draw() {
+    while (row >= terminal.size()) {
+        terminal.push_back(std::vector<term_char>());
+    }
+    while (col >= terminal[row].size()) {
+        terminal[row].push_back(term_char());
+    }
+
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUniform2f(surface_location, width, height);
@@ -335,24 +356,30 @@ static void Draw() {
     glBindVertexArray(vertex_array);
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
 
-    int line_height = 50;
+    int line_height = font_height + 2;
     int max_lines = height / line_height;
     int first_line = terminal.size() < max_lines ? 0 : (terminal.size() - max_lines);
     for (int i = first_line; i < terminal.size(); i++) {
-        float scale = 1;
         float x = 0.0;
         float y = height - line_height - (i - first_line) * line_height;
 
+        int cur_col = 0;
         for (auto c : terminal[i]) {
-            glUniform3f(text_color_location, c.style.red, c.style.green, c.style.blue);
+            if (i == row && cur_col == col && show_cursor) {
+                // cursor
+                glUniform3f(text_color_location, 1.0 - c.style.red, 1.0 - c.style.green, 1.0 - c.style.blue);
+                glUniform3f(background_color_location, 0.0, 0.0, 0.0);
+            } else {
+                glUniform3f(text_color_location, c.style.red, c.style.green, c.style.blue);
+                glUniform3f(background_color_location, 1.0, 1.0, 1.0);
+            }
 
             character ch = characters[c.ch][c.style.weight];
-            float xpos = x + ch.bearing.x * scale;
-            float ypos = y - (ch.size.y - ch.bearing.y) * scale;
-            float w = ch.size.x * scale;
-            float h = ch.size.y * scale;
+            float xpos = x;
+            float ypos = y;
+            float w = font_width;
+            float h = font_height;
 
-            // An array of 3 vectors which represents 3 vertices
             GLfloat g_vertex_buffer_data[24] = {xpos,     ypos + h, 0.0f, 0.0f, xpos,     ypos,     0.0f, 1.0f,
                                                 xpos + w, ypos,     1.0f, 1.0f, xpos,     ypos + h, 0.0f, 0.0f,
                                                 xpos + w, ypos,     1.0f, 1.0f, xpos + w, ypos + h, 1.0f, 0.0f};
@@ -360,7 +387,8 @@ static void Draw() {
             glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(g_vertex_buffer_data), g_vertex_buffer_data);
             glDrawArrays(GL_TRIANGLES, 0, 6);
 
-            x += ((float)ch.advance / 64) * scale;
+            x += font_width;
+            cur_col++;
         }
     }
 
@@ -460,9 +488,10 @@ static napi_value CreateSurface(napi_env env, napi_callback_info info) {
                                   "out vec4 color;\n"
                                   "uniform sampler2D text;\n"
                                   "uniform vec3 textColor;\n"
+                                  "uniform vec3 backgroundColor;\n"
                                   "void main() {\n"
-                                  "  vec4 sampled = vec4(1.0, 1.0, 1.0, texture(text, texCoords).r);\n"
-                                  "  color = vec4(textColor, 1.0) * sampled;\n"
+                                  "  float alpha = texture(text, texCoords).r;\n"
+                                  "  color = vec4(textColor * alpha + backgroundColor * (1.0 - alpha), 1.0);\n"
                                   "}";
     glShaderSource(fragment_shader_id, 1, &fragment_source, NULL);
     glCompileShader(fragment_shader_id);
@@ -483,6 +512,8 @@ static napi_value CreateSurface(napi_env env, napi_callback_info info) {
     assert(surface_location != -1);
     text_color_location = glGetUniformLocation(program_id, "textColor");
     assert(text_color_location != -1);
+    background_color_location = glGetUniformLocation(program_id, "backgroundColor");
+    assert(background_color_location != -1);
 
     glUseProgram(program_id);
     glEnable(GL_BLEND);
@@ -498,8 +529,10 @@ static napi_value CreateSurface(napi_env env, napi_callback_info info) {
     glGenBuffers(1, &vertex_buffer);
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0,                 // attribute 0
+    GLint vertex_location = glGetAttribLocation(program_id, "vertex");
+    assert(vertex_location != -1);
+    glEnableVertexAttribArray(vertex_location);
+    glVertexAttribPointer(vertex_location,   // attribute 0
                           4,                 // size
                           GL_FLOAT,          // type
                           GL_FALSE,          // normalized?

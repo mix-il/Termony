@@ -52,8 +52,14 @@ struct Index {
   @State leftCtrlPressed: boolean = false;
   scroller: Scroller = new Scroller();
   xComponentController: XComponentController = new MyXComponentController();
+  timer: number = -1;
 
   onPageShow() {
+    testNapi.redraw();
+    this.timer = setInterval(() => {
+      testNapi.redraw();
+    }, 100);
+
     (async () => {
       let task: taskpool.Task = new taskpool.Task(worker);
       while(1) {
@@ -66,6 +72,10 @@ struct Index {
         }
       }
     })();
+  }
+
+  onPageHide() {
+    clearInterval(this.timer);
   }
 
   build() {
