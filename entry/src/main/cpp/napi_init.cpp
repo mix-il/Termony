@@ -22,8 +22,15 @@
 static int fd = -1;
 
 // maintain terminal status
+struct style {
+    bool bold = false;
+    float red = 0.0;
+    float green = 0.0;
+    float blue = 0.0;
+};
 struct term_char {
     char ch = ' ';
+    style style;
 };
 
 static std::vector<std::vector<term_char>> terminal;
@@ -31,6 +38,11 @@ static int row = 0;
 static int col = 0;
 static int escape_state = 0;
 static std::string escape_buffer;
+static style current_style;
+static int width = 0;
+static int height = 0;
+static GLint surface_location = -1;
+static GLint text_color_location = -1;
 
 static napi_value Run(napi_env env, napi_callback_info info) {
     if (fd != -1) {
@@ -47,6 +59,19 @@ static napi_value Run(napi_env env, napi_callback_info info) {
 
     assert(fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == 0);
     return nullptr;
+}
+
+std::vector<std::string> splitString(const std::string &str, const std::string &delimiter) {
+    std::vector<std::string> result;
+    size_t start = 0;
+    size_t end = str.find(delimiter);
+    while (end != std::string::npos) {
+        result.push_back(str.substr(start, end - start));
+        start = end + delimiter.length();
+        end = str.find(delimiter, start);
+    }
+    result.push_back(str.substr(start));
+    return result;
 }
 
 static napi_value Read(napi_env env, napi_callback_info info) {
@@ -71,6 +96,50 @@ static napi_value Read(napi_env env, napi_callback_info info) {
                     if (buffer[i] == 91) {
                         // opening bracket, CSI
                         escape_state = 2;
+                    } else if (buffer[i] == 'm') {
+                        // set color
+                        std::vector<std::string> parts = splitString(escape_buffer, ";");
+                        for (auto part : parts) {
+                            if (part == "1") {
+                                // set bold
+                                current_style.bold = true;
+                            } else if (part == "31") {
+                                // red foreground
+                                current_style.red = 1.0;
+                                current_style.green = 0.0;
+                                current_style.blue = 0.0;
+                            } else if (part == "32") {
+                                // green foreground
+                                current_style.red = 0.0;
+                                current_style.green = 1.0;
+                                current_style.blue = 0.0;
+                            } else if (part == "34") {
+                                // blue foreground
+                                current_style.red = 0.0;
+                                current_style.green = 0.0;
+                                current_style.blue = 1.0;
+                            } else if (part == "36") {
+                                // cyan foreground
+                                current_style.red = 0.0;
+                                current_style.green = 1.0;
+                                current_style.blue = 1.0;
+                            } else if (part == "0") {
+                                // reset
+                                current_style = style();
+                            }
+                        }
+                        escape_state = 0;
+                    } else if (buffer[i] == 'J') {
+                        // clear screen
+                        terminal.clear();
+                        escape_state = 0;
+                    } else if (buffer[i] == 'H') {
+                        // move cursor to upper left corner
+                        row = col = 0;
+                        escape_state = 0;
+                    } else if (buffer[i] == ';' || (buffer[i] >= '0' && buffer[i] <= '9')) {
+                        // ';' or number
+                        escape_buffer += buffer[i];
                     } else {
                         // unknown
                         escape_state = 0;
@@ -79,6 +148,7 @@ static napi_value Read(napi_env env, napi_callback_info info) {
                     if (buffer[i] >= ' ' && buffer[i] < 127) {
                         // printable
                         terminal[row][col].ch = buffer[i];
+                        terminal[row][col].style = current_style;
                         col++;
                     } else if (buffer[i] == '\r') {
                         col = 0;
@@ -208,15 +278,18 @@ static GLuint vertex_buffer;
 static void Draw() {
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glUniform2f(surface_location, width, height);
 
     for (int i = 0; i < terminal.size(); i++) {
-        float scale = 0.005;
-        float x = -1.0;
-        float y = -i * 0.2;
+        float scale = 1;
+        float x = 0.0;
+        float y = (terminal.size() - i - 1) * 50 + 25;
 
         glActiveTexture(GL_TEXTURE0);
         glBindVertexArray(vertex_array);
         for (auto c : terminal[i]) {
+            glUniform3f(text_color_location, c.style.red, c.style.green, c.style.blue);
+
             character ch = characters[c.ch];
             float xpos = x + ch.bearing.x * scale;
             float ypos = y - (ch.size.y - ch.bearing.y) * scale;
@@ -306,8 +379,10 @@ static napi_value CreateSurface(napi_env env, napi_callback_info info) {
                                 "\n"
                                 "in vec4 vertex;\n"
                                 "out vec2 texCoords;\n"
+                                "uniform vec2 surface;\n"
                                 "void main() {\n"
-                                "  gl_Position.xy = vertex.xy;\n"
+                                "  gl_Position.x = vertex.x / surface.x * 2.0f - 1.0f;\n"
+                                "  gl_Position.y = vertex.y / surface.y * 2.0f - 1.0f;\n"
                                 "  gl_Position.z = 0.0;\n"
                                 "  gl_Position.w = 1.0;\n"
                                 "  texCoords = vertex.zw;\n"
@@ -350,6 +425,11 @@ static napi_value CreateSurface(napi_env env, napi_callback_info info) {
     glAttachShader(program_id, fragment_shader_id);
     glLinkProgram(program_id);
 
+    surface_location = glGetUniformLocation(program_id, "surface");
+    assert(surface_location != -1);
+    text_color_location = glGetUniformLocation(program_id, "textColor");
+    assert(text_color_location != -1);
+
     glUseProgram(program_id);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -385,6 +465,18 @@ static napi_value Redraw(napi_env env, napi_callback_info info) {
     return nullptr;
 }
 
+static napi_value ResizeSurface(napi_env env, napi_callback_info info) {
+    size_t argc = 3;
+    napi_value args[3] = {nullptr};
+    napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+
+    napi_get_value_int32(env, args[1], &width);
+    napi_get_value_int32(env, args[1], &height);
+
+    Draw();
+    return nullptr;
+}
+
 static napi_value DestroySurface(napi_env env, napi_callback_info info) { return nullptr; }
 
 EXTERN_C_START
@@ -396,6 +488,7 @@ static napi_value Init(napi_env env, napi_value exports) {
         {"redraw", nullptr, Redraw, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"createSurface", nullptr, CreateSurface, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"destroySurface", nullptr, DestroySurface, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"resizeSurface", nullptr, ResizeSurface, nullptr, nullptr, nullptr, napi_default, nullptr},
     };
     napi_define_properties(env, exports, sizeof(desc) / sizeof(desc[0]), desc);
     return exports;

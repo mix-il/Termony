@@ -37,6 +37,7 @@ class MyXComponentController extends XComponentController {
 
   onSurfaceChanged(surfaceId: string, rect: SurfaceRect): void {
     hilog.info(DOMAIN, 'testTag', 'onSurfaceChanged surfaceId: %{public}s rect: %{public}s', surfaceId, JSON.stringify(rect));
+    testNapi.resizeSurface(BigInt(surfaceId), rect.surfaceWidth, rect.surfaceHeight);
   }
 
   onSurfaceDestroyed(surfaceId: string): void {
