@@ -16,8 +16,8 @@ static napi_value Run(napi_env env, napi_callback_info info)
     }
 
     struct winsize ws = {};
-    ws.ws_col = 24;
-    ws.ws_row = 80;
+    ws.ws_col = 80;
+    ws.ws_row = 24;
     int pid = forkpty(&fd, nullptr, nullptr, &ws);
     if(!pid)
     {
