@@ -21,7 +21,9 @@ Bundled packages:
 - libunistring
 - lz4
 - make
+- ncnn
 - ncurses
+- openssh
 - openssl
 - sl
 - strace
