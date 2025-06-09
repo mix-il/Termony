@@ -459,10 +459,12 @@ static void *Worker(void *) {
     glBindVertexArray(0);
 
     // poll from fd, and render
+
     struct timeval tv;
     gettimeofday(&tv, nullptr);
-    uint64_t msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
-
+    uint64_t last_redraw_msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+    uint64_t last_fps_msec = last_redraw_msec;
+    int fps = 0;
     while (1) {
         struct pollfd fds[1];
         fds[0].fd = fd;
@@ -687,9 +689,15 @@ static void *Worker(void *) {
         struct timeval tv;
         gettimeofday(&tv, nullptr);
         uint64_t now_msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
-        if (now_msec - msec > 16) {
+        if (now_msec - last_redraw_msec > 16) {
             Draw();
-            msec = now_msec;
+            last_redraw_msec = now_msec;
+            fps++;
+        }
+        if (now_msec - last_fps_msec > 1000) {
+            last_fps_msec = now_msec;
+            OH_LOG_INFO(LOG_APP, "FPS: %{public}d", fps);
+            fps = 0;
         }
     }
 }
