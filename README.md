@@ -2,6 +2,8 @@
 
 Termux for HarmonyOS Computer. Working in Progress.
 
+![](./screenshot_fastfetch.jpg)
+
 It can run some basic commands on Huawei MateBook Pro now:
 
 ![](./screenshot.jpg)
