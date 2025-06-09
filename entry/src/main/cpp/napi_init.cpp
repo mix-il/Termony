@@ -769,23 +769,21 @@ static void *TerminalWorker(void *) {
                                 }
                             }
                             escape_state = state_idle;
-                        } else if (buffer[i] == 'P' && escape_buffer != "") {
+                        } else if (buffer[i] == 'P') {
                             // CSI Ps P, DCH, delete # characters, move right to left
-                            int temp = 0;
-                            sscanf(escape_buffer.c_str(), "%d", &temp);
+                            int del = read_int_or_default(1);
                             for (int i = col; i < term_col; i++) {
-                                if (i + temp < term_col) {
-                                    terminal[row][i] = terminal[row][i + temp];
+                                if (i + del < term_col) {
+                                    terminal[row][i] = terminal[row][i + del];
                                 } else {
                                     terminal[row][i] = term_char();
                                 }
                             }
                             escape_state = state_idle;
-                        } else if (buffer[i] == 'X' && escape_buffer != "") {
+                        } else if (buffer[i] == 'X') {
                             // CSI Ps X, ECH, erase # characters, do not move others
-                            int temp = 0;
-                            sscanf(escape_buffer.c_str(), "%d", &temp);
-                            for (int i = col; i < col + temp && i < term_col; i++) {
+                            int del = read_int_or_default(1);
+                            for (int i = col; i < col + del && i < term_col; i++) {
                                 terminal[row][i] = term_char();
                             }
                             escape_state = state_idle;
@@ -914,6 +912,10 @@ static void *TerminalWorker(void *) {
                             // CSI > Pp m, XTQMODKEYS, set/reset key modifier options
                             // TODO
                             escape_state = state_idle;
+                        } else if (buffer[i] == 'n') {
+                            // CSI Ps n, DSR, Device Status Report
+                            // TODO
+                            escape_state = state_idle;
                         } else if (buffer[i] == '?' || buffer[i] == ';' || buffer[i] == '>' || buffer[i] == '=' ||
                                    (buffer[i] >= '0' && buffer[i] <= '9')) {
                             // '?', ';', '>', '=' or number
@@ -928,8 +930,10 @@ static void *TerminalWorker(void *) {
                         if (buffer[i] == '\x07') {
                             // OSC Ps ; Pt BEL, do nothing
                             escape_state = state_idle;
-                        } else if (buffer[i] == '\x00') {
+                        } else if (i + 1 < r && buffer[i] == '\x1b' && buffer[i] == '\\') {
+                            // ST is ESC \
                             // OSC Ps ; Pt ST, TODO
+                            i += 1;
                             escape_state = state_idle;
                         } else if (buffer[i] >= ' ' && buffer[i] < 127) {
                             // printable character
