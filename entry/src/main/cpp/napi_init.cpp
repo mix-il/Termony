@@ -281,16 +281,24 @@ static void Draw() {
 
     int max_lines = height / font_height + 1;
     // vec4 vertex
-    std::vector<GLfloat> vertex_data;
+    static std::vector<GLfloat> vertex_data;
     // vec3 textColor
-    std::vector<GLfloat> text_color_data;
+    static std::vector<GLfloat> text_color_data;
     // vec3 backgroundColor
-    std::vector<GLfloat> background_color_data;
-    for (int i = -1; i < max_lines; i++) {
+    static std::vector<GLfloat> background_color_data;
+
+    vertex_data.clear();
+    vertex_data.reserve(row * col * 24);
+    text_color_data.clear();
+    text_color_data.reserve(row * col * 18);
+    background_color_data.clear();
+    background_color_data.reserve(row * col * 18);
+
+    for (int i = 0; i < max_lines; i++) {
         // (height - font_height) is terminal[0] when scroll_offset is zero
         float x = 0.0;
         int scroll_rows = scroll_offset / font_height;
-        float y = height - (i + 1) * font_height - (scroll_offset - (font_height * scroll_rows));
+        float y = height - (i + 1) * font_height;
         int i_row = i - scroll_rows;
         std::vector<term_char> ch;
         if (i_row >= 0 && i_row < term_row) {
@@ -539,17 +547,25 @@ static void *Worker(void *) {
     glBindVertexArray(0);
 
     // poll from fd, and render
-
     struct timeval tv;
     gettimeofday(&tv, nullptr);
     uint64_t last_redraw_msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
     uint64_t last_fps_msec = last_redraw_msec;
     int fps = 0;
     while (1) {
+        struct timeval tv;
+        gettimeofday(&tv, nullptr);
+        uint64_t now_msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+
         struct pollfd fds[1];
         fds[0].fd = fd;
         fds[0].events = POLLIN;
-        int res = poll(fds, 1, 16); // 16ms
+        int timeout = now_msec - last_redraw_msec;
+        if (timeout > 16) {
+            timeout = 16;
+        }
+        int res = poll(fds, 1, timeout); // 16ms
+
         uint8_t buffer[1024];
         if (res > 0) {
             ssize_t r = read(fd, buffer, sizeof(buffer) - 1);
@@ -766,14 +782,15 @@ static void *Worker(void *) {
         }
 
         // redraw
-        struct timeval tv;
         gettimeofday(&tv, nullptr);
-        uint64_t now_msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+        now_msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
         if (now_msec - last_redraw_msec > 16) {
-            Draw();
             last_redraw_msec = now_msec;
+            Draw();
             fps++;
         }
+
+        // report fps
         if (now_msec - last_fps_msec > 1000) {
             last_fps_msec = now_msec;
             OH_LOG_INFO(LOG_APP, "FPS: %{public}d", fps);
