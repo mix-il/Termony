@@ -850,6 +850,11 @@ static void *TerminalWorker(void *) {
                                     current_style.fg_red = 0.0;
                                     current_style.fg_green = 0.0;
                                     current_style.fg_blue = 1.0;
+                                } else if (part == "35") {
+                                    // magenta foreground
+                                    current_style.fg_red = 1.0;
+                                    current_style.fg_green = 0.0;
+                                    current_style.fg_blue = 1.0;
                                 } else if (part == "36") {
                                     // cyan foreground
                                     current_style.fg_red = 0.0;
@@ -865,6 +870,16 @@ static void *TerminalWorker(void *) {
                                     current_style.bg_red = 0.0;
                                     current_style.bg_green = 1.0;
                                     current_style.bg_blue = 0.0;
+                                } else if (part == "46") {
+                                    // cyan background
+                                    current_style.bg_red = 0.0;
+                                    current_style.bg_green = 1.0;
+                                    current_style.bg_blue = 1.0;
+                                } else if (part == "49") {
+                                    // default background
+                                    current_style.bg_red = 1.0;
+                                    current_style.bg_green = 1.0;
+                                    current_style.bg_blue = 1.0;
                                 } else if (part == "0") {
                                     // reset
                                     current_style = style();
