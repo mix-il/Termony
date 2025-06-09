@@ -279,8 +279,13 @@ static void Draw() {
     // bind our vertex array
     glBindVertexArray(vertex_array);
 
-
     int max_lines = height / font_height + 1;
+    // vec4 vertex
+    std::vector<GLfloat> vertex_data;
+    // vec3 textColor
+    std::vector<GLfloat> text_color_data;
+    // vec3 backgroundColor
+    std::vector<GLfloat> background_color_data;
     for (int i = -1; i < max_lines; i++) {
         // (height - font_height) is terminal[0] when scroll_offset is zero
         float x = 0.0;
@@ -317,8 +322,7 @@ static void Draw() {
                                                 // second triangle: 1->4->2
                                                 xpos, ypos + h, ch.left, ch.top, xpos + w, ypos, ch.right, ch.bottom,
                                                 xpos + w, ypos + h, ch.right, ch.top};
-            glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
-            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(g_vertex_buffer_data), g_vertex_buffer_data);
+            vertex_data.insert(vertex_data.end(), &g_vertex_buffer_data[0], &g_vertex_buffer_data[24]);
 
             GLfloat g_text_color_buffer_data[18];
             GLfloat g_background_color_buffer_data[18];
@@ -343,17 +347,24 @@ static void Draw() {
                     g_background_color_buffer_data[i * 3 + 2] = 1.0;
                 }
             }
-
-            glBindBuffer(GL_ARRAY_BUFFER, text_color_buffer);
-            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(g_text_color_buffer_data), g_text_color_buffer_data);
-            glBindBuffer(GL_ARRAY_BUFFER, background_color_buffer);
-            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(g_background_color_buffer_data), g_background_color_buffer_data);
-            glDrawArrays(GL_TRIANGLES, 0, 6);
+            text_color_data.insert(text_color_data.end(), &g_text_color_buffer_data[0], &g_text_color_buffer_data[18]);
+            background_color_data.insert(background_color_data.end(), &g_background_color_buffer_data[0],
+                                         &g_background_color_buffer_data[18]);
 
             x += font_width;
             cur_col++;
         }
     }
+
+    // draw in one pass
+    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * vertex_data.size(), vertex_data.data(), GL_STREAM_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, text_color_buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * text_color_data.size(), text_color_data.data(), GL_STREAM_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, background_color_buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * background_color_data.size(), background_color_data.data(),
+                 GL_STREAM_DRAW);
+    glDrawArrays(GL_TRIANGLES, 0, vertex_data.size() / 4);
 
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -485,7 +496,6 @@ static void *Worker(void *) {
     // vec4 vertex
     glGenBuffers(1, &vertex_buffer);
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
     GLint vertex_location = glGetAttribLocation(program_id, "vertex");
     assert(vertex_location != -1);
     glEnableVertexAttribArray(vertex_location);
@@ -500,7 +510,6 @@ static void *Worker(void *) {
     // vec3 textColor
     glGenBuffers(1, &text_color_buffer);
     glBindBuffer(GL_ARRAY_BUFFER, text_color_buffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 3, NULL, GL_DYNAMIC_DRAW);
     GLint text_color_location = glGetAttribLocation(program_id, "textColor");
     assert(text_color_location != -1);
     glEnableVertexAttribArray(text_color_location);
@@ -515,7 +524,6 @@ static void *Worker(void *) {
     // vec3 backgroundColor
     glGenBuffers(1, &background_color_buffer);
     glBindBuffer(GL_ARRAY_BUFFER, background_color_buffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 3, NULL, GL_DYNAMIC_DRAW);
     GLint background_color_location = glGetAttribLocation(program_id, "backgroundColor");
     assert(background_color_location != -1);
     glEnableVertexAttribArray(background_color_location);
