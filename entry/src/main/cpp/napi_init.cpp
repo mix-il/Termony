@@ -37,9 +37,14 @@ enum weight {
 // maintain terminal status
 struct style {
     weight weight = regular;
-    float red = 0.0;
-    float green = 0.0;
-    float blue = 0.0;
+    // foreground color
+    float fg_red = 0.0;
+    float fg_green = 0.0;
+    float fg_blue = 0.0;
+    // background color
+    float bg_red = 1.0;
+    float bg_green = 1.0;
+    float bg_blue = 1.0;
 };
 struct term_char {
     char ch = ' ';
@@ -362,21 +367,21 @@ static void Draw() {
             if (i_row == row && cur_col == col && show_cursor) {
                 // cursor
                 for (int i = 0; i < 6; i++) {
-                    g_text_color_buffer_data[i * 3 + 0] = 1.0 - c.style.red;
-                    g_text_color_buffer_data[i * 3 + 1] = 1.0 - c.style.green;
-                    g_text_color_buffer_data[i * 3 + 2] = 1.0 - c.style.blue;
-                    g_background_color_buffer_data[i * 3 + 0] = 0.0;
-                    g_background_color_buffer_data[i * 3 + 1] = 0.0;
-                    g_background_color_buffer_data[i * 3 + 2] = 0.0;
+                    g_text_color_buffer_data[i * 3 + 0] = 1.0 - c.style.fg_red;
+                    g_text_color_buffer_data[i * 3 + 1] = 1.0 - c.style.fg_green;
+                    g_text_color_buffer_data[i * 3 + 2] = 1.0 - c.style.fg_blue;
+                    g_background_color_buffer_data[i * 3 + 0] = 1.0 - c.style.bg_red;
+                    g_background_color_buffer_data[i * 3 + 1] = 1.0 - c.style.bg_green;
+                    g_background_color_buffer_data[i * 3 + 2] = 1.0 - c.style.bg_blue;
                 }
             } else {
                 for (int i = 0; i < 6; i++) {
-                    g_text_color_buffer_data[i * 3 + 0] = c.style.red;
-                    g_text_color_buffer_data[i * 3 + 1] = c.style.green;
-                    g_text_color_buffer_data[i * 3 + 2] = c.style.blue;
-                    g_background_color_buffer_data[i * 3 + 0] = 1.0;
-                    g_background_color_buffer_data[i * 3 + 1] = 1.0;
-                    g_background_color_buffer_data[i * 3 + 2] = 1.0;
+                    g_text_color_buffer_data[i * 3 + 0] = c.style.fg_red;
+                    g_text_color_buffer_data[i * 3 + 1] = c.style.fg_green;
+                    g_text_color_buffer_data[i * 3 + 2] = c.style.fg_blue;
+                    g_background_color_buffer_data[i * 3 + 0] = c.style.bg_red;
+                    g_background_color_buffer_data[i * 3 + 1] = c.style.bg_green;
+                    g_background_color_buffer_data[i * 3 + 2] = c.style.bg_blue;
                 }
             }
             text_color_data.insert(text_color_data.end(), &g_text_color_buffer_data[0], &g_text_color_buffer_data[18]);
@@ -822,34 +827,44 @@ static void *TerminalWorker(void *) {
                                     current_style.weight = weight::bold;
                                 } else if (part == "30") {
                                     // black foreground
-                                    current_style.red = 0.0;
-                                    current_style.green = 0.0;
-                                    current_style.blue = 0.0;
+                                    current_style.fg_red = 0.0;
+                                    current_style.fg_green = 0.0;
+                                    current_style.fg_blue = 0.0;
                                 } else if (part == "31") {
                                     // red foreground
-                                    current_style.red = 1.0;
-                                    current_style.green = 0.0;
-                                    current_style.blue = 0.0;
+                                    current_style.fg_red = 1.0;
+                                    current_style.fg_green = 0.0;
+                                    current_style.fg_blue = 0.0;
                                 } else if (part == "32") {
                                     // green foreground
-                                    current_style.red = 0.0;
-                                    current_style.green = 1.0;
-                                    current_style.blue = 0.0;
+                                    current_style.fg_red = 0.0;
+                                    current_style.fg_green = 1.0;
+                                    current_style.fg_blue = 0.0;
                                 } else if (part == "33") {
                                     // yellow foreground
-                                    current_style.red = 1.0;
-                                    current_style.green = 1.0;
-                                    current_style.blue = 0.0;
+                                    current_style.fg_red = 1.0;
+                                    current_style.fg_green = 1.0;
+                                    current_style.fg_blue = 0.0;
                                 } else if (part == "34") {
                                     // blue foreground
-                                    current_style.red = 0.0;
-                                    current_style.green = 0.0;
-                                    current_style.blue = 1.0;
+                                    current_style.fg_red = 0.0;
+                                    current_style.fg_green = 0.0;
+                                    current_style.fg_blue = 1.0;
                                 } else if (part == "36") {
                                     // cyan foreground
-                                    current_style.red = 0.0;
-                                    current_style.green = 1.0;
-                                    current_style.blue = 1.0;
+                                    current_style.fg_red = 0.0;
+                                    current_style.fg_green = 1.0;
+                                    current_style.fg_blue = 1.0;
+                                } else if (part == "39") {
+                                    // default foreground
+                                    current_style.fg_red = 0.0;
+                                    current_style.fg_green = 0.0;
+                                    current_style.fg_blue = 0.0;
+                                } else if (part == "42") {
+                                    // green background
+                                    current_style.bg_red = 0.0;
+                                    current_style.bg_green = 1.0;
+                                    current_style.bg_blue = 0.0;
                                 } else if (part == "0") {
                                     // reset
                                     current_style = style();
