@@ -14,7 +14,9 @@ PKGS=bash \
 	libunistring \
 	libidn2 \
 	c-ares \
-	curl
+	curl \
+	yyjson \
+	fastfetch
 STAMP=$(patsubst %,%/.stamp,$(PKGS))
 
 all: copy

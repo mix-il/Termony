@@ -14,6 +14,7 @@ Bundled packages:
 - c-ares
 - coremark
 - curl
+- fastfetch
 - libidn2
 - libunistring
 - lz4
@@ -25,6 +26,7 @@ Bundled packages:
 - tree
 - vim
 - xxhash
+- yyjson
 
 Usage:
 
