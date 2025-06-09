@@ -416,6 +416,10 @@ static void *Worker(void *) {
                                     current_style = style();
                                 }
                             }
+                            if (escape_buffer == "") {
+                                // reset
+                                current_style = style();
+                            }
                             escape_state = 0;
                         } else if (buffer[i] == 'A' && escape_buffer == "") {
                             // cursor up
