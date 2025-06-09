@@ -2,6 +2,7 @@
 #include <EGL/egl.h>
 #include <GLES3/gl32.h>
 #include <assert.h>
+#include <deque>
 #include <fcntl.h>
 #include <map>
 #include <native_window/external_window.h>
@@ -40,6 +41,8 @@ struct term_char {
     style style;
 };
 
+static int MAX_HISTORY_LINES = 5000;
+static std::deque<std::vector<term_char>> history;
 static std::vector<std::vector<term_char>> terminal;
 static int row = 0;
 static int col = 0;
@@ -99,6 +102,9 @@ static napi_value Send(napi_env env, napi_callback_info info) {
     if (fd == -1) {
         return nullptr;
     }
+
+    // reset scroll offset to bottom
+    scroll_offset = 0.0;
 
     size_t argc = 1;
     napi_value args[1] = {nullptr};
@@ -222,13 +228,25 @@ static void Draw() {
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
     glViewport(0, 0, width, height);
 
-    for (int i = 0; i < terminal.size(); i++) {
+    int max_lines = height / font_height + 1;
+    for (int i = -1; i < max_lines; i++) {
+        // (height - font_height) is terminal[0] when scroll_offset is zero
         float x = 0.0;
-        float y = height - (i + 1) * font_height - scroll_offset;
+        int scroll_rows = scroll_offset / font_height;
+        float y = height - (i + 1) * font_height - (scroll_offset - (font_height * scroll_rows));
+        int i_row = i - scroll_rows;
+        std::vector<term_char> ch;
+        if (i_row >= 0 && i_row < term_row) {
+            ch = terminal[i_row];
+        } else if (i_row < 0 && (int)history.size() + i_row >= 0) {
+            ch = history[history.size() + i_row];
+        } else {
+            continue;
+        }
 
         int cur_col = 0;
-        for (auto c : terminal[i]) {
-            if (i == row && cur_col == col && show_cursor) {
+        for (auto c : ch) {
+            if (i_row == row && cur_col == col && show_cursor) {
                 // cursor
                 glUniform3f(text_color_location, 1.0 - c.style.red, 1.0 - c.style.green, 1.0 - c.style.blue);
                 glUniform3f(background_color_location, 0.0, 0.0, 0.0);
@@ -260,6 +278,20 @@ static void Draw() {
     glFlush();
     glFinish();
     eglSwapBuffers(egl_display, egl_surface);
+}
+
+static void DropFirstRowIfOverflow() {
+    if (row == term_row) {
+        // drop first row
+        history.push_back(terminal[0]);
+        terminal.erase(terminal.begin());
+        terminal.resize(term_row);
+        terminal[term_row - 1].resize(term_col);
+        row--;
+        while (history.size() > MAX_HISTORY_LINES) {
+            history.pop_front();
+        }
+    }
 }
 
 static void *Worker(void *) {
@@ -533,8 +565,12 @@ static void *Worker(void *) {
                         } else if (buffer[i] == 'J') {
                             // clear screen
                             for (int i = 0; i < term_row; i++) {
+                                history.push_back(terminal[i]);
                                 terminal[i].clear();
                                 terminal[i].resize(term_col);
+                            }
+                            while (history.size() > MAX_HISTORY_LINES) {
+                                history.pop_front();
                             }
                             escape_state = 0;
                         } else if (buffer[i] == 'K') {
@@ -566,25 +602,13 @@ static void *Worker(void *) {
                             if (col == term_col) {
                                 col = 0;
                                 row++;
-                                if (row == term_row) {
-                                    // drop first line
-                                    terminal.erase(terminal.begin());
-                                    terminal.resize(term_row);
-                                    terminal[term_row - 1].resize(term_col);
-                                    row--;
-                                }
+                                DropFirstRowIfOverflow();
                             }
                         } else if (buffer[i] == '\r') {
                             col = 0;
                         } else if (buffer[i] == '\n') {
                             row += 1;
-                            if (row == term_row) {
-                                // drop first line
-                                terminal.erase(terminal.begin());
-                                terminal.resize(term_row);
-                                terminal[term_row - 1].resize(term_col);
-                                row--;
-                            }
+                            DropFirstRowIfOverflow();
                         } else if (buffer[i] == '\b') {
                             if (col > 0) {
                                 col -= 1;
@@ -594,13 +618,7 @@ static void *Worker(void *) {
                             if (col >= term_col) {
                                 col = 0;
                                 row++;
-                                if (row == term_row) {
-                                    // drop first line
-                                    terminal.erase(terminal.begin());
-                                    terminal.resize(term_row);
-                                    terminal[term_row - 1].resize(term_col);
-                                    row--;
-                                }
+                                DropFirstRowIfOverflow();
                             }
                         } else if (buffer[i] == 0x1b) {
                             escape_buffer = "";
