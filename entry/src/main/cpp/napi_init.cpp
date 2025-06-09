@@ -609,7 +609,7 @@ static void *Worker(void *) {
                                 terminal[row][i] = term_char();
                             }
                             for (int i = row + 1; i < term_row; i++) {
-                                std::fill(terminal[i].begin(), terminal[i].end, term_char());
+                                std::fill(terminal[i].begin(), terminal[i].end(), term_char());
                             }
                             escape_state = 0;
                         } else if (buffer[i] == 'K' && (escape_buffer == "" || escape_buffer == "0")) {
