@@ -148,7 +148,10 @@ struct character {
     float bottom;
 };
 
-std::map<char, std::array<struct character, NUM_WEIGHT>> characters;
+// record info for each character
+const int MAX_CHAR = 128;
+std::array<std::array<struct character, NUM_WEIGHT>, MAX_CHAR> characters;
+
 // id of texture for glyphs
 static GLuint texture_id;
 
@@ -173,10 +176,9 @@ static void LoadFont() {
     // save glyph for all characters of all weights
     // only one channel
     std::vector<uint8_t> bitmap;
-    int max_char = 128;
-    int row_stride = font_width * max_char;
-    int weight_stride = font_width * font_height * max_char;
-    bitmap.resize(font_width * font_height * max_char * NUM_WEIGHT);
+    int row_stride = font_width * MAX_CHAR;
+    int weight_stride = font_width * font_height * MAX_CHAR;
+    bitmap.resize(font_width * font_height * MAX_CHAR * NUM_WEIGHT);
 
     for (auto pair : fonts) {
         const char *font = pair.first;
@@ -186,7 +188,7 @@ static void LoadFont() {
         assert(FT_New_Face(ft, font, 0, &face) == 0);
         FT_Set_Pixel_Sizes(face, 0, font_height);
 
-        for (unsigned char c = 0; c < max_char; c++) {
+        for (unsigned char c = 0; c < MAX_CHAR; c++) {
             // load character glyph
             if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
                 continue;
@@ -222,8 +224,8 @@ static void LoadFont() {
 
             // compute location within the texture
             character character = {
-                .left = (float)c / max_char,
-                .right = (float)(c + 1) / max_char,
+                .left = (float)c / MAX_CHAR,
+                .right = (float)(c + 1) / MAX_CHAR,
                 .top = (float)weight / NUM_WEIGHT,
                 .bottom = (float)(weight + 1) / NUM_WEIGHT,
             };
