@@ -34,7 +34,7 @@ copy: base.hnp
 	cp $^ ../entry/hnp/arm64-v8a
 
 base.hnp: $(STAMP)
-	/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hnpcli pack -i sysroot -n base -v 1.0
+	$(TOOL_HOME)/sdk/default/openharmony/toolchains/hnpcli pack -i sysroot -n base -v 1.0
 
 %/.stamp: %/Makefile
 	make -C $(patsubst %/.stamp,%,$@)

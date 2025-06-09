@@ -38,7 +38,7 @@ Bundled packages:
 - xxhash
 - yyjson
 
-Usage:
+## Usage:
 
 1. Connect your MateBook Pro to Mac, and do the following steps on Mac
 2. Setup code signing in DevEco-Studio, ignore warnings if any
@@ -46,6 +46,16 @@ Usage:
 4. Run `./build-macos.sh`
 5. Run `./push.sh ./entry/build/default/outputs/default/entry-default-signed.hap`
 6. Input command in the text input of the application, press enter
+
+## Usage (if you are a Linux user):
+
+1. Connect your MateBook Pro to a Linux machine, and do the following steps
+2. Setup code signing in DevEco-Studio, ignore warnings if any
+3. Setup DevEco Command Line Tools, and make sure `$TOOL_HOME` env var is a correct directory to SDK
+4. Run `./build-linux.sh -b` to create hnp packages
+5. Run `./build-linux.sh -s` to signing
+6. Run `./build-linux.sh -p`
+7. Input command in the text input of the application, press enter
 
 ## How does it work
 

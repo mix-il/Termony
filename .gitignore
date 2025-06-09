@@ -11,3 +11,6 @@
 **/.test
 /.appanalyzer
 /temp
+/.npmrc
+/arkui-x
+arkuix-sdk.zip
