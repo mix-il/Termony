@@ -571,7 +571,7 @@ static void *Worker(void *) {
                                 }
                             }
                             escape_state = 0;
-                        } else if (buffer[i] == 'J') {
+                        } else if (buffer[i] == 'J' && escape_buffer == "") {
                             // clear screen
                             for (int i = 0; i < term_row; i++) {
                                 history.push_back(terminal[i]);
@@ -585,13 +585,13 @@ static void *Worker(void *) {
                         } else if (buffer[i] == 'K' && (escape_buffer == "" || escape_buffer == "0")) {
                             // erase from cursor to end of line
                             for (int i = col;i < term_col;i++) {
-                                terminal[row][col] = term_char();
+                                terminal[row][i] = term_char();
                             }
                             escape_state = 0;
                         } else if (buffer[i] == 'K' && escape_buffer == "1") {
                             // erase from start of line to the cursor
                             for (int i = 0;i <= col;i++) {
-                                terminal[row][col] = term_char();
+                                terminal[row][i] = term_char();
                             }
                             escape_state = 0;
                         } else if (buffer[i] == 'l' && escape_buffer == "?25") {
