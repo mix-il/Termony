@@ -59,7 +59,7 @@ static int baseline_height = 10;
 static int term_col = 80;
 static int term_row = 24;
 static float scroll_offset = 0;
-static pthread_mutex_t lock;
+static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
 extern "C" int mkdir(const char *pathname, mode_t mode);
 static napi_value Run(napi_env env, napi_callback_info info) {
@@ -886,9 +886,6 @@ static napi_value CreateSurface(napi_env env, napi_callback_info info) {
 
     EGLint context_attributes[] = {EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE};
     egl_context = eglCreateContext(egl_display, egl_config, EGL_NO_CONTEXT, context_attributes);
-
-    // setup lock
-    pthread_mutex_init(&lock, NULL);
 
     pthread_t render_thread;
     pthread_create(&render_thread, NULL, RenderWorker, NULL);

@@ -9,7 +9,7 @@ export DEVECO_SDK_HOME=$TOOL_HOME/sdk
 export PATH=$TOOL_HOME/tools/ohpm/bin:$PATH
 export PATH=$TOOL_HOME/tools/hvigor/bin:$PATH
 export PATH=$TOOL_HOME/tools/node/bin:$PATH
-hvigorw -p buildMode=release assembleHap
+hvigorw assembleHap
 # add hnp, and sign manually
 pushd entry
 zip -r ../entry/build/default/outputs/default/entry-default-unsigned.hap hnp
