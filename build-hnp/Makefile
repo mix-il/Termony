@@ -17,7 +17,8 @@ PKGS=bash \
 	curl \
 	yyjson \
 	fastfetch \
-	sl
+	sl \
+	openssh
 STAMP=$(patsubst %,%/.stamp,$(PKGS))
 
 all: copy
