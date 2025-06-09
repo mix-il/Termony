@@ -10,8 +10,8 @@
 #include <pty.h>
 #include <stdio.h>
 #include <string>
-#include <unistd.h>
 #include <sys/time.h>
+#include <unistd.h>
 #include <vector>
 
 #include <ft2build.h>
@@ -180,7 +180,7 @@ static void LoadFont() {
             bitmap.resize(font_width * font_height);
             OH_LOG_INFO(LOG_APP,
                         "Font: %{public}d %{public}d Glyph: %{public}d %{public}d Left: %{public}d Top: %{public}d "
-                        "Advance: %{public}d",
+                        "Advance: %{public}ld",
                         font_width, font_height, face->glyph->bitmap.width, face->glyph->bitmap.rows,
                         face->glyph->bitmap_left, face->glyph->bitmap_top, face->glyph->advance.x);
             for (int i = 0; i < face->glyph->bitmap.rows; i++) {
@@ -301,7 +301,30 @@ static void DropFirstRowIfOverflow() {
     }
 }
 
+#define clamp_row()                                                                                                    \
+    do {                                                                                                               \
+        if (row < 0) {                                                                                                 \
+            row = 0;                                                                                                   \
+        } else if (row > term_row - 1) {                                                                               \
+            row = term_row - 1;                                                                                        \
+        }                                                                                                              \
+    } while (0);
+
+#define clamp_col()                                                                                                    \
+    do {                                                                                                               \
+        if (col < 0) {                                                                                                 \
+            col = 0;                                                                                                   \
+        } else if (col > term_col - 1) {                                                                               \
+            col = term_col - 1;                                                                                        \
+        }                                                                                                              \
+    } while (0);
+
+// CAUTION: clobbers temp
+#define read_int_or_default(def)                                                                                       \
+    (temp = 0, (escape_buffer != "" ? sscanf(escape_buffer.c_str(), "%d", &temp) : temp = (def)), temp)
+
 static void *Worker(void *) {
+    int temp = 0;
     eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context);
 
     // build vertex and fragment shader
@@ -463,123 +486,49 @@ static void *Worker(void *) {
                             escape_state = 0;
                         } else if (buffer[i] == 'A') {
                             // move cursor up # lines
-                            int temp = 0;
-                            if (escape_buffer != "") {
-                                sscanf(escape_buffer.c_str(), "%d", &temp);
-                            } else {
-                                temp = 1;
-                            }
-                            row -= temp;
-                            if (row < 0) {
-                                row = 0;
-                            } else if (row > term_row - 1) {
-                                row = term_row - 1;
-                            }
+                            row -= read_int_or_default(1);
+                            clamp_row();
                             escape_state = 0;
                         } else if (buffer[i] == 'B') {
                             // move cursor down # lines
-                            int temp = 0;
-                            if (escape_buffer != "") {
-                                sscanf(escape_buffer.c_str(), "%d", &temp);
-                            } else {
-                                temp = 1;
-                            }
-                            row += temp;
-                            if (row < 0) {
-                                row = 0;
-                            } else if (row > term_row - 1) {
-                                row = term_row - 1;
-                            }
+                            row += read_int_or_default(1);
+                            clamp_row();
                             escape_state = 0;
                         } else if (buffer[i] == 'C') {
                             // move cursor right # columns
-                            int temp = 0;
-                            if (escape_buffer != "") {
-                                sscanf(escape_buffer.c_str(), "%d", &temp);
-                            } else {
-                                temp = 1;
-                            }
-                            col += temp;
-                            if (col < 0) {
-                                col = 0;
-                            } else if (col > term_col - 1) {
-                                col = term_col - 1;
-                            }
+                            col += read_int_or_default(1);
+                            clamp_col();
                             escape_state = 0;
                         } else if (buffer[i] == 'D') {
                             // move cursor left # columns
-                            int temp = 0;
-                            if (escape_buffer != "") {
-                                sscanf(escape_buffer.c_str(), "%d", &temp);
-                            } else {
-                                temp = 1;
-                            }
-                            col -= temp;
-                            if (col < 0) {
-                                col = 0;
-                            } else if (col > term_col - 1) {
-                                col = term_col - 1;
-                            }
+                            col -= read_int_or_default(1);
+                            clamp_col();
                             escape_state = 0;
                         } else if (buffer[i] == 'd' && escape_buffer != "") {
                             // move cursor to row #
                             sscanf(escape_buffer.c_str(), "%d", &row);
                             // convert from 1-based to 0-based
                             row--;
-                            if (row < 0) {
-                                row = 0;
-                            } else if (row > term_row - 1) {
-                                row = term_row - 1;
-                            }
+                            clamp_row();
                             escape_state = 0;
                         } else if (buffer[i] == 'E') {
                             // move cursor to the beginning of next line, down # lines
-                            int temp = 0;
-                            if (escape_buffer != "") {
-                                sscanf(escape_buffer.c_str(), "%d", &temp);
-                            } else {
-                                temp = 1;
-                            }
-                            row += temp;
-                            if (row < 0) {
-                                row = 0;
-                            } else if (row > term_row - 1) {
-                                row = term_row - 1;
-                            }
+                            row += read_int_or_default(1);
+                            clamp_row();
                             col = 0;
                             escape_state = 0;
                         } else if (buffer[i] == 'F') {
                             // move cursor to the beginning of previous line, up # lines
-                            int temp = 0;
-                            if (escape_buffer != "") {
-                                sscanf(escape_buffer.c_str(), "%d", &temp);
-                            } else {
-                                temp = 1;
-                            }
-                            row -= temp;
-                            if (row < 0) {
-                                row = 0;
-                            } else if (row > term_row - 1) {
-                                row = term_row - 1;
-                            }
+                            row -= read_int_or_default(1);
+                            clamp_row();
                             col = 0;
                             escape_state = 0;
                         } else if (buffer[i] == 'G') {
                             // move cursor to column #
-                            int temp;
-                            if (escape_buffer != "") {
-                                sscanf(escape_buffer.c_str(), "%d", &temp);
-                            } else {
-                                temp = 1;
-                            }
-                            col = temp;
+                            col = read_int_or_default(1);
                             // convert from 1-based to 0-based
                             col--;
-                            if (col < 0) {
-                                col = 0;
-                            } else if (col > term_col - 1) {
-                                col = term_col - 1;
-                            }
+                            clamp_col();
                             escape_state = 0;
                         } else if (buffer[i] == 'h' && escape_buffer == "?25") {
                             // make cursor visible
@@ -598,16 +547,8 @@ static void *Worker(void *) {
                                 // convert from 1-based to 0-based
                                 row--;
                                 col--;
-                                if (row < 0) {
-                                    row = 0;
-                                } else if (row > term_row - 1) {
-                                    row = term_row - 1;
-                                }
-                                if (col < 0) {
-                                    col = 0;
-                                } else if (col > term_col - 1) {
-                                    col = term_col - 1;
-                                }
+                                clamp_row();
+                                clamp_col();
                             }
                             escape_state = 0;
                         } else if (buffer[i] == 'J' && (escape_buffer == "" || escape_buffer == "0")) {
