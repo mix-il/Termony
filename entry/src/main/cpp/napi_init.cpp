@@ -566,10 +566,11 @@ static void *RenderWorker(void *) {
         gettimeofday(&tv, nullptr);
         uint64_t now_msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
 
-        // 60 Hz, 16ms
-        uint64_t deadline = last_redraw_msec + 16;
+        // even if we call faster than system settings (60Hz/120Hz), it does not get faster
+        // 120 Hz, 8ms
+        uint64_t deadline = last_redraw_msec + 8;
         if (now_msec < deadline) {
-            usleep(deadline - now_msec);
+            usleep((deadline - now_msec) * 1000);
         }
 
         // redraw
