@@ -32,6 +32,7 @@ Bundled packages:
 - tar
 - tree
 - vim
+- vkpeak
 - xxhash
 - yyjson
 
