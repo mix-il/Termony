@@ -59,6 +59,7 @@ static int baseline_height = 10;
 static int term_col = 80;
 static int term_row = 24;
 static float scroll_offset = 0;
+static pthread_mutex_t lock;
 
 extern "C" int mkdir(const char *pathname, mode_t mode);
 static napi_value Run(napi_env env, napi_callback_info info) {
@@ -275,6 +276,7 @@ static void Draw() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // update surface size
+    pthread_mutex_lock(&lock);
     glUniform2f(surface_location, width, height);
     glViewport(0, 0, width, height);
 
@@ -369,6 +371,7 @@ static void Draw() {
             cur_col++;
         }
     }
+    pthread_mutex_unlock(&lock);
 
     // draw in one pass
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
@@ -423,10 +426,9 @@ static void DropFirstRowIfOverflow() {
 #define read_int_or_default(def)                                                                                       \
     (temp = 0, (escape_buffer != "" ? sscanf(escape_buffer.c_str(), "%d", &temp) : temp = (def)), temp)
 
-static void *Worker(void *) {
+static void *RenderWorker(void *) {
     pthread_setname_np(pthread_self(), "render worker");
 
-    int temp = 0;
     eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context);
 
     // build vertex and fragment shader
@@ -554,27 +556,59 @@ static void *Worker(void *) {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    // poll from fd, and render
     struct timeval tv;
-    gettimeofday(&tv, nullptr);
     uint64_t last_redraw_msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
     uint64_t last_fps_msec = last_redraw_msec;
+    Draw();
     int fps = 0;
     std::vector<uint64_t> time;
     while (1) {
-        struct timeval tv;
         gettimeofday(&tv, nullptr);
         uint64_t now_msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
 
+        // 60 Hz, 16ms
+        uint64_t deadline = last_redraw_msec + 16;
+        if (now_msec < deadline) {
+            usleep(deadline - now_msec);
+        }
+
+        // redraw
+        gettimeofday(&tv, nullptr);
+        now_msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+        last_redraw_msec = now_msec;
+        Draw();
+
+        gettimeofday(&tv, nullptr);
+        uint64_t msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+        time.push_back(msec - now_msec);
+
+        fps++;
+
+        // report fps
+        if (now_msec - last_fps_msec > 1000) {
+            last_fps_msec = now_msec;
+            uint64_t sum = 0;
+            for (auto t : time) {
+                sum += t;
+            }
+            OH_LOG_INFO(LOG_APP, "FPS: %{public}d, %{public}ld ms per draw", fps, sum / fps);
+            fps = 0;
+            time.clear();
+        }
+    }
+}
+
+static void *TerminalWorker(void *) {
+    pthread_setname_np(pthread_self(), "terminal worker");
+
+    int temp = 0;
+    // poll from fd, and render
+    struct timeval tv;
+    while (1) {
         struct pollfd fds[1];
         fds[0].fd = fd;
         fds[0].events = POLLIN;
-        int timeout = now_msec - last_redraw_msec;
-        // 120 Hz, 8ms
-        if (timeout > 8) {
-            timeout = 8;
-        }
-        int res = poll(fds, 1, timeout);
+        int res = poll(fds, 1, 1000);
 
         uint8_t buffer[1024];
         if (res > 0) {
@@ -594,6 +628,7 @@ static void *Worker(void *) {
                 OH_LOG_INFO(LOG_APP, "Got: %{public}s", hex.c_str());
 
                 // parse output
+                pthread_mutex_lock(&lock);
                 for (int i = 0; i < r; i++) {
                     if (escape_state != 0) {
                         if (buffer[i] == 91) {
@@ -788,33 +823,8 @@ static void *Worker(void *) {
                         }
                     }
                 }
+                pthread_mutex_unlock(&lock);
             }
-        }
-
-        // redraw
-        gettimeofday(&tv, nullptr);
-        now_msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
-        if (now_msec - last_redraw_msec > 16) {
-            last_redraw_msec = now_msec;
-            Draw();
-
-            gettimeofday(&tv, nullptr);
-            uint64_t msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
-            time.push_back(msec - now_msec);
-
-            fps++;
-        }
-
-        // report fps
-        if (now_msec - last_fps_msec > 1000) {
-            last_fps_msec = now_msec;
-            uint64_t sum = 0;
-            for (auto t : time) {
-                sum += t;
-            }
-            OH_LOG_INFO(LOG_APP, "FPS: %{public}d, %{public}ld ms per draw", fps, sum / fps);
-            fps = 0;
-            time.clear();
         }
     }
 }
@@ -876,8 +886,14 @@ static napi_value CreateSurface(napi_env env, napi_callback_info info) {
     EGLint context_attributes[] = {EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE};
     egl_context = eglCreateContext(egl_display, egl_config, EGL_NO_CONTEXT, context_attributes);
 
-    pthread_t thread;
-    pthread_create(&thread, NULL, Worker, NULL);
+    // setup lock
+    pthread_mutex_init(&lock, NULL);
+
+    pthread_t render_thread;
+    pthread_create(&render_thread, NULL, RenderWorker, NULL);
+
+    pthread_t terminal_thread;
+    pthread_create(&terminal_thread, NULL, TerminalWorker, NULL);
     return nullptr;
 }
 
@@ -889,6 +905,7 @@ static napi_value ResizeSurface(napi_env env, napi_callback_info info) {
     napi_get_value_int32(env, args[1], &width);
     napi_get_value_int32(env, args[2], &height);
 
+    pthread_mutex_lock(&lock);
     term_col = width / font_width;
     term_row = height / font_height;
     terminal.resize(term_row);
@@ -903,6 +920,7 @@ static napi_value ResizeSurface(napi_env env, napi_callback_info info) {
     if (col > term_col - 1) {
         col = term_col - 1;
     }
+    pthread_mutex_unlock(&lock);
 
     struct winsize ws = {};
     ws.ws_col = term_col;
