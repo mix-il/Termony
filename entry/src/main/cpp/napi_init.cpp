@@ -10,8 +10,8 @@
 #include <pty.h>
 #include <stdio.h>
 #include <string>
-#include <sys/time.h>
 #include <unistd.h>
+#include <sys/time.h>
 #include <vector>
 
 #include <ft2build.h>
@@ -62,6 +62,7 @@ static int term_col = 80;
 static int term_row = 24;
 static float scroll_offset = 0;
 
+extern "C" int mkdir(const char *pathname, mode_t mode);
 static napi_value Run(napi_env env, napi_callback_info info) {
     if (fd != -1) {
         return nullptr;
@@ -78,6 +79,12 @@ static napi_value Run(napi_env env, napi_callback_info info) {
 
     int pid = forkpty(&fd, nullptr, nullptr, &ws);
     if (!pid) {
+        // override HOME to /storage/Users/currentUser/Documents/Termony since it is writable
+        const char *home = "/storage/Users/currentUser/Documents/Termony";
+        mkdir(home, 0777);
+        setenv("HOME", home, 1);
+        setenv("PWD", home, 1);
+        chdir(home);
         execl("/data/app/bin/bash", "/data/app/bin/bash", nullptr);
     }
 
@@ -175,7 +182,7 @@ static void LoadFont() {
                         "Font: %{public}d %{public}d Glyph: %{public}d %{public}d Left: %{public}d Top: %{public}d "
                         "Advance: %{public}d",
                         font_width, font_height, face->glyph->bitmap.width, face->glyph->bitmap.rows,
-                        face->glyph->bitmap_left, face->glyph->bitmap_top, face->glyph->advance);
+                        face->glyph->bitmap_left, face->glyph->bitmap_top, face->glyph->advance.x);
             for (int i = 0; i < face->glyph->bitmap.rows; i++) {
                 for (int j = 0; j < face->glyph->bitmap.width; j++) {
                     // origin is (font_height - baseline_height, 0)
