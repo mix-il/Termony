@@ -86,7 +86,8 @@ static napi_value Run(napi_env env, napi_callback_info info) {
         execl("/data/app/bin/bash", "/data/app/bin/bash", nullptr);
     }
 
-    assert(fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) == 0);
+    int res = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
+    assert(res == 0);
     return nullptr;
 }
 
@@ -117,7 +118,8 @@ static napi_value Send(napi_env env, napi_callback_info info) {
 
     void *data;
     size_t length;
-    assert(napi_get_arraybuffer_info(env, args[0], &data, &length) == napi_ok);
+    napi_status ret = napi_get_arraybuffer_info(env, args[0], &data, &length);
+    assert(ret == napi_ok);
     int written = 0;
     while (written < length) {
         int size = write(fd, (uint8_t *)data + written, length - written);
@@ -166,7 +168,8 @@ static GLuint texture_id;
 // 1.0 +------+------+     +------+
 static void LoadFont() {
     FT_Library ft;
-    assert(FT_Init_FreeType(&ft) == 0);
+    FT_Error err = FT_Init_FreeType(&ft);
+    assert(err == 0);
 
     std::vector<std::pair<const char *, weight>> fonts = {
         {"/data/storage/el2/base/haps/entry/files/Inconsolata-Regular.ttf", weight::regular},
@@ -185,7 +188,8 @@ static void LoadFont() {
         weight weight = pair.second;
 
         FT_Face face;
-        assert(FT_New_Face(ft, font, 0, &face) == 0);
+        err = FT_New_Face(ft, font, 0, &face);
+        assert(err == 0);
         FT_Set_Pixel_Sizes(face, 0, font_height);
 
         for (unsigned char c = 0; c < MAX_CHAR; c++) {
@@ -808,7 +812,7 @@ static void *Worker(void *) {
             for (auto t : time) {
                 sum += t;
             }
-            OH_LOG_INFO(LOG_APP, "FPS: %{public}d, %{public}d ms per draw", fps, sum / fps);
+            OH_LOG_INFO(LOG_APP, "FPS: %{public}d, %{public}ld ms per draw", fps, sum / fps);
             fps = 0;
             time.clear();
         }
@@ -822,7 +826,8 @@ static napi_value CreateSurface(napi_env env, napi_callback_info info) {
 
     int64_t surface_id = 0;
     bool lossless = true;
-    assert(napi_get_value_bigint_int64(env, args[0], &surface_id, &lossless) == napi_ok);
+    napi_status res = napi_get_value_bigint_int64(env, args[0], &surface_id, &lossless);
+    assert(res == napi_ok);
 
     // create windows and display
     OHNativeWindow *native_window;
@@ -835,7 +840,8 @@ static napi_value CreateSurface(napi_env env, napi_callback_info info) {
     // initialize egl
     EGLint major_version;
     EGLint minor_version;
-    assert(eglInitialize(egl_display, &major_version, &minor_version) == EGL_TRUE);
+    EGLBoolean egl_res = eglInitialize(egl_display, &major_version, &minor_version);
+    assert(egl_res == EGL_TRUE);
 
     const EGLint attrib[] = {EGL_SURFACE_TYPE,
                              EGL_WINDOW_BIT,
@@ -862,7 +868,8 @@ static napi_value CreateSurface(napi_env env, napi_callback_info info) {
     const EGLint max_config_size = 1;
     EGLint num_configs;
     EGLConfig egl_config;
-    assert(eglChooseConfig(egl_display, attrib, &egl_config, max_config_size, &num_configs) == EGL_TRUE);
+    egl_res = eglChooseConfig(egl_display, attrib, &egl_config, max_config_size, &num_configs);
+    assert(egl_res == EGL_TRUE);
 
     egl_surface = eglCreateWindowSurface(egl_display, egl_config, egl_window, NULL);
 
@@ -911,7 +918,8 @@ static napi_value Scroll(napi_env env, napi_callback_info info) {
     napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
 
     double offset = 0;
-    assert(napi_get_value_double(env, args[0], &offset) == napi_ok);
+    napi_status res = napi_get_value_double(env, args[0], &offset);
+    assert(res == napi_ok);
 
     // natural scrolling
     scroll_offset -= offset;
