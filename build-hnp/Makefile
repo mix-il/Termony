@@ -19,7 +19,9 @@ PKGS=bash \
 	fastfetch \
 	sl \
 	openssh \
-	ncnn
+	ncnn \
+	readline \
+	htop
 STAMP=$(patsubst %,%/.stamp,$(PKGS))
 
 all: copy
