@@ -670,46 +670,7 @@ static void *TerminalWorker(void *) {
                             escape_state = state_idle;
                         }
                     } else if (escape_state == state_csi) {
-                        if (buffer[i] == 'm') {
-                            // CSI Pm m, Character Attributes (SGR)
-
-                            // set color
-                            std::vector<std::string> parts = splitString(escape_buffer, ";");
-                            for (auto part : parts) {
-                                if (part == "1") {
-                                    // set bold
-                                    current_style.weight = weight::bold;
-                                } else if (part == "31") {
-                                    // red foreground
-                                    current_style.red = 1.0;
-                                    current_style.green = 0.0;
-                                    current_style.blue = 0.0;
-                                } else if (part == "32") {
-                                    // green foreground
-                                    current_style.red = 0.0;
-                                    current_style.green = 1.0;
-                                    current_style.blue = 0.0;
-                                } else if (part == "34") {
-                                    // blue foreground
-                                    current_style.red = 0.0;
-                                    current_style.green = 0.0;
-                                    current_style.blue = 1.0;
-                                } else if (part == "36") {
-                                    // cyan foreground
-                                    current_style.red = 0.0;
-                                    current_style.green = 1.0;
-                                    current_style.blue = 1.0;
-                                } else if (part == "0") {
-                                    // reset
-                                    current_style = style();
-                                }
-                            }
-                            if (escape_buffer == "") {
-                                // reset
-                                current_style = style();
-                            }
-                            escape_state = state_idle;
-                        } else if (buffer[i] == 'A') {
+                        if (buffer[i] == 'A') {
                             // CSI Ps A, CUU, move cursor up # lines
                             row -= read_int_or_default(1);
                             clamp_row();
@@ -845,8 +806,61 @@ static void *TerminalWorker(void *) {
                             // CSI ? 2004 l, reset bracketed paste mode
                             // TODO
                             escape_state = state_idle;
+                        } else if (buffer[i] == 'm' && escape_buffer == "") {
+                            // CSI Pm m, Character Attributes (SGR)
+                            // reset
+                            current_style = style();
+                            escape_state = state_idle;
+                        } else if (buffer[i] == 'm' && escape_buffer.size() > 0 && escape_buffer[0] != '>') {
+                            // CSI Pm m, Character Attributes (SGR)
+
+                            // set color
+                            std::vector<std::string> parts = splitString(escape_buffer, ";");
+                            for (auto part : parts) {
+                                if (part == "1") {
+                                    // set bold
+                                    current_style.weight = weight::bold;
+                                } else if (part == "30") {
+                                    // black foreground
+                                    current_style.red = 0.0;
+                                    current_style.green = 0.0;
+                                    current_style.blue = 0.0;
+                                } else if (part == "31") {
+                                    // red foreground
+                                    current_style.red = 1.0;
+                                    current_style.green = 0.0;
+                                    current_style.blue = 0.0;
+                                } else if (part == "32") {
+                                    // green foreground
+                                    current_style.red = 0.0;
+                                    current_style.green = 1.0;
+                                    current_style.blue = 0.0;
+                                } else if (part == "33") {
+                                    // yellow foreground
+                                    current_style.red = 1.0;
+                                    current_style.green = 1.0;
+                                    current_style.blue = 0.0;
+                                } else if (part == "34") {
+                                    // blue foreground
+                                    current_style.red = 0.0;
+                                    current_style.green = 0.0;
+                                    current_style.blue = 1.0;
+                                } else if (part == "36") {
+                                    // cyan foreground
+                                    current_style.red = 0.0;
+                                    current_style.green = 1.0;
+                                    current_style.blue = 1.0;
+                                } else if (part == "0") {
+                                    // reset
+                                    current_style = style();
+                                } else {
+                                    OH_LOG_INFO(LOG_APP, "Unknown CSI Pm m: %{public}s %{public}c",
+                                                escape_buffer.c_str(), buffer[i]);
+                                }
+                            }
+                            escape_state = state_idle;
                         } else if (buffer[i] == 'm' && escape_buffer.size() > 1 && escape_buffer[0] == '>') {
-                            // CSI ? Pp m, XTQMODKEYS, set/reset key modifier options
+                            // CSI > Pp m, XTQMODKEYS, set/reset key modifier options
                             // TODO
                             escape_state = state_idle;
                         } else if (buffer[i] == '?' || buffer[i] == ';' || buffer[i] == '>' || buffer[i] == '=' ||
