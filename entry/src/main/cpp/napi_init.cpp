@@ -525,6 +525,38 @@ static void *Worker(void *) {
                                 row = term_row - 1;
                             }
                             escape_state = 0;
+                        } else if (buffer[i] == 'E') {
+                            // move cursor to the beginning of next line, down # lines
+                            int temp = 0;
+                            if (escape_buffer != "") {
+                                sscanf(escape_buffer.c_str(), "%d", &temp);
+                            } else {
+                                temp = 1;
+                            }
+                            row += temp;
+                            if (row < 0) {
+                                row = 0;
+                            } else if (row > term_row - 1) {
+                                row = term_row - 1;
+                            }
+                            col = 0;
+                            escape_state = 0;
+                        } else if (buffer[i] == 'F') {
+                            // move cursor to the beginning of previous line, up # lines
+                            int temp = 0;
+                            if (escape_buffer != "") {
+                                sscanf(escape_buffer.c_str(), "%d", &temp);
+                            } else {
+                                temp = 1;
+                            }
+                            row -= temp;
+                            if (row < 0) {
+                                row = 0;
+                            } else if (row > term_row - 1) {
+                                row = term_row - 1;
+                            }
+                            col = 0;
+                            escape_state = 0;
                         } else if (buffer[i] == 'G') {
                             // move cursor to column #
                             int temp;
@@ -571,27 +603,29 @@ static void *Worker(void *) {
                                 }
                             }
                             escape_state = 0;
-                        } else if (buffer[i] == 'J' && escape_buffer == "") {
-                            // clear screen
-                            for (int i = 0; i < term_row; i++) {
-                                history.push_back(terminal[i]);
-                                terminal[i].clear();
-                                terminal[i].resize(term_col);
+                        } else if (buffer[i] == 'J' && (escape_buffer == "" || escape_buffer == "0")) {
+                            // erase from cursor until end of screen
+                            for (int i = col; i < term_col; i++) {
+                                terminal[row][i] = term_char();
                             }
-                            while (history.size() > MAX_HISTORY_LINES) {
-                                history.pop_front();
+                            for (int i = row + 1; i < term_row; i++) {
+                                std::fill(terminal[i].begin(), terminal[i].end, term_char());
                             }
                             escape_state = 0;
                         } else if (buffer[i] == 'K' && (escape_buffer == "" || escape_buffer == "0")) {
                             // erase from cursor to end of line
-                            for (int i = col;i < term_col;i++) {
+                            for (int i = col; i < term_col; i++) {
                                 terminal[row][i] = term_char();
                             }
                             escape_state = 0;
                         } else if (buffer[i] == 'K' && escape_buffer == "1") {
                             // erase from start of line to the cursor
-                            for (int i = 0;i <= col;i++) {
-                                terminal[row][i] = term_char();
+                            for (int i = 0; i <= col; i++) {
+                                if (i + col + 1 < term_col) {
+                                    terminal[row][i] = terminal[row][i + col + 1];
+                                } else {
+                                    terminal[row][i] = term_char();
+                                }
                             }
                             escape_state = 0;
                         } else if (buffer[i] == 'l' && escape_buffer == "?25") {
@@ -602,7 +636,7 @@ static void *Worker(void *) {
                             // erase # characters
                             int temp = 0;
                             sscanf(escape_buffer.c_str(), "%d", &temp);
-                            for (int i = col;i < term_col;i++) {
+                            for (int i = col; i < term_col; i++) {
                                 if (i + temp < term_col) {
                                     terminal[row][i] = terminal[row][i + temp];
                                 } else {
