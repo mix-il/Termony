@@ -557,6 +557,7 @@ static void *RenderWorker(void *) {
     glBindVertexArray(0);
 
     struct timeval tv;
+    gettimeofday(&tv, nullptr);
     uint64_t last_redraw_msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
     uint64_t last_fps_msec = last_redraw_msec;
     Draw();
