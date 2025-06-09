@@ -46,7 +46,13 @@ static std::deque<std::vector<term_char>> history;
 static std::vector<std::vector<term_char>> terminal;
 static int row = 0;
 static int col = 0;
-static int escape_state = 0;
+enum escape_states {
+    state_idle,
+    state_esc,
+    state_csi,
+    state_osc,
+};
+static escape_states escape_state = state_idle;
 static std::string escape_buffer;
 static style current_style;
 static int width = 0;
@@ -637,11 +643,16 @@ static void *TerminalWorker(void *) {
                 // parse output
                 pthread_mutex_lock(&lock);
                 for (int i = 0; i < r; i++) {
-                    if (escape_state != 0) {
-                        if (buffer[i] == 91) {
-                            // opening bracket, CSI
-                            escape_state = 2;
-                        } else if (buffer[i] == 'm') {
+                    if (escape_state == state_esc) {
+                        if (buffer[i] == '[') {
+                            // ESC [ = CSI
+                            escape_state = state_csi;
+                        } else if (buffer[i] == ']') {
+                            // ESC ] = OSC
+                            escape_state = state_osc;
+                        }
+                    } else if (escape_state == state_csi) {
+                        if (buffer[i] == 'm') {
                             // set color
                             std::vector<std::string> parts = splitString(escape_buffer, ";");
                             for (auto part : parts) {
@@ -677,61 +688,61 @@ static void *TerminalWorker(void *) {
                                 // reset
                                 current_style = style();
                             }
-                            escape_state = 0;
+                            escape_state = state_idle;
                         } else if (buffer[i] == 'A') {
                             // move cursor up # lines
                             row -= read_int_or_default(1);
                             clamp_row();
-                            escape_state = 0;
+                            escape_state = state_idle;
                         } else if (buffer[i] == 'B') {
                             // move cursor down # lines
                             row += read_int_or_default(1);
                             clamp_row();
-                            escape_state = 0;
+                            escape_state = state_idle;
                         } else if (buffer[i] == 'C') {
                             // move cursor right # columns
                             col += read_int_or_default(1);
                             clamp_col();
-                            escape_state = 0;
+                            escape_state = state_idle;
                         } else if (buffer[i] == 'D') {
                             // move cursor left # columns
                             col -= read_int_or_default(1);
                             clamp_col();
-                            escape_state = 0;
+                            escape_state = state_idle;
                         } else if (buffer[i] == 'd' && escape_buffer != "") {
                             // move cursor to row #
                             sscanf(escape_buffer.c_str(), "%d", &row);
                             // convert from 1-based to 0-based
                             row--;
                             clamp_row();
-                            escape_state = 0;
+                            escape_state = state_idle;
                         } else if (buffer[i] == 'E') {
                             // move cursor to the beginning of next line, down # lines
                             row += read_int_or_default(1);
                             clamp_row();
                             col = 0;
-                            escape_state = 0;
+                            escape_state = state_idle;
                         } else if (buffer[i] == 'F') {
                             // move cursor to the beginning of previous line, up # lines
                             row -= read_int_or_default(1);
                             clamp_row();
                             col = 0;
-                            escape_state = 0;
+                            escape_state = state_idle;
                         } else if (buffer[i] == 'G') {
                             // move cursor to column #
                             col = read_int_or_default(1);
                             // convert from 1-based to 0-based
                             col--;
                             clamp_col();
-                            escape_state = 0;
+                            escape_state = state_idle;
                         } else if (buffer[i] == 'h' && escape_buffer == "?25") {
                             // make cursor visible
                             show_cursor = true;
-                            escape_state = 0;
+                            escape_state = state_idle;
                         } else if (buffer[i] == 'H' && escape_buffer == "") {
                             // move cursor to upper left corner
                             row = col = 0;
-                            escape_state = 0;
+                            escape_state = state_idle;
                         } else if (buffer[i] == 'H' && escape_buffer != "") {
                             // move cursor to x, y
                             std::vector<std::string> parts = splitString(escape_buffer, ";");
@@ -744,7 +755,7 @@ static void *TerminalWorker(void *) {
                                 clamp_row();
                                 clamp_col();
                             }
-                            escape_state = 0;
+                            escape_state = state_idle;
                         } else if (buffer[i] == 'J' && (escape_buffer == "" || escape_buffer == "0")) {
                             // erase from cursor until end of screen
                             for (int i = col; i < term_col; i++) {
@@ -753,13 +764,13 @@ static void *TerminalWorker(void *) {
                             for (int i = row + 1; i < term_row; i++) {
                                 std::fill(terminal[i].begin(), terminal[i].end(), term_char());
                             }
-                            escape_state = 0;
+                            escape_state = state_idle;
                         } else if (buffer[i] == 'K' && (escape_buffer == "" || escape_buffer == "0")) {
                             // erase from cursor to end of line
                             for (int i = col; i < term_col; i++) {
                                 terminal[row][i] = term_char();
                             }
-                            escape_state = 0;
+                            escape_state = state_idle;
                         } else if (buffer[i] == 'K' && escape_buffer == "1") {
                             // erase from start of line to the cursor
                             for (int i = 0; i <= col; i++) {
@@ -769,11 +780,11 @@ static void *TerminalWorker(void *) {
                                     terminal[row][i] = term_char();
                                 }
                             }
-                            escape_state = 0;
+                            escape_state = state_idle;
                         } else if (buffer[i] == 'l' && escape_buffer == "?25") {
                             // make cursor invisible
                             show_cursor = false;
-                            escape_state = 0;
+                            escape_state = state_idle;
                         } else if (buffer[i] == 'P' && escape_buffer != "") {
                             // erase # characters
                             int temp = 0;
@@ -785,7 +796,7 @@ static void *TerminalWorker(void *) {
                                     terminal[row][i] = term_char();
                                 }
                             }
-                            escape_state = 0;
+                            escape_state = state_idle;
                         } else if (buffer[i] == '?' || buffer[i] == ';' || (buffer[i] >= '0' && buffer[i] <= '9')) {
                             // '?', ';' or number
                             escape_buffer += buffer[i];
@@ -793,9 +804,23 @@ static void *TerminalWorker(void *) {
                             // unknown
                             OH_LOG_INFO(LOG_APP, "Unknown escape sequence: %{public}s %{public}c",
                                         escape_buffer.c_str(), buffer[i]);
-                            escape_state = 0;
+                            escape_state = state_idle;
+                        }
+                    } else if (escape_state == state_osc) {
+                        if (buffer[i] == '\x07') {
+                            // BEL, do nothing
+                            escape_state = state_idle;
+                        } else if (buffer[i] != '\x00') {
+                            // not string terminator
+                            escape_buffer += buffer[i];
+                        } else {
+                            // unknown
+                            OH_LOG_INFO(LOG_APP, "Unknown escape sequence: %{public}s %{public}c",
+                                        escape_buffer.c_str(), buffer[i]);
+                            escape_state = state_idle;
                         }
                     } else {
+                        // escape state is idle
                         if (buffer[i] >= ' ' && buffer[i] < 127) {
                             // printable
                             assert(row >= 0 && row < term_row);
@@ -826,7 +851,7 @@ static void *TerminalWorker(void *) {
                             }
                         } else if (buffer[i] == 0x1b) {
                             escape_buffer = "";
-                            escape_state = 1;
+                            escape_state = state_esc;
                         }
                     }
                 }
