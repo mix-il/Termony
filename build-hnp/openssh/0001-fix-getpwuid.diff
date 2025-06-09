@@ -1,0 +1,18 @@
+--- a/ssh.c	2025-06-09 19:20:28
++++ b/ssh.c	2025-06-09 19:21:41
+@@ -713,7 +713,14 @@
+ 	seed_rng();
+ 
+ 	/* Get user data. */
+-	pw = getpwuid(getuid());
++	pw = (struct passwd *)malloc(sizeof(struct passwd));
++	pw->pw_name = "currentUser";
++	pw->pw_passwd = NULL;
++	pw->pw_gecos = "";
++	pw->pw_uid = getuid();
++	pw->pw_gid = getuid();
++	pw->pw_dir = "/storage/Users/currentUser";
++	pw->pw_shell = "/bin/sh";
+ 	if (!pw) {
+ 		logit("No user exists for uid %lu", (u_long)getuid());
+ 		exit(255);
