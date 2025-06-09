@@ -25,6 +25,7 @@
 // https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
 // https://vt100.net/docs/vt220-rm/chapter4.html
 // https://espterm.github.io/docs/VT100%20escape%20codes.html
+// https://ecma-international.org/wp-content/uploads/ECMA-48_5th_edition_june_1991.pdf
 
 static int fd = -1;
 
@@ -788,6 +789,13 @@ static void *TerminalWorker(void *) {
                                 terminal[row][i] = term_char();
                             }
                             escape_state = state_idle;
+                        } else if (buffer[i] == 'c' && escape_buffer == "") {
+                            // CSI Ps c, Send Device Attributes
+                            // send CSI ? 6 c: I am VT102
+                            uint8_t send_buffer[] = {0x1b, '[', '?', '6', 'c'};
+                            int res = write(fd, send_buffer, sizeof(send_buffer));
+                            assert(res == sizeof(send_buffer));
+                            escape_state = state_idle;
                         } else if (buffer[i] == 'd' && escape_buffer != "") {
                             // CSI Ps d, VPA, move cursor to row #
                             sscanf(escape_buffer.c_str(), "%d", &row);
@@ -813,7 +821,7 @@ static void *TerminalWorker(void *) {
                             escape_state = state_idle;
                         } else if (buffer[i] == 'm' && escape_buffer == "") {
                             // CSI Pm m, Character Attributes (SGR)
-                            // reset
+                            // reset all attributes to their defaults
                             current_style = style();
                             escape_state = state_idle;
                         } else if (buffer[i] == 'm' && escape_buffer.size() > 0 && escape_buffer[0] != '>') {
@@ -822,9 +830,15 @@ static void *TerminalWorker(void *) {
                             // set color
                             std::vector<std::string> parts = splitString(escape_buffer, ";");
                             for (auto part : parts) {
-                                if (part == "1") {
+                                if (part == "0") {
+                                    // reset all attributes to their defaults
+                                    current_style = style();
+                                } else if (part == "1") {
                                     // set bold
                                     current_style.weight = weight::bold;
+                                } else if (part == "10") {
+                                    // reset to primary font
+                                    current_style = style();
                                 } else if (part == "30") {
                                     // black foreground
                                     current_style.fg_red = 0.0;
@@ -880,9 +894,11 @@ static void *TerminalWorker(void *) {
                                     current_style.bg_red = 1.0;
                                     current_style.bg_green = 1.0;
                                     current_style.bg_blue = 1.0;
-                                } else if (part == "0") {
-                                    // reset
-                                    current_style = style();
+                                } else if (part == "90") {
+                                    // bright black foreground
+                                    current_style.fg_red = 0.5;
+                                    current_style.fg_green = 0.5;
+                                    current_style.fg_blue = 0.5;
                                 } else {
                                     OH_LOG_INFO(LOG_APP, "Unknown CSI Pm m: %{public}s %{public}c",
                                                 escape_buffer.c_str(), buffer[i]);
