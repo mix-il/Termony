@@ -806,21 +806,55 @@ static void *TerminalWorker(void *) {
                             row--;
                             clamp_row();
                             escape_state = state_idle;
-                        } else if (buffer[i] == 'h' && escape_buffer == "?25") {
-                            // CSI ? 25 h, DECTCEM, make cursor visible
-                            show_cursor = true;
+                        } else if (buffer[i] == 'h' && escape_buffer.size() > 1 && escape_buffer[0] == '?') {
+                            // CSI ? Pm h, DEC Private Mode Set (DECSET)
+                            std::vector<std::string> parts = splitString(escape_buffer.substr(1), ";");
+                            for (auto part of parts) {
+                                if (part == "1") {
+                                    // CSI ? 1 h, Application Cursor Keys (DECCKM)
+                                    // TODO
+                                } else if (part == "12") {
+                                    // CSI ? 12 h, Start blinking cursor
+                                    // TODO
+                                } else if (part == "25") {
+                                    // CSI ? 25 h, DECTCEM, make cursor visible
+                                    show_cursor = true;
+                                } else if (part == "1000") {
+                                    // CSI ? 1000 h, Send Mouse X & Y on button press and release
+                                    // TODO
+                                } else if (part == "1002") {
+                                    // CSI ? 1002 h, Use Cell Motion Mouse Tracking
+                                    // TODO
+                                } else if (part == "1006") {
+                                    // CSI ? 1006 h, Enable SGR Mouse Mode
+                                    // TODO
+                                } else if (part == "2004") {
+                                    // CSI ? 2004 h, set bracketed paste mode
+                                    // TODO
+                                } else {
+                                    OH_LOG_INFO(LOG_APP, "Unknown CSI ? Pm h: %{public}s %{public}c",
+                                                escape_buffer.c_str(), buffer[i]);
+                                }
+                            }
                             escape_state = state_idle;
-                        } else if (buffer[i] == 'h' && escape_buffer == "?2004") {
-                            // CSI ? 2004 h, set bracketed paste mode
-                            // TODO
-                            escape_state = state_idle;
-                        } else if (buffer[i] == 'l' && escape_buffer == "?25") {
-                            // CSI ? 25 l, DECTCEM, make cursor invisible
-                            show_cursor = false;
-                            escape_state = state_idle;
-                        } else if (buffer[i] == 'l' && escape_buffer == "?2004") {
-                            // CSI ? 2004 l, reset bracketed paste mode
-                            // TODO
+                        } else if (buffer[i] == 'l' && escape_buffer.size() > 1 && escape_buffer[0] == '?') {
+                            // CSI ? Pm l, DEC Private Mode Reset (DECRST)
+                            std::vector<std::string> parts = splitString(escape_buffer.substr(1), ";");
+                            for (auto part of parts) {
+                                if (part == "12") {
+                                    // CSI ? 12 l, Stop blinking cursor
+                                    // TODO
+                                } else if (part == "25") {
+                                    // CSI ? 25 l, Hide cursor (DECTCEM)
+                                    show_cursor = true;
+                                } else if (part == "2004") {
+                                    // CSI ? 2004 l, reset bracketed paste mode
+                                    // TODO
+                                } else {
+                                    OH_LOG_INFO(LOG_APP, "Unknown CSI ? Pm l: %{public}s %{public}c",
+                                                escape_buffer.c_str(), buffer[i]);
+                                }
+                            }
                             escape_state = state_idle;
                         } else if (buffer[i] == 'm' && escape_buffer == "") {
                             // CSI Pm m, Character Attributes (SGR)
