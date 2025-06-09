@@ -877,16 +877,46 @@ static void *TerminalWorker(void *) {
                                     current_style.fg_red = 0.0;
                                     current_style.fg_green = 1.0;
                                     current_style.fg_blue = 1.0;
+                                } else if (part == "37") {
+                                    // white foreground
+                                    current_style.fg_red = 1.0;
+                                    current_style.fg_green = 1.0;
+                                    current_style.fg_blue = 1.0;
                                 } else if (part == "39") {
                                     // default foreground
                                     current_style.fg_red = 0.0;
                                     current_style.fg_green = 0.0;
                                     current_style.fg_blue = 0.0;
+                                } else if (part == "40") {
+                                    // black background
+                                    current_style.bg_red = 0.0;
+                                    current_style.bg_green = 0.0;
+                                    current_style.bg_blue = 0.0;
+                                } else if (part == "41") {
+                                    // black background
+                                    current_style.bg_red = 1.0;
+                                    current_style.bg_green = 0.0;
+                                    current_style.bg_blue = 0.0;
                                 } else if (part == "42") {
                                     // green background
                                     current_style.bg_red = 0.0;
                                     current_style.bg_green = 1.0;
                                     current_style.bg_blue = 0.0;
+                                } else if (part == "43") {
+                                    // yellow background
+                                    current_style.bg_red = 1.0;
+                                    current_style.bg_green = 1.0;
+                                    current_style.bg_blue = 0.0;
+                                } else if (part == "44") {
+                                    // blue background
+                                    current_style.bg_red = 0.0;
+                                    current_style.bg_green = 0.0;
+                                    current_style.bg_blue = 1.0;
+                                } else if (part == "45") {
+                                    // magenta background
+                                    current_style.bg_red = 1.0;
+                                    current_style.bg_green = 0.0;
+                                    current_style.bg_blue = 1.0;
                                 } else if (part == "46") {
                                     // cyan background
                                     current_style.bg_red = 0.0;
