@@ -25,6 +25,28 @@ class MyXComponentController extends XComponentController {
   }
 }
 
+let keyMapping: Map<string, number[]> = new Map();
+keyMapping.set("KEYCODE_SPACE", [0x20]);
+keyMapping.set("KEYCODE_ENTER", [0x0d]);
+keyMapping.set("KEYCODE_DEL", [0x7f]);
+keyMapping.set("KEYCODE_TAB", [0x09]);
+keyMapping.set("KEYCODE_ESCAPE", [0x1b]);
+keyMapping.set("KEYCODE_DPAD_UP", [0x1b, 0x5b, 0x41]);
+keyMapping.set("KEYCODE_DPAD_DOWN", [0x1b, 0x5b, 0x42]);
+keyMapping.set("KEYCODE_DPAD_RIGHT", [0x1b, 0x5b, 0x43]);
+keyMapping.set("KEYCODE_DPAD_LEFT", [0x1b, 0x5b, 0x44]);
+keyMapping.set("KEYCODE_F1", [0x1b, 0x4f, 0x50]);
+keyMapping.set("KEYCODE_F2", [0x1b, 0x4f, 0x51]);
+keyMapping.set("KEYCODE_F3", [0x1b, 0x4f, 0x52]);
+keyMapping.set("KEYCODE_F4", [0x1b, 0x4f, 0x53]);
+keyMapping.set("KEYCODE_F5", [0x1b, 0x5b, 0x31, 0x35, 0x7e]);
+keyMapping.set("KEYCODE_F6", [0x1b, 0x5b, 0x31, 0x37, 0x7e]);
+keyMapping.set("KEYCODE_F7", [0x1b, 0x5b, 0x31, 0x38, 0x7e]);
+keyMapping.set("KEYCODE_F8", [0x1b, 0x5b, 0x31, 0x39, 0x7e]);
+keyMapping.set("KEYCODE_F10", [0x1b, 0x5b, 0x32, 0x31, 0x7e]);
+keyMapping.set("KEYCODE_F11", [0x1b, 0x5b, 0x32, 0x33, 0x7e]);
+keyMapping.set("KEYCODE_F12", [0x1b, 0x5b, 0x32, 0x34, 0x7e]);
+
 @Entry
 @Component
 struct Index {
@@ -82,52 +104,17 @@ struct Index {
           let encodeResult = textEncoder.encode(String.fromCharCode(event.unicode as number)); 
           testNapi.send(encodeResult.buffer);
         } else {
-          let buffer = new ArrayBuffer(1);
-          let view = new Uint8Array(buffer);
-          if (event.keyText === "KEYCODE_SPACE") {
-            view[0] = 0x20;
-            testNapi.send(buffer);
-          } else if (event.keyText === "KEYCODE_ENTER") {
-            view[0] = 0x0d;
-            testNapi.send(buffer);
-          } else if (event.keyText === "KEYCODE_DEL") {
-            view[0] = 0x7f;
-            testNapi.send(buffer);
-          } else if (event.keyText === "KEYCODE_TAB") {
-            view[0] = 0x09;
-            testNapi.send(buffer);
-          } else if (event.keyText === "KEYCODE_ESCAPE") {
-            view[0] = 0x1b;
-            testNapi.send(buffer);
-          } else if (event.keyText === "KEYCODE_CTRL_LEFT") {
+          if (event.keyText === "KEYCODE_CTRL_LEFT") {
             this.leftCtrlPressed = true;
-          } else if (event.keyText === "KEYCODE_DPAD_UP") {
-            let buffer = new ArrayBuffer(3);
+          } else if (keyMapping.has(event.keyText)) {
+            let data: number[] = keyMapping.get(event.keyText)!;
+            let buffer = new ArrayBuffer(data.length);
             let view = new Uint8Array(buffer);
-            view[0] = 0x1b;
-            view[1] = 0x5b;
-            view[2] = 0x41;
-            testNapi.send(buffer);
-          } else if (event.keyText === "KEYCODE_DPAD_DOWN") {
-            let buffer = new ArrayBuffer(3);
-            let view = new Uint8Array(buffer);
-            view[0] = 0x1b;
-            view[1] = 0x5b;
-            view[2] = 0x42;
-            testNapi.send(buffer);
-          } else if (event.keyText === "KEYCODE_DPAD_RIGHT") {
-            let buffer = new ArrayBuffer(3);
-            let view = new Uint8Array(buffer);
-            view[0] = 0x1b;
-            view[1] = 0x5b;
-            view[2] = 0x43;
-            testNapi.send(buffer);
-          } else if (event.keyText === "KEYCODE_DPAD_LEFT") {
-            let buffer = new ArrayBuffer(3);
-            let view = new Uint8Array(buffer);
-            view[0] = 0x1b;
-            view[1] = 0x5b;
-            view[2] = 0x44;
+            let i = 0;
+            for (let byte of data) {
+              view[i] = byte;
+              i += 1;
+            }
             testNapi.send(buffer);
           }
         }
