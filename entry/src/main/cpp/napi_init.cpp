@@ -78,6 +78,11 @@ static napi_value Run(napi_env env, napi_callback_info info) {
 
     int pid = forkpty(&fd, nullptr, nullptr, &ws);
     if (!pid) {
+        // override HOME to /storage/Users/currentUser since it is writable
+        const char *home = "/storage/Users/currentUser";
+        setenv("HOME", home, 1);
+        setenv("PWD", home, 1);
+        chdir(home);
         execl("/data/app/bin/bash", "/data/app/bin/bash", nullptr);
     }
 
