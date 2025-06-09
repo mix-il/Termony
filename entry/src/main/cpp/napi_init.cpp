@@ -650,6 +650,11 @@ static void *TerminalWorker(void *) {
                         } else if (buffer[i] == ']') {
                             // ESC ] = OSC
                             escape_state = state_osc;
+                        } else {
+                            // unknown
+                            OH_LOG_INFO(LOG_APP, "Unknown escape sequence: %{public}s %{public}c",
+                                        escape_buffer.c_str(), buffer[i]);
+                            escape_state = state_idle;
                         }
                     } else if (escape_state == state_csi) {
                         if (buffer[i] == 'm') {
@@ -789,6 +794,10 @@ static void *TerminalWorker(void *) {
                             // make cursor invisible
                             show_cursor = false;
                             escape_state = state_idle;
+                        } else if (buffer[i] == 'l' && escape_buffer == "?2004") {
+                            // reset bracketed paste mode
+                            // TODO
+                            escape_state = state_idle;
                         } else if (buffer[i] == 'm' && escape_buffer.size() > 1 && escape_buffer[0] == '>') {
                             // set/reset key modifier options
                             // TODO
@@ -804,6 +813,10 @@ static void *TerminalWorker(void *) {
                                     terminal[row][i] = term_char();
                                 }
                             }
+                            escape_state = state_idle;
+                        } else if (buffer[i] == 'u') {
+                            // User-Preferred Supplemental Set
+                            // TODO
                             escape_state = state_idle;
                         } else if (buffer[i] == '?' || buffer[i] == ';' || buffer[i] == '>' || buffer[i] == '=' ||
                                    (buffer[i] >= '0' && buffer[i] <= '9')) {
@@ -864,6 +877,7 @@ static void *TerminalWorker(void *) {
                         }
                     }
                 }
+                OH_LOG_INFO(LOG_APP, "Final state: %{public}d", escape_state);
                 pthread_mutex_unlock(&lock);
             }
         }
