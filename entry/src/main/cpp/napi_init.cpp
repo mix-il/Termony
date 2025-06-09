@@ -809,7 +809,7 @@ static void *TerminalWorker(void *) {
                         } else if (buffer[i] == 'h' && escape_buffer.size() > 1 && escape_buffer[0] == '?') {
                             // CSI ? Pm h, DEC Private Mode Set (DECSET)
                             std::vector<std::string> parts = splitString(escape_buffer.substr(1), ";");
-                            for (auto part of parts) {
+                            for (auto part : parts) {
                                 if (part == "1") {
                                     // CSI ? 1 h, Application Cursor Keys (DECCKM)
                                     // TODO
@@ -840,7 +840,7 @@ static void *TerminalWorker(void *) {
                         } else if (buffer[i] == 'l' && escape_buffer.size() > 1 && escape_buffer[0] == '?') {
                             // CSI ? Pm l, DEC Private Mode Reset (DECRST)
                             std::vector<std::string> parts = splitString(escape_buffer.substr(1), ";");
-                            for (auto part of parts) {
+                            for (auto part : parts) {
                                 if (part == "12") {
                                     // CSI ? 12 l, Stop blinking cursor
                                     // TODO
