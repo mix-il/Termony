@@ -17,6 +17,7 @@ Bundled packages:
 - coremark
 - curl
 - fastfetch
+- htop
 - libidn2
 - libunistring
 - lz4
@@ -25,6 +26,7 @@ Bundled packages:
 - ncurses
 - openssh
 - openssl
+- readline
 - sl
 - strace
 - tar
