@@ -21,7 +21,8 @@ PKGS=bash \
 	openssh \
 	ncnn \
 	readline \
-	htop
+	htop \
+	vkpeak
 STAMP=$(patsubst %,%/.stamp,$(PKGS))
 
 all: copy
