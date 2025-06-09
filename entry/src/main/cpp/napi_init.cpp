@@ -602,11 +602,12 @@ static void *Worker(void *) {
                             // erase # characters
                             int temp = 0;
                             sscanf(escape_buffer.c_str(), "%d", &temp);
-                            for (int i = 0;i < temp;i++) {
-                                if (i + col >= term_col) {
-                                    break;
+                            for (int i = col;i < term_col;i++) {
+                                if (i + temp < term_col) {
+                                    terminal[row][i] = terminal[row][i + temp];
+                                } else {
+                                    terminal[row][i] = term_char();
                                 }
-                                terminal[row][i + col] = term_char();
                             }
                             escape_state = 0;
                         } else if (buffer[i] == '?' || buffer[i] == ';' || (buffer[i] >= '0' && buffer[i] <= '9')) {
