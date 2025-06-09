@@ -739,6 +739,10 @@ static void *TerminalWorker(void *) {
                             // make cursor visible
                             show_cursor = true;
                             escape_state = state_idle;
+                        } else if (buffer[i] == 'h' && escape_buffer == "?2004") {
+                            // set bracketed paste mode
+                            // TODO
+                            escape_state = state_idle;
                         } else if (buffer[i] == 'H' && escape_buffer == "") {
                             // move cursor to upper left corner
                             row = col = 0;
@@ -785,6 +789,10 @@ static void *TerminalWorker(void *) {
                             // make cursor invisible
                             show_cursor = false;
                             escape_state = state_idle;
+                        } else if (buffer[i] == 'm' && escape_buffer.size() > 1 && escape_buffer[0] == '>') {
+                            // set/reset key modifier options
+                            // TODO
+                            escape_state = state_idle;
                         } else if (buffer[i] == 'P' && escape_buffer != "") {
                             // erase # characters
                             int temp = 0;
@@ -797,8 +805,9 @@ static void *TerminalWorker(void *) {
                                 }
                             }
                             escape_state = state_idle;
-                        } else if (buffer[i] == '?' || buffer[i] == ';' || (buffer[i] >= '0' && buffer[i] <= '9')) {
-                            // '?', ';' or number
+                        } else if (buffer[i] == '?' || buffer[i] == ';' || buffer[i] == '>' || buffer[i] == '=' ||
+                                   (buffer[i] >= '0' && buffer[i] <= '9')) {
+                            // '?', ';', '>', '=' or number
                             escape_buffer += buffer[i];
                         } else {
                             // unknown
