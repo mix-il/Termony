@@ -57,6 +57,7 @@ static int font_width = 24;
 static int baseline_height = 10;
 static int term_col = 80;
 static int term_row = 24;
+static float scroll_offset = 0;
 
 static napi_value Run(napi_env env, napi_callback_info info) {
     if (fd != -1) {
@@ -223,7 +224,7 @@ static void Draw() {
 
     for (int i = 0; i < terminal.size(); i++) {
         float x = 0.0;
-        float y = height - (i + 1) * font_height;
+        float y = height - (i + 1) * font_height - scroll_offset;
 
         int cur_col = 0;
         for (auto c : terminal[i]) {
@@ -710,6 +711,23 @@ static napi_value ResizeSurface(napi_env env, napi_callback_info info) {
     return nullptr;
 }
 
+static napi_value Scroll(napi_env env, napi_callback_info info) {
+    size_t argc = 1;
+    napi_value args[1] = {nullptr};
+    napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+
+    double offset = 0;
+    assert(napi_get_value_double(env, args[0], &offset) == napi_ok);
+
+    // natural scrolling
+    scroll_offset -= offset;
+    if (scroll_offset < 0) {
+        scroll_offset = 0.0;
+    }
+
+    return nullptr;
+}
+
 static napi_value DestroySurface(napi_env env, napi_callback_info info) { return nullptr; }
 
 EXTERN_C_START
@@ -720,6 +738,7 @@ static napi_value Init(napi_env env, napi_value exports) {
         {"createSurface", nullptr, CreateSurface, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"destroySurface", nullptr, DestroySurface, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"resizeSurface", nullptr, ResizeSurface, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"scroll", nullptr, Scroll, nullptr, nullptr, nullptr, napi_default, nullptr},
     };
     napi_define_properties(env, exports, sizeof(desc) / sizeof(desc[0]), desc);
     return exports;

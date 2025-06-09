@@ -29,6 +29,7 @@ class MyXComponentController extends XComponentController {
 @Component
 struct Index {
   @State leftCtrlPressed: boolean = false;
+  @State touchState: Map<number, number> = new Map();
   scroller: Scroller = new Scroller();
   xComponentController: XComponentController = new MyXComponentController();
 
@@ -43,6 +44,19 @@ struct Index {
       .width('100%')
     }
     .height('100%')
+    .onTouch((event: TouchEvent) => {
+      hilog.info(DOMAIN, 'testTag', 'Got touch: %{public}s', JSON.stringify(event));
+      for (let touch of event.touches) {
+        if (touch.type === TouchType.Down) {
+          this.touchState.set(touch.id, touch.y);
+        } else if (touch.type === TouchType.Move) {
+          let offset = this.touchState.get(touch.id) as number - touch.y;
+          this.touchState.set(touch.id, touch.y);
+          hilog.info(DOMAIN, 'testTag', 'Got touch offset: %{public}d', offset);
+          testNapi.scroll(offset);
+        }
+      }
+    })
     .onKeyEvent((event: KeyEvent) => {
       hilog.info(DOMAIN, 'testTag', 'Got key: %{public}s', JSON.stringify(event));
       if (event.type === KeyType.Down) {
