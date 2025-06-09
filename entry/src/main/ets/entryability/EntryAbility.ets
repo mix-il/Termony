@@ -40,8 +40,8 @@ export default class EntryAbility extends UIAbility {
 
     const atManager: abilityAccessCtrl.AtManager = abilityAccessCtrl.createAtManager();
     atManager.requestPermissionsFromUser(this.context, ['ohos.permission.READ_WRITE_DOCUMENTS_DIRECTORY']).then((data) => {
-    });
-    atManager.requestPermissionsFromUser(this.context, ['ohos.permission.READ_WRITE_DOWNLOAD_DIRECTORY']).then((data) => {
+      atManager.requestPermissionsFromUser(this.context, ['ohos.permission.READ_WRITE_DOWNLOAD_DIRECTORY']).then((data) => {
+      });
     });
   }
 
