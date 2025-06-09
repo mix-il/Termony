@@ -759,7 +759,7 @@ static void *TerminalWorker(void *) {
                                 col--;
                                 clamp_row();
                                 clamp_col();
-                            } else if (parts.size() == 0) {
+                            } else if (escape_buffer == "") {
                                 row = col = 0;
                             }
                             escape_state = state_idle;
