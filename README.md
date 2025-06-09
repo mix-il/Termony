@@ -34,7 +34,7 @@ Bundled packages:
 Usage:
 
 1. Connect your MateBook Pro to Mac, and do the following steps on Mac
-2. Setup code signing in DevEco-Studio
+2. Setup code signing in DevEco-Studio, ignore warnings if any
 3. Run `./create-hnp.sh` to create hnp packages
 4. Run `./build-macos.sh`
 5. Run `./push.sh ./entry/build/default/outputs/default/entry-default-signed.hap`
