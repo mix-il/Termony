@@ -143,12 +143,26 @@ struct ivec2 {
 };
 
 struct character {
-    unsigned int textureID; // ID handle of the glyph texture
+    // location within the large texture
+    float left;
+    float right;
+    float top;
+    float bottom;
 };
 
 std::map<char, std::array<struct character, NUM_WEIGHT>> characters;
+// id of texture for glyphs
+static GLuint texture_id;
 
 // load font
+// texture contains all glyphs of all weights:
+// each glyph: font_width * font_height
+//    0.0   1/128                1.0
+// 0.0 +------+------+     +------+
+//     | 0x00 | 0x01 | ... | 0x7f | regular
+// 0.5 +------+------+     +------+
+//     | 0x00 | 0x01 | ... | 0x7f | bold
+// 1.0 +------+------+     +------+
 static void LoadFont() {
     FT_Library ft;
     assert(FT_Init_FreeType(&ft) == 0);
@@ -158,8 +172,13 @@ static void LoadFont() {
         {"/data/storage/el2/base/haps/entry/files/Inconsolata-Bold.ttf", weight::bold},
     };
 
-    // disable byte-alignment restriction
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    // save glyph for all characters of all weights
+    // only one channel
+    std::vector<uint8_t> bitmap;
+    int max_char = 128;
+    int row_stride = font_width * max_char;
+    int weight_stride = font_width * font_height * max_char;
+    bitmap.resize(font_width * font_height * max_char * NUM_WEIGHT);
 
     for (auto pair : fonts) {
         const char *font = pair.first;
@@ -169,47 +188,47 @@ static void LoadFont() {
         assert(FT_New_Face(ft, font, 0, &face) == 0);
         FT_Set_Pixel_Sizes(face, 0, font_height);
 
-        for (unsigned char c = 0; c < 128; c++) {
+        for (unsigned char c = 0; c < max_char; c++) {
             // load character glyph
             if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
                 continue;
             }
 
-            // convert to bitmap of font_width * font_height
-            std::vector<uint8_t> bitmap;
-            bitmap.resize(font_width * font_height);
             OH_LOG_INFO(LOG_APP,
-                        "Font: %{public}d %{public}d Glyph: %{public}d %{public}d Left: %{public}d Top: %{public}d "
+                        "Char: %{public}c Size: %{public}d %{public}d Glyph: %{public}d %{public}d Left: %{public}d "
+                        "Top: %{public}d "
                         "Advance: %{public}ld",
-                        font_width, font_height, face->glyph->bitmap.width, face->glyph->bitmap.rows,
+                        c, font_width, font_height, face->glyph->bitmap.width, face->glyph->bitmap.rows,
                         face->glyph->bitmap_left, face->glyph->bitmap_top, face->glyph->advance.x);
+
+            // copy to bitmap font_width * font_height
             for (int i = 0; i < face->glyph->bitmap.rows; i++) {
                 for (int j = 0; j < face->glyph->bitmap.width; j++) {
-                    // origin is (font_height - baseline_height, 0)
-                    // (0, 0) becomes (font_height - baseline_height - bitmap_top, bitmap_left)
+                    // compute offset within a glyph
+                    // x goes rightward, y goes downward:
+                    // set (0, 0) to origin,
+                    // then the top left corner of glyph is at (-bitmap_top, bitmap_left)
+                    // now move origin to (font_height - baseline_height, 0)
+                    // top left corner becomes (font_height - baseline_height - bitmap_top, bitmap_left)
                     int xoff = font_height - baseline_height - face->glyph->bitmap_top;
                     int yoff = face->glyph->bitmap_left;
                     assert(i + xoff >= 0 && i + xoff < font_height);
                     assert(j + yoff >= 0 && j + yoff < font_width);
-                    bitmap[(i + xoff) * font_width + (j + yoff)] =
+
+                    // compute offset in the large texture
+                    int off = weight * weight_stride + c * font_width;
+                    bitmap[(i + xoff) * row_stride + (j + yoff) + off] =
                         face->glyph->bitmap.buffer[i * face->glyph->bitmap.width + j];
                 }
             }
 
-            // generate texture
-            unsigned int texture;
-            glGenTextures(1, &texture);
-            glBindTexture(GL_TEXTURE_2D, texture);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, font_width, font_height, 0, GL_RED, GL_UNSIGNED_BYTE, bitmap.data());
-
-            // set texture options
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-            // now store character for later use
-            character character = {texture};
+            // compute location within the texture
+            character character = {
+                .left = (float)c / max_char,
+                .right = (float)(c + 1) / max_char,
+                .top = (float)weight / NUM_WEIGHT,
+                .bottom = (float)(weight + 1) / NUM_WEIGHT,
+            };
             characters[c][weight] = character;
         }
 
@@ -217,6 +236,21 @@ static void LoadFont() {
     }
 
     FT_Done_FreeType(ft);
+
+    // disable byte-alignment restriction
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    // generate texture
+    glGenTextures(1, &texture_id);
+    glBindTexture(GL_TEXTURE_2D, texture_id);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, row_stride, font_height * NUM_WEIGHT, 0, GL_RED, GL_UNSIGNED_BYTE,
+                 bitmap.data());
+
+    // set texture options
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 }
 
 static EGLDisplay egl_display;
@@ -233,6 +267,7 @@ static void Draw() {
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(vertex_array);
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
+    glBindTexture(GL_TEXTURE_2D, texture_id);
     glViewport(0, 0, width, height);
 
     int max_lines = height / font_height + 1;
@@ -268,10 +303,19 @@ static void Draw() {
             float w = font_width;
             float h = font_height;
 
-            GLfloat g_vertex_buffer_data[24] = {xpos,     ypos + h, 0.0f, 0.0f, xpos,     ypos,     0.0f, 1.0f,
-                                                xpos + w, ypos,     1.0f, 1.0f, xpos,     ypos + h, 0.0f, 0.0f,
-                                                xpos + w, ypos,     1.0f, 1.0f, xpos + w, ypos + h, 1.0f, 0.0f};
-            glBindTexture(GL_TEXTURE_2D, ch.textureID);
+            // 1-2
+            // | |
+            // 3-4
+            // (xpos    , ypos + h): 1
+            // (xpos + w, ypos + h): 2
+            // (xpos    , ypos    ): 3
+            // (xpos + w, ypos    ): 4
+            GLfloat g_vertex_buffer_data[24] = {// first triangle: 1->3->4
+                                                xpos, ypos + h, ch.left, ch.top, xpos, ypos, ch.left, ch.bottom,
+                                                xpos + w, ypos, ch.right, ch.bottom,
+                                                // second triangle: 1->4->2
+                                                xpos, ypos + h, ch.left, ch.top, xpos + w, ypos, ch.right, ch.bottom,
+                                                xpos + w, ypos + h, ch.right, ch.top};
             glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(g_vertex_buffer_data), g_vertex_buffer_data);
             glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -645,6 +689,7 @@ static void *Worker(void *) {
         uint64_t now_msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
         if (now_msec - msec > 16) {
             Draw();
+            msec = now_msec;
         }
     }
 }
