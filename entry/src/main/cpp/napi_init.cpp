@@ -418,6 +418,8 @@ static void DropFirstRowIfOverflow() {
     (temp = 0, (escape_buffer != "" ? sscanf(escape_buffer.c_str(), "%d", &temp) : temp = (def)), temp)
 
 static void *Worker(void *) {
+    pthread_setname_np(pthread_self(), "render worker");
+
     int temp = 0;
     eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context);
 
@@ -552,6 +554,7 @@ static void *Worker(void *) {
     uint64_t last_redraw_msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
     uint64_t last_fps_msec = last_redraw_msec;
     int fps = 0;
+    std::vector<uint64_t> time;
     while (1) {
         struct timeval tv;
         gettimeofday(&tv, nullptr);
@@ -561,10 +564,11 @@ static void *Worker(void *) {
         fds[0].fd = fd;
         fds[0].events = POLLIN;
         int timeout = now_msec - last_redraw_msec;
-        if (timeout > 16) {
-            timeout = 16;
+        // 120 Hz, 8ms
+        if (timeout > 8) {
+            timeout = 8;
         }
-        int res = poll(fds, 1, timeout); // 16ms
+        int res = poll(fds, 1, timeout);
 
         uint8_t buffer[1024];
         if (res > 0) {
@@ -787,14 +791,24 @@ static void *Worker(void *) {
         if (now_msec - last_redraw_msec > 16) {
             last_redraw_msec = now_msec;
             Draw();
+
+            gettimeofday(&tv, nullptr);
+            uint64_t msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+            time.push_back(msec - now_msec);
+
             fps++;
         }
 
         // report fps
         if (now_msec - last_fps_msec > 1000) {
             last_fps_msec = now_msec;
-            OH_LOG_INFO(LOG_APP, "FPS: %{public}d", fps);
+            uint64_t sum = 0;
+            for (auto t : time) {
+                sum += t;
+            }
+            OH_LOG_INFO(LOG_APP, "FPS: %{public}d, %{public}d ms per draw", fps, sum / fps);
             fps = 0;
+            time.clear();
         }
     }
 }

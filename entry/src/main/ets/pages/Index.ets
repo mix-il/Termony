@@ -45,14 +45,15 @@ struct Index {
     }
     .height('100%')
     .onTouch((event: TouchEvent) => {
-      hilog.info(DOMAIN, 'testTag', 'Got touch: %{public}s', JSON.stringify(event));
+      // hilog.info(DOMAIN, 'testTag', 'Got touch: %{public}s', JSON.stringify(event));
       for (let touch of event.touches) {
         if (touch.type === TouchType.Down) {
           this.touchState.set(touch.id, touch.y);
         } else if (touch.type === TouchType.Move) {
-          let offset = this.touchState.get(touch.id) as number - touch.y;
+          // we use pixels, convert from vp to px
+          let offset = vp2px(this.touchState.get(touch.id) as number - touch.y);
           this.touchState.set(touch.id, touch.y);
-          hilog.info(DOMAIN, 'testTag', 'Got touch offset: %{public}d', offset);
+          // hilog.info(DOMAIN, 'testTag', 'Got touch offset: %{public}d', offset);
           testNapi.scroll(offset);
         }
       }
