@@ -1,0 +1,28 @@
+--- a/linux/LinuxMachine.c	2025-06-10 01:17:40
++++ b/linux/LinuxMachine.c	2025-06-10 01:18:40
+@@ -406,7 +406,7 @@
+ 
+    FILE* file = fopen(PROCSTATFILE, "r");
+    if (!file)
+-      CRT_fatalError("Cannot open " PROCSTATFILE);
++      return;
+ 
+    // Add an extra phantom thread for a later loop
+    bool adjCpuIdProcessed[super->existingCPUs+2];
+@@ -765,7 +765,7 @@
+    // Read btime (the kernel boot time, as number of seconds since the epoch)
+    FILE* statfile = fopen(PROCSTATFILE, "r");
+    if (statfile == NULL)
+-      CRT_fatalError("Cannot open " PROCSTATFILE);
++      goto next;
+ 
+    this->boottime = -1;
+ 
+@@ -784,6 +784,7 @@
+    if (this->boottime == -1)
+       CRT_fatalError("No btime in " PROCSTATFILE);
+ 
++next:
+    // Initialize CPU count
+    LinuxMachine_updateCPUcount(this);
+ 
