@@ -873,6 +873,11 @@ static void *TerminalWorker(void *) {
                                 } else if (part == "1" || part == "01") {
                                     // set bold
                                     current_style.weight = weight::bold;
+                                } else if (part == "7") {
+                                    // inverse
+                                    std::swap(current_style.fg_red, current_style.bg_red);
+                                    std::swap(current_style.fg_green, current_style.bg_green);
+                                    std::swap(current_style.fg_blue, current_style.bg_blue);
                                 } else if (part == "10") {
                                     // reset to primary font
                                     current_style = style();
