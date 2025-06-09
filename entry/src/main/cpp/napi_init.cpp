@@ -429,16 +429,38 @@ static void *Worker(void *) {
                                 row++;
                             }
                             escape_state = 0;
-                        } else if (buffer[i] == 'C') {
+                        } else if (buffer[i] == 'C' && escape_buffer == "") {
                             // cursor right
                             if (col < term_col - 1) {
                                 col++;
+                            }
+                            escape_state = 0;
+                        } else if (buffer[i] == 'C' && escape_buffer != "") {
+                            // move cursor right # columns
+                            int temp;
+                            sscanf(escape_buffer.c_str(), "%d", &temp);
+                            col += temp;
+                            if (col < 0) {
+                                col = 0;
+                            } else if (col > term_col - 1) {
+                                col = term_col - 1;
                             }
                             escape_state = 0;
                         } else if (buffer[i] == 'D') {
                             // cursor left
                             if (col > 0) {
                                 col--;
+                            }
+                            escape_state = 0;
+                        } else if (buffer[i] == 'G' && escape_buffer != "") {
+                            // move cursor to column #
+                            sscanf(escape_buffer.c_str(), "%d", &col);
+                            // convert from 1-based to 0-based
+                            col--;
+                            if (col < 0) {
+                                col = 0;
+                            } else if (col > term_col - 1) {
+                                col = term_col - 1;
                             }
                             escape_state = 0;
                         } else if (buffer[i] == 'h' && escape_buffer == "?25") {
