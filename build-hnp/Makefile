@@ -22,7 +22,8 @@ PKGS=bash \
 	ncnn \
 	readline \
 	htop \
-	vkpeak
+	vkpeak \
+	kbd
 STAMP=$(patsubst %,%/.stamp,$(PKGS))
 
 all: copy

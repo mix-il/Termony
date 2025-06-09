@@ -1,5 +1,3 @@
-
-
 all: download/htop-3.4.1.tar.xz
 	rm -rf temp build
 	mkdir -p temp build/bin

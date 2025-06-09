@@ -18,6 +18,7 @@ Bundled packages:
 - curl
 - fastfetch
 - htop
+- kbd
 - libidn2
 - libunistring
 - lz4
