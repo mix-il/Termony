@@ -870,7 +870,7 @@ static void *TerminalWorker(void *) {
                                 if (part == "0") {
                                     // reset all attributes to their defaults
                                     current_style = style();
-                                } else if (part == "1") {
+                                } else if (part == "1" || part == "01") {
                                     // set bold
                                     current_style.weight = weight::bold;
                                 } else if (part == "10") {
