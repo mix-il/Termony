@@ -53,8 +53,6 @@ static int width = 0;
 static int height = 0;
 static bool show_cursor = true;
 static GLint surface_location = -1;
-static GLint text_color_location = -1;
-static GLint background_color_location = -1;
 static int font_height = 48;
 static int font_width = 24;
 static int baseline_height = 10;
@@ -258,17 +256,29 @@ static EGLSurface egl_surface;
 static EGLContext egl_context;
 static GLuint program_id;
 static GLuint vertex_array;
+// vec4 vertex
 static GLuint vertex_buffer;
+// vec3 textColor
+static GLuint text_color_buffer;
+// vec3 backGroundColor
+static GLuint background_color_buffer;
 
 static void Draw() {
+    // clear buffer
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // update surface size
     glUniform2f(surface_location, width, height);
-    glActiveTexture(GL_TEXTURE0);
-    glBindVertexArray(vertex_array);
-    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
-    glBindTexture(GL_TEXTURE_2D, texture_id);
     glViewport(0, 0, width, height);
+
+    // set texture
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture_id);
+
+    // bind our vertex array
+    glBindVertexArray(vertex_array);
+
 
     int max_lines = height / font_height + 1;
     for (int i = -1; i < max_lines; i++) {
@@ -288,15 +298,6 @@ static void Draw() {
 
         int cur_col = 0;
         for (auto c : ch) {
-            if (i_row == row && cur_col == col && show_cursor) {
-                // cursor
-                glUniform3f(text_color_location, 1.0 - c.style.red, 1.0 - c.style.green, 1.0 - c.style.blue);
-                glUniform3f(background_color_location, 0.0, 0.0, 0.0);
-            } else {
-                glUniform3f(text_color_location, c.style.red, c.style.green, c.style.blue);
-                glUniform3f(background_color_location, 1.0, 1.0, 1.0);
-            }
-
             character ch = characters[c.ch][c.style.weight];
             float xpos = x;
             float ypos = y;
@@ -316,7 +317,37 @@ static void Draw() {
                                                 // second triangle: 1->4->2
                                                 xpos, ypos + h, ch.left, ch.top, xpos + w, ypos, ch.right, ch.bottom,
                                                 xpos + w, ypos + h, ch.right, ch.top};
+            glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
             glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(g_vertex_buffer_data), g_vertex_buffer_data);
+
+            GLfloat g_text_color_buffer_data[18];
+            GLfloat g_background_color_buffer_data[18];
+
+            if (i_row == row && cur_col == col && show_cursor) {
+                // cursor
+                for (int i = 0; i < 6; i++) {
+                    g_text_color_buffer_data[i * 3 + 0] = 1.0 - c.style.red;
+                    g_text_color_buffer_data[i * 3 + 1] = 1.0 - c.style.green;
+                    g_text_color_buffer_data[i * 3 + 2] = 1.0 - c.style.blue;
+                    g_background_color_buffer_data[i * 3 + 0] = 0.0;
+                    g_background_color_buffer_data[i * 3 + 1] = 0.0;
+                    g_background_color_buffer_data[i * 3 + 2] = 0.0;
+                }
+            } else {
+                for (int i = 0; i < 6; i++) {
+                    g_text_color_buffer_data[i * 3 + 0] = c.style.red;
+                    g_text_color_buffer_data[i * 3 + 1] = c.style.green;
+                    g_text_color_buffer_data[i * 3 + 2] = c.style.blue;
+                    g_background_color_buffer_data[i * 3 + 0] = 1.0;
+                    g_background_color_buffer_data[i * 3 + 1] = 1.0;
+                    g_background_color_buffer_data[i * 3 + 2] = 1.0;
+                }
+            }
+
+            glBindBuffer(GL_ARRAY_BUFFER, text_color_buffer);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(g_text_color_buffer_data), g_text_color_buffer_data);
+            glBindBuffer(GL_ARRAY_BUFFER, background_color_buffer);
+            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(g_background_color_buffer_data), g_background_color_buffer_data);
             glDrawArrays(GL_TRIANGLES, 0, 6);
 
             x += font_width;
@@ -376,7 +407,11 @@ static void *Worker(void *) {
     char const *vertex_source = "#version 320 es\n"
                                 "\n"
                                 "in vec4 vertex;\n"
+                                "in vec3 textColor;\n"
+                                "in vec3 backgroundColor;\n"
                                 "out vec2 texCoords;\n"
+                                "out vec3 outTextColor;\n"
+                                "out vec3 outBackgroundColor;\n"
                                 "uniform vec2 surface;\n"
                                 "void main() {\n"
                                 "  gl_Position.x = vertex.x / surface.x * 2.0f - 1.0f;\n"
@@ -384,6 +419,8 @@ static void *Worker(void *) {
                                 "  gl_Position.z = 0.0;\n"
                                 "  gl_Position.w = 1.0;\n"
                                 "  texCoords = vertex.zw;\n"
+                                "  outTextColor = textColor;\n"
+                                "  outBackgroundColor = backgroundColor;\n"
                                 "}";
     glShaderSource(vertex_shader_id, 1, &vertex_source, NULL);
     glCompileShader(vertex_shader_id);
@@ -401,13 +438,13 @@ static void *Worker(void *) {
                                   "\n"
                                   "precision lowp float;\n"
                                   "in vec2 texCoords;\n"
+                                  "in vec3 outTextColor;\n"
+                                  "in vec3 outBackgroundColor;\n"
                                   "out vec4 color;\n"
                                   "uniform sampler2D text;\n"
-                                  "uniform vec3 textColor;\n"
-                                  "uniform vec3 backgroundColor;\n"
                                   "void main() {\n"
                                   "  float alpha = texture(text, texCoords).r;\n"
-                                  "  color = vec4(textColor * alpha + backgroundColor * (1.0 - alpha), 1.0);\n"
+                                  "  color = vec4(outTextColor * alpha + outBackgroundColor * (1.0 - alpha), 1.0);\n"
                                   "}";
     glShaderSource(fragment_shader_id, 1, &fragment_source, NULL);
     glCompileShader(fragment_shader_id);
@@ -424,12 +461,15 @@ static void *Worker(void *) {
     glAttachShader(program_id, fragment_shader_id);
     glLinkProgram(program_id);
 
+    glGetProgramiv(program_id, GL_INFO_LOG_LENGTH, &info_log_length);
+    if (info_log_length > 0) {
+        std::vector<char> link_program_error_message(info_log_length + 1);
+        glGetProgramInfoLog(program_id, info_log_length, NULL, &link_program_error_message[0]);
+        OH_LOG_INFO(LOG_APP, "Failed to link program: %{public}s", &link_program_error_message[0]);
+    }
+
     surface_location = glGetUniformLocation(program_id, "surface");
     assert(surface_location != -1);
-    text_color_location = glGetUniformLocation(program_id, "textColor");
-    assert(text_color_location != -1);
-    background_color_location = glGetUniformLocation(program_id, "backgroundColor");
-    assert(background_color_location != -1);
 
     glUseProgram(program_id);
     glEnable(GL_BLEND);
@@ -442,6 +482,7 @@ static void *Worker(void *) {
     glGenVertexArrays(1, &vertex_array);
     glBindVertexArray(vertex_array);
 
+    // vec4 vertex
     glGenBuffers(1, &vertex_buffer);
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
@@ -455,6 +496,37 @@ static void *Worker(void *) {
                           4 * sizeof(float), // stride
                           (void *)0          // array buffer offset
     );
+
+    // vec3 textColor
+    glGenBuffers(1, &text_color_buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, text_color_buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 3, NULL, GL_DYNAMIC_DRAW);
+    GLint text_color_location = glGetAttribLocation(program_id, "textColor");
+    assert(text_color_location != -1);
+    glEnableVertexAttribArray(text_color_location);
+    glVertexAttribPointer(text_color_location, // attribute 0
+                          3,                   // size
+                          GL_FLOAT,            // type
+                          GL_FALSE,            // normalized?
+                          3 * sizeof(float),   // stride
+                          (void *)0            // array buffer offset
+    );
+
+    // vec3 backgroundColor
+    glGenBuffers(1, &background_color_buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, background_color_buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 3, NULL, GL_DYNAMIC_DRAW);
+    GLint background_color_location = glGetAttribLocation(program_id, "backgroundColor");
+    assert(background_color_location != -1);
+    glEnableVertexAttribArray(background_color_location);
+    glVertexAttribPointer(background_color_location, // attribute 0
+                          3,                         // size
+                          GL_FLOAT,                  // type
+                          GL_FALSE,                  // normalized?
+                          3 * sizeof(float),         // stride
+                          (void *)0                  // array buffer offset
+    );
+
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
