@@ -26,6 +26,7 @@
 // https://vt100.net/docs/vt220-rm/chapter4.html
 // https://espterm.github.io/docs/VT100%20escape%20codes.html
 // https://ecma-international.org/wp-content/uploads/ECMA-48_5th_edition_june_1991.pdf
+// https://xtermjs.org/docs/api/vtfeatures/
 
 static int fd = -1;
 
@@ -995,6 +996,20 @@ static void *TerminalWorker(void *) {
                             int len = strlen(send_buffer);
                             int res = write(fd, send_buffer, len);
                             assert(res == len);
+                            escape_state = state_idle;
+                        } else if (buffer[i] == '@' &&
+                                   ((escape_buffer.size() > 1 && escape_buffer[escape_buffer.size() - 1] >= '0' &&
+                                     escape_buffer[escape_buffer.size() - 1] <= '0') ||
+                                    escape_buffer == "")) {
+                            // CSI Ps @, ICH, Insert Ps (Blank) Character(s)
+                            int count = read_int_or_default(1);
+                            for (int i = term_col - 1; i >= col; i--) {
+                                if (i - col < count) {
+                                    terminal[row][col].ch = ' ';
+                                } else {
+                                    terminal[row][col] = terminal[row][col - count];
+                                }
+                            }
                             escape_state = state_idle;
                         } else if (buffer[i] == '?' || buffer[i] == ';' || buffer[i] == '>' || buffer[i] == '=' ||
                                    (buffer[i] >= '0' && buffer[i] <= '9')) {
