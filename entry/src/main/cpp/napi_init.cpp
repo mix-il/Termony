@@ -21,6 +21,11 @@
 #undef LOG_TAG
 #define LOG_TAG "testTag"
 
+// docs for escape codes:
+// https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
+// https://vt100.net/docs/vt220-rm/chapter4.html
+// https://espterm.github.io/docs/VT100%20escape%20codes.html
+
 static int fd = -1;
 
 enum weight {
@@ -705,46 +710,46 @@ static void *TerminalWorker(void *) {
                             }
                             escape_state = state_idle;
                         } else if (buffer[i] == 'A') {
-                            // CSI Ps A, move cursor up # lines
+                            // CSI Ps A, CUU, move cursor up # lines
                             row -= read_int_or_default(1);
                             clamp_row();
                             escape_state = state_idle;
                         } else if (buffer[i] == 'B') {
-                            // CSI Ps B, move cursor down # lines
+                            // CSI Ps B, CUD, move cursor down # lines
                             row += read_int_or_default(1);
                             clamp_row();
                             escape_state = state_idle;
                         } else if (buffer[i] == 'C') {
-                            // CSI Ps C, move cursor right # columns
+                            // CSI Ps C, CUF, move cursor right # columns
                             col += read_int_or_default(1);
                             clamp_col();
                             escape_state = state_idle;
                         } else if (buffer[i] == 'D') {
-                            // CSI Ps D, move cursor left # columns
+                            // CSI Ps D, CUB, move cursor left # columns
                             col -= read_int_or_default(1);
                             clamp_col();
                             escape_state = state_idle;
                         } else if (buffer[i] == 'E') {
-                            // CSI Ps E, move cursor to the beginning of next line, down # lines
+                            // CSI Ps E, CNL, move cursor to the beginning of next line, down # lines
                             row += read_int_or_default(1);
                             clamp_row();
                             col = 0;
                             escape_state = state_idle;
                         } else if (buffer[i] == 'F') {
-                            // CSI Ps F, move cursor to the beginning of previous line, up # lines
+                            // CSI Ps F, CPL, move cursor to the beginning of previous line, up # lines
                             row -= read_int_or_default(1);
                             clamp_row();
                             col = 0;
                             escape_state = state_idle;
                         } else if (buffer[i] == 'G') {
-                            // CSI Ps G, move cursor to column #
+                            // CSI Ps G, CHA, move cursor to column #
                             col = read_int_or_default(1);
                             // convert from 1-based to 0-based
                             col--;
                             clamp_col();
                             escape_state = state_idle;
                         } else if (buffer[i] == 'H') {
-                            // CSI Ps ; PS H, move cursor to x, y, default to upper left corner
+                            // CSI Ps ; PS H, CUP, move cursor to x, y, default to upper left corner
                             std::vector<std::string> parts = splitString(escape_buffer, ";");
                             if (parts.size() == 2) {
                                 sscanf(parts[0].c_str(), "%d", &row);
@@ -759,7 +764,7 @@ static void *TerminalWorker(void *) {
                             }
                             escape_state = state_idle;
                         } else if (buffer[i] == 'J') {
-                            // CSI Ps J, erase in display
+                            // CSI Ps J, ED, erase in display
                             if (escape_buffer == "" || escape_buffer == "0") {
                                 // erase below
                                 for (int i = col; i < term_col; i++) {
@@ -784,7 +789,7 @@ static void *TerminalWorker(void *) {
                             }
                             escape_state = state_idle;
                         } else if (buffer[i] == 'K') {
-                            // CSI Ps K, erase in line
+                            // CSI Ps K, EL, erase in line
                             if (escape_buffer == "" || escape_buffer == "0") {
                                 // erase to right
                                 for (int i = col; i < term_col; i++) {
@@ -793,16 +798,12 @@ static void *TerminalWorker(void *) {
                             } else if (escape_buffer == "1") {
                                 // erase to left
                                 for (int i = 0; i <= col; i++) {
-                                    if (i + col + 1 < term_col) {
-                                        terminal[row][i] = terminal[row][i + col + 1];
-                                    } else {
-                                        terminal[row][i] = term_char();
-                                    }
+                                    terminal[row][i] = term_char();
                                 }
                             }
                             escape_state = state_idle;
                         } else if (buffer[i] == 'P' && escape_buffer != "") {
-                            // CSI Ps P, erase # characters
+                            // CSI Ps P, DCH, delete # characters, move right to left
                             int temp = 0;
                             sscanf(escape_buffer.c_str(), "%d", &temp);
                             for (int i = col; i < term_col; i++) {
@@ -813,15 +814,23 @@ static void *TerminalWorker(void *) {
                                 }
                             }
                             escape_state = state_idle;
+                        } else if (buffer[i] == 'X' && escape_buffer != "") {
+                            // CSI Ps X, ECH, erase # characters, do not move others
+                            int temp = 0;
+                            sscanf(escape_buffer.c_str(), "%d", &temp);
+                            for (int i = col; i < col + temp && i < term_col; i++) {
+                                terminal[row][i] = term_char();
+                            }
+                            escape_state = state_idle;
                         } else if (buffer[i] == 'd' && escape_buffer != "") {
-                            // CSI Ps d, move cursor to row #
+                            // CSI Ps d, VPA, move cursor to row #
                             sscanf(escape_buffer.c_str(), "%d", &row);
                             // convert from 1-based to 0-based
                             row--;
                             clamp_row();
                             escape_state = state_idle;
                         } else if (buffer[i] == 'h' && escape_buffer == "?25") {
-                            // CSI ? 25 h, make cursor visible
+                            // CSI ? 25 h, DECTCEM, make cursor visible
                             show_cursor = true;
                             escape_state = state_idle;
                         } else if (buffer[i] == 'h' && escape_buffer == "?2004") {
@@ -829,7 +838,7 @@ static void *TerminalWorker(void *) {
                             // TODO
                             escape_state = state_idle;
                         } else if (buffer[i] == 'l' && escape_buffer == "?25") {
-                            // CSI ? 25 l, make cursor invisible
+                            // CSI ? 25 l, DECTCEM, make cursor invisible
                             show_cursor = false;
                             escape_state = state_idle;
                         } else if (buffer[i] == 'l' && escape_buffer == "?2004") {
@@ -837,7 +846,7 @@ static void *TerminalWorker(void *) {
                             // TODO
                             escape_state = state_idle;
                         } else if (buffer[i] == 'm' && escape_buffer.size() > 1 && escape_buffer[0] == '>') {
-                            // CSI ? Pp m, set/reset key modifier options
+                            // CSI ? Pp m, XTQMODKEYS, set/reset key modifier options
                             // TODO
                             escape_state = state_idle;
                         } else if (buffer[i] == '?' || buffer[i] == ';' || buffer[i] == '>' || buffer[i] == '=' ||
