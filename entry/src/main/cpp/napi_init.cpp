@@ -588,6 +588,19 @@ static void *Worker(void *) {
                             if (col > 0) {
                                 col -= 1;
                             }
+                        } else if (buffer[i] == '\t') {
+                            col = (col + 8) / 8 * 8;
+                            if (col >= term_col) {
+                                col = 0;
+                                row++;
+                                if (row == term_row) {
+                                    // drop first line
+                                    terminal.erase(terminal.begin());
+                                    terminal.resize(term_row);
+                                    terminal[term_row - 1].resize(term_col);
+                                    row--;
+                                }
+                            }
                         } else if (buffer[i] == 0x1b) {
                             escape_buffer = "";
                             escape_state = 1;

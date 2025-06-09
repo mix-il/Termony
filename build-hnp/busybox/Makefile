@@ -21,6 +21,7 @@ all: download/busybox-1.37.0.tar.bz2
 	cd build/busybox-1.37.0 && /usr/bin/sed -i.bak "s/setgid(rgid)/\\/\\//" libbb/appletlib.c
 	cd build/busybox-1.37.0 && /usr/bin/sed -i.bak "s/setuid(ruid)/\\/\\//" libbb/appletlib.c
 	cd build/busybox-1.37.0 && make -j $(shell proc) CC=/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/native/llvm/bin/aarch64-unknown-linux-ohos-clang AR=/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/native/llvm/bin/llvm-ar CFLAGS="-Wno-int-conversion" busybox_unstripped
+	/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/native/llvm/bin/llvm-strip build/busybox-1.37.0/busybox_unstripped
 	mkdir -p ../sysroot/bin
 	cp -v build/busybox-1.37.0/busybox_unstripped ../sysroot/bin/busybox
 
