@@ -62,6 +62,7 @@ enum escape_states {
     state_esc,
     state_csi,
     state_osc,
+    state_dcs,
 };
 static escape_states escape_state = state_idle;
 static std::string escape_buffer;
@@ -669,9 +670,13 @@ static void *TerminalWorker(void *) {
                             // ESC >, exit alternate keypad mode
                             // TODO
                             escape_state = state_idle;
+                        } else if (buffer[i] == 'P') {
+                            // ESC P = DCS
+                            // TODO
+                            escape_state = state_dcs;
                         } else {
                             // unknown
-                            OH_LOG_INFO(LOG_APP, "Unknown escape sequence: %{public}s %{public}c",
+                            OH_LOG_INFO(LOG_APP, "Unknown escape sequence after ESC: %{public}s %{public}c",
                                         escape_buffer.c_str(), buffer[i]);
                             escape_state = state_idle;
                         }
@@ -912,9 +917,15 @@ static void *TerminalWorker(void *) {
                             // CSI > Pp m, XTQMODKEYS, set/reset key modifier options
                             // TODO
                             escape_state = state_idle;
-                        } else if (buffer[i] == 'n') {
+                        } else if (buffer[i] == 'n' && escape_buffer == "6") {
                             // CSI Ps n, DSR, Device Status Report
-                            // TODO
+                            // Ps = 6: Report Cursor Position (CPR)
+                            // send ESC [ row ; col R
+                            char send_buffer[128] = {};
+                            snprintf(send_buffer, sizeof(send_buffer), "\x1b[%d;%dR", row + 1, col + 1);
+                            int len = strlen(send_buffer);
+                            int res = write(fd, send_buffer, len);
+                            assert(res == len);
                             escape_state = state_idle;
                         } else if (buffer[i] == '?' || buffer[i] == ';' || buffer[i] == '>' || buffer[i] == '=' ||
                                    (buffer[i] >= '0' && buffer[i] <= '9')) {
@@ -922,7 +933,7 @@ static void *TerminalWorker(void *) {
                             escape_buffer += buffer[i];
                         } else {
                             // unknown
-                            OH_LOG_INFO(LOG_APP, "Unknown escape sequence: %{public}s %{public}c",
+                            OH_LOG_INFO(LOG_APP, "Unknown escape sequence in CSI: %{public}s %{public}c",
                                         escape_buffer.c_str(), buffer[i]);
                             escape_state = state_idle;
                         }
@@ -940,7 +951,21 @@ static void *TerminalWorker(void *) {
                             escape_buffer += buffer[i];
                         } else {
                             // unknown
-                            OH_LOG_INFO(LOG_APP, "Unknown escape sequence: %{public}s %{public}c",
+                            OH_LOG_INFO(LOG_APP, "Unknown escape sequence in OSC: %{public}s %{public}c",
+                                        escape_buffer.c_str(), buffer[i]);
+                            escape_state = state_idle;
+                        }
+                    } else if (escape_state == state_dcs) {
+                        if (i + 1 < r && buffer[i] == '\x1b' && buffer[i] == '\\') {
+                            // ST is ESC \
+                            i += 1;
+                            escape_state = state_idle;
+                        } else if (buffer[i] >= ' ' && buffer[i] < 127) {
+                            // printable character
+                            escape_buffer += buffer[i];
+                        } else {
+                            // unknown
+                            OH_LOG_INFO(LOG_APP, "Unknown escape sequence in DCS: %{public}s %{public}c",
                                         escape_buffer.c_str(), buffer[i]);
                             escape_state = state_idle;
                         }
