@@ -286,7 +286,7 @@ static void Draw() {
     // bind our vertex array
     glBindVertexArray(vertex_array);
 
-    int max_lines = height / font_height + 1;
+    int max_lines = height / font_height;
     // vec4 vertex
     static std::vector<GLfloat> vertex_data;
     // vec3 textColor
@@ -301,10 +301,16 @@ static void Draw() {
     background_color_data.clear();
     background_color_data.reserve(row * col * 18);
 
+    // ensure at least one line shown, for very large scroll_offset
+    int scroll_rows = scroll_offset / font_height;
+    if ((int)history.size() + max_lines - 1 - scroll_rows < 0) {
+        scroll_offset = ((int)history.size() + max_lines - 1) * font_height;
+        scroll_rows = scroll_offset / font_height;
+    }
+
     for (int i = 0; i < max_lines; i++) {
         // (height - font_height) is terminal[0] when scroll_offset is zero
         float x = 0.0;
-        int scroll_rows = scroll_offset / font_height;
         float y = height - (i + 1) * font_height;
         int i_row = i - scroll_rows;
         std::vector<term_char> ch;
