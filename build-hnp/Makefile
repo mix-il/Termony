@@ -16,7 +16,8 @@ PKGS=bash \
 	c-ares \
 	curl \
 	yyjson \
-	fastfetch
+	fastfetch \
+	sl
 STAMP=$(patsubst %,%/.stamp,$(PKGS))
 
 all: copy

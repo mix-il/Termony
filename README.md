@@ -23,6 +23,7 @@ Bundled packages:
 - make
 - ncurses
 - openssl
+- sl
 - strace
 - tar
 - tree
