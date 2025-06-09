@@ -978,7 +978,7 @@ static void *TerminalWorker(void *) {
                             }
                             escape_state = state_idle;
                         } else if (buffer[i] == 'm' && escape_buffer.size() > 1 && escape_buffer[0] == '>') {
-                            // CSI > Pp m, XTQMODKEYS, set/reset key modifier options
+                            // CSI > Pp m, XTMODKEYS, set/reset key modifier options
                             // TODO
                             escape_state = state_idle;
                         } else if (buffer[i] == 'n' && escape_buffer == "6") {
