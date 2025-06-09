@@ -889,6 +889,11 @@ static void *TerminalWorker(void *) {
                                     current_style.bg_red = 0.0;
                                     current_style.bg_green = 1.0;
                                     current_style.bg_blue = 1.0;
+                                } else if (part == "47") {
+                                    // white background
+                                    current_style.bg_red = 1.0;
+                                    current_style.bg_green = 1.0;
+                                    current_style.bg_blue = 1.0;
                                 } else if (part == "49") {
                                     // default background
                                     current_style.bg_red = 1.0;
