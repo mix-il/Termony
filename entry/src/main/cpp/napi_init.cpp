@@ -650,6 +650,14 @@ static void *TerminalWorker(void *) {
                         } else if (buffer[i] == ']') {
                             // ESC ] = OSC
                             escape_state = state_osc;
+                        } else if (buffer[i] == '=') {
+                            // ESC =, enter alternate keypad mode
+                            // TODO
+                            escape_state = state_idle;
+                        } else if (buffer[i] == '>') {
+                            // ESC >, exit alternate keypad mode
+                            // TODO
+                            escape_state = state_idle;
                         } else {
                             // unknown
                             OH_LOG_INFO(LOG_APP, "Unknown escape sequence: %{public}s %{public}c",
@@ -658,6 +666,8 @@ static void *TerminalWorker(void *) {
                         }
                     } else if (escape_state == state_csi) {
                         if (buffer[i] == 'm') {
+                            // CSI Pm m, Character Attributes (SGR)
+
                             // set color
                             std::vector<std::string> parts = splitString(escape_buffer, ";");
                             for (auto part : parts) {
@@ -695,65 +705,46 @@ static void *TerminalWorker(void *) {
                             }
                             escape_state = state_idle;
                         } else if (buffer[i] == 'A') {
-                            // move cursor up # lines
+                            // CSI Ps A, move cursor up # lines
                             row -= read_int_or_default(1);
                             clamp_row();
                             escape_state = state_idle;
                         } else if (buffer[i] == 'B') {
-                            // move cursor down # lines
+                            // CSI Ps B, move cursor down # lines
                             row += read_int_or_default(1);
                             clamp_row();
                             escape_state = state_idle;
                         } else if (buffer[i] == 'C') {
-                            // move cursor right # columns
+                            // CSI Ps C, move cursor right # columns
                             col += read_int_or_default(1);
                             clamp_col();
                             escape_state = state_idle;
                         } else if (buffer[i] == 'D') {
-                            // move cursor left # columns
+                            // CSI Ps D, move cursor left # columns
                             col -= read_int_or_default(1);
                             clamp_col();
                             escape_state = state_idle;
-                        } else if (buffer[i] == 'd' && escape_buffer != "") {
-                            // move cursor to row #
-                            sscanf(escape_buffer.c_str(), "%d", &row);
-                            // convert from 1-based to 0-based
-                            row--;
-                            clamp_row();
-                            escape_state = state_idle;
                         } else if (buffer[i] == 'E') {
-                            // move cursor to the beginning of next line, down # lines
+                            // CSI Ps E, move cursor to the beginning of next line, down # lines
                             row += read_int_or_default(1);
                             clamp_row();
                             col = 0;
                             escape_state = state_idle;
                         } else if (buffer[i] == 'F') {
-                            // move cursor to the beginning of previous line, up # lines
+                            // CSI Ps F, move cursor to the beginning of previous line, up # lines
                             row -= read_int_or_default(1);
                             clamp_row();
                             col = 0;
                             escape_state = state_idle;
                         } else if (buffer[i] == 'G') {
-                            // move cursor to column #
+                            // CSI Ps G, move cursor to column #
                             col = read_int_or_default(1);
                             // convert from 1-based to 0-based
                             col--;
                             clamp_col();
                             escape_state = state_idle;
-                        } else if (buffer[i] == 'h' && escape_buffer == "?25") {
-                            // make cursor visible
-                            show_cursor = true;
-                            escape_state = state_idle;
-                        } else if (buffer[i] == 'h' && escape_buffer == "?2004") {
-                            // set bracketed paste mode
-                            // TODO
-                            escape_state = state_idle;
-                        } else if (buffer[i] == 'H' && escape_buffer == "") {
-                            // move cursor to upper left corner
-                            row = col = 0;
-                            escape_state = state_idle;
-                        } else if (buffer[i] == 'H' && escape_buffer != "") {
-                            // move cursor to x, y
+                        } else if (buffer[i] == 'H') {
+                            // CSI Ps ; PS H, move cursor to x, y, default to upper left corner
                             std::vector<std::string> parts = splitString(escape_buffer, ";");
                             if (parts.size() == 2) {
                                 sscanf(parts[0].c_str(), "%d", &row);
@@ -763,47 +754,55 @@ static void *TerminalWorker(void *) {
                                 col--;
                                 clamp_row();
                                 clamp_col();
+                            } else if (parts.size() == 0) {
+                                row = col = 0;
                             }
                             escape_state = state_idle;
-                        } else if (buffer[i] == 'J' && (escape_buffer == "" || escape_buffer == "0")) {
-                            // erase from cursor until end of screen
-                            for (int i = col; i < term_col; i++) {
-                                terminal[row][i] = term_char();
-                            }
-                            for (int i = row + 1; i < term_row; i++) {
-                                std::fill(terminal[i].begin(), terminal[i].end(), term_char());
-                            }
-                            escape_state = state_idle;
-                        } else if (buffer[i] == 'K' && (escape_buffer == "" || escape_buffer == "0")) {
-                            // erase from cursor to end of line
-                            for (int i = col; i < term_col; i++) {
-                                terminal[row][i] = term_char();
-                            }
-                            escape_state = state_idle;
-                        } else if (buffer[i] == 'K' && escape_buffer == "1") {
-                            // erase from start of line to the cursor
-                            for (int i = 0; i <= col; i++) {
-                                if (i + col + 1 < term_col) {
-                                    terminal[row][i] = terminal[row][i + col + 1];
-                                } else {
+                        } else if (buffer[i] == 'J') {
+                            // CSI Ps J, erase in display
+                            if (escape_buffer == "" || escape_buffer == "0") {
+                                // erase below
+                                for (int i = col; i < term_col; i++) {
                                     terminal[row][i] = term_char();
+                                }
+                                for (int i = row + 1; i < term_row; i++) {
+                                    std::fill(terminal[i].begin(), terminal[i].end(), term_char());
+                                }
+                            } else if (escape_buffer == "1") {
+                                // erase above
+                                for (int i = 0; i < row; i++) {
+                                    std::fill(terminal[i].begin(), terminal[i].end(), term_char());
+                                }
+                                for (int i = 0; i <= col; i++) {
+                                    terminal[row][i] = term_char();
+                                }
+                            } else if (escape_buffer == "2") {
+                                // erase all
+                                for (int i = 0; i < term_row; i++) {
+                                    std::fill(terminal[i].begin(), terminal[i].end(), term_char());
                                 }
                             }
                             escape_state = state_idle;
-                        } else if (buffer[i] == 'l' && escape_buffer == "?25") {
-                            // make cursor invisible
-                            show_cursor = false;
-                            escape_state = state_idle;
-                        } else if (buffer[i] == 'l' && escape_buffer == "?2004") {
-                            // reset bracketed paste mode
-                            // TODO
-                            escape_state = state_idle;
-                        } else if (buffer[i] == 'm' && escape_buffer.size() > 1 && escape_buffer[0] == '>') {
-                            // set/reset key modifier options
-                            // TODO
+                        } else if (buffer[i] == 'K') {
+                            // CSI Ps K, erase in line
+                            if (escape_buffer == "" || escape_buffer == "0") {
+                                // erase to right
+                                for (int i = col; i < term_col; i++) {
+                                    terminal[row][i] = term_char();
+                                }
+                            } else if (escape_buffer == "1") {
+                                // erase to left
+                                for (int i = 0; i <= col; i++) {
+                                    if (i + col + 1 < term_col) {
+                                        terminal[row][i] = terminal[row][i + col + 1];
+                                    } else {
+                                        terminal[row][i] = term_char();
+                                    }
+                                }
+                            }
                             escape_state = state_idle;
                         } else if (buffer[i] == 'P' && escape_buffer != "") {
-                            // erase # characters
+                            // CSI Ps P, erase # characters
                             int temp = 0;
                             sscanf(escape_buffer.c_str(), "%d", &temp);
                             for (int i = col; i < term_col; i++) {
@@ -814,8 +813,31 @@ static void *TerminalWorker(void *) {
                                 }
                             }
                             escape_state = state_idle;
-                        } else if (buffer[i] == 'u') {
-                            // User-Preferred Supplemental Set
+                        } else if (buffer[i] == 'd' && escape_buffer != "") {
+                            // CSI Ps d, move cursor to row #
+                            sscanf(escape_buffer.c_str(), "%d", &row);
+                            // convert from 1-based to 0-based
+                            row--;
+                            clamp_row();
+                            escape_state = state_idle;
+                        } else if (buffer[i] == 'h' && escape_buffer == "?25") {
+                            // CSI ? 25 h, make cursor visible
+                            show_cursor = true;
+                            escape_state = state_idle;
+                        } else if (buffer[i] == 'h' && escape_buffer == "?2004") {
+                            // CSI ? 2004 h, set bracketed paste mode
+                            // TODO
+                            escape_state = state_idle;
+                        } else if (buffer[i] == 'l' && escape_buffer == "?25") {
+                            // CSI ? 25 l, make cursor invisible
+                            show_cursor = false;
+                            escape_state = state_idle;
+                        } else if (buffer[i] == 'l' && escape_buffer == "?2004") {
+                            // CSI ? 2004 l, reset bracketed paste mode
+                            // TODO
+                            escape_state = state_idle;
+                        } else if (buffer[i] == 'm' && escape_buffer.size() > 1 && escape_buffer[0] == '>') {
+                            // CSI ? Pp m, set/reset key modifier options
                             // TODO
                             escape_state = state_idle;
                         } else if (buffer[i] == '?' || buffer[i] == ';' || buffer[i] == '>' || buffer[i] == '=' ||
@@ -830,10 +852,13 @@ static void *TerminalWorker(void *) {
                         }
                     } else if (escape_state == state_osc) {
                         if (buffer[i] == '\x07') {
-                            // BEL, do nothing
+                            // OSC Ps ; Pt BEL, do nothing
                             escape_state = state_idle;
-                        } else if (buffer[i] != '\x00') {
-                            // not string terminator
+                        } else if (buffer[i] == '\x00') {
+                            // OSC Ps ; Pt ST, TODO
+                            escape_state = state_idle;
+                        } else if (buffer[i] >= ' ' && buffer[i] < 127) {
+                            // printable character
                             escape_buffer += buffer[i];
                         } else {
                             // unknown
