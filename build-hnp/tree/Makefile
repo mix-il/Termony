@@ -6,7 +6,6 @@ all: download/2.2.1.tar.gz
 	cd temp/tree-2.2.1 && make install MANDIR=$(shell pwd)/build/share/man DESTDIR=$(shell pwd)/build/bin
 	mkdir -p ../sysroot
 	cp -rv ./build/. ../sysroot
-	/Applications/DevEco-Studio.app/Contents/sdk/default/openharmony/toolchains/hnpcli pack -i build -n tree -v 2.2.1
 
 download/2.2.1.tar.gz:
 	mkdir -p download
