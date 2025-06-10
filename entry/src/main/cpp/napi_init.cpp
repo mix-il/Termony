@@ -2,12 +2,14 @@
 #include <EGL/egl.h>
 #include <GLES3/gl32.h>
 #include <assert.h>
+#include <cstdint>
 #include <deque>
 #include <fcntl.h>
 #include <map>
 #include <native_window/external_window.h>
 #include <poll.h>
 #include <pty.h>
+#include <set>
 #include <stdio.h>
 #include <string>
 #include <sys/time.h>
@@ -79,13 +81,14 @@ enum utf8_states {
     state_4byte_4,        // expected 4th byte of 4-byte sequence
 };
 static utf8_states utf8_state = state_initial;
-static uint8_t current_utf8 = 0;
+static uint32_t current_utf8 = 0;
 static std::string escape_buffer;
 static style current_style;
 static int width = 0;
 static int height = 0;
 static bool show_cursor = true;
 static GLint surface_location = -1;
+static GLint render_pass_location = -1;
 static int font_height = 48;
 static int font_width = 24;
 static int baseline_height = 10;
@@ -181,25 +184,38 @@ struct character {
     float right;
     float top;
     float bottom;
+    // x, y offset from origin for bearing etc.
+    int xoff;
+    int yoff;
+    // glyph size
+    int width;
+    int height;
 };
 
 // record info for each character
-const int MAX_CHAR = 128;
-std::array<std::array<struct character, NUM_WEIGHT>, MAX_CHAR> characters;
+// map from (codepoint, font weight) to character
+static std::map<std::pair<uint32_t, enum weight>, struct character> characters;
+// code points to load from the font
+static std::set<uint32_t> codepoints_to_load;
+// do we need to reload font due to missing glyphs?
+static bool need_reload_font = false;
 
 // id of texture for glyphs
 static GLuint texture_id;
 
 // load font
 // texture contains all glyphs of all weights:
-// each glyph: font_width * font_height
-//    0.0   1/128                1.0
-// 0.0 +------+------+     +------+
-//     | 0x00 | 0x01 | ... | 0x7f | regular
-// 0.5 +------+------+     +------+
-//     | 0x00 | 0x01 | ... | 0x7f | bold
-// 1.0 +------+------+     +------+
+// fixed width of font_width, variable height based on face->glyph->bitmap.rows
+// glyph goes in vertical, possibly not filling the whole row space:
+//    0.0       1.0
+// 0.0 +------+--+
+//     | 0x00 |  |
+// 0.5 +------+--+
+//     | 0x01    |
+// 1.0 +------+--+
 static void LoadFont() {
+    need_reload_font = false;
+
     FT_Library ft;
     FT_Error err = FT_Init_FreeType(&ft);
     assert(err == 0);
@@ -212,9 +228,8 @@ static void LoadFont() {
     // save glyph for all characters of all weights
     // only one channel
     std::vector<uint8_t> bitmap;
-    int row_stride = font_width * MAX_CHAR;
-    int weight_stride = font_width * font_height * MAX_CHAR;
-    bitmap.resize(font_width * font_height * MAX_CHAR * NUM_WEIGHT);
+    int row_stride = font_width;
+    int bitmap_height = 0;
 
     for (auto pair : fonts) {
         const char *font = pair.first;
@@ -224,65 +239,76 @@ static void LoadFont() {
         err = FT_New_Face(ft, font, 0, &face);
         assert(err == 0);
         FT_Set_Pixel_Sizes(face, 0, font_height);
+        // Note: in 26.6 fractional pixel format
+        OH_LOG_INFO(LOG_APP,
+                    "Ascender: %{public}d Descender: %{public}d Height: %{public}d XMin: %{public}ld XMax: %{public}ld "
+                    "YMin: %{public}ld YMax: %{public}ld XScale: %{public}ld YScale: %{public}ld",
+                    face->ascender, face->descender, face->height, face->bbox.xMin, face->bbox.xMax, face->bbox.yMin,
+                    face->bbox.yMax, face->size->metrics.x_scale, face->size->metrics.y_scale);
 
-        for (uint32_t c = 0; c < MAX_CHAR; c++) {
+        for (uint32_t c : codepoints_to_load) {
             // load character glyph
-            if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
-                continue;
-            }
+            assert(FT_Load_Char(face, c, FT_LOAD_RENDER) == 0);
 
             OH_LOG_INFO(LOG_APP,
-                        "Char: %{public}c(%{public}d) Size: %{public}d %{public}d Glyph: %{public}d %{public}d Left: "
+                        "Weight: %{public}d Char: %{public}c(%{public}d) Glyph: %{public}d %{public}d Left: "
                         "%{public}d "
                         "Top: %{public}d "
                         "Advance: %{public}ld",
-                        c, c, font_width, font_height, face->glyph->bitmap.width, face->glyph->bitmap.rows,
-                        face->glyph->bitmap_left, face->glyph->bitmap_top, face->glyph->advance.x);
+                        weight, c, c, face->glyph->bitmap.width, face->glyph->bitmap.rows, face->glyph->bitmap_left,
+                        face->glyph->bitmap_top, face->glyph->advance.x);
 
-            // copy to bitmap font_width * font_height
+            // copy to bitmap
+            int old_bitmap_height = bitmap_height;
+            int new_bitmap_height = bitmap_height + face->glyph->bitmap.rows;
+            bitmap.resize(row_stride * new_bitmap_height);
+            bitmap_height = new_bitmap_height;
+
+            assert(face->glyph->bitmap.width <= font_width);
             for (int i = 0; i < face->glyph->bitmap.rows; i++) {
                 for (int j = 0; j < face->glyph->bitmap.width; j++) {
-                    // compute offset within a glyph
-                    // x goes rightward, y goes downward:
-                    // set (0, 0) to origin,
-                    // then the top left corner of glyph is at (-bitmap_top, bitmap_left)
-                    // now move origin to (font_height - baseline_height, 0)
-                    // top left corner becomes (font_height - baseline_height - bitmap_top, bitmap_left)
-                    int xoff = font_height - baseline_height - face->glyph->bitmap_top;
-                    int yoff = face->glyph->bitmap_left;
-                    assert(i + xoff >= 0 && i + xoff < font_height);
-                    assert(j + yoff >= 0 && j + yoff < font_width);
-
                     // compute offset in the large texture
-                    int off = weight * weight_stride + c * font_width;
-                    bitmap[(i + xoff) * row_stride + (j + yoff) + off] =
-                        face->glyph->bitmap.buffer[i * face->glyph->bitmap.width + j];
+                    int off = old_bitmap_height * row_stride;
+                    bitmap[i * row_stride + j + off] = face->glyph->bitmap.buffer[i * face->glyph->bitmap.width + j];
                 }
             }
 
             // compute location within the texture
+            // first pass: store pixels
             character character = {
-                .left = (float)c / MAX_CHAR,
-                .right = (float)(c + 1) / MAX_CHAR,
-                .top = (float)weight / NUM_WEIGHT,
-                .bottom = (float)(weight + 1) / NUM_WEIGHT,
+                .left = 0,
+                .right = (float)face->glyph->bitmap.width - 1,
+                .top = (float)old_bitmap_height,
+                .bottom = (float)new_bitmap_height - 1,
+                .xoff = face->glyph->bitmap_left,
+                .yoff = (int)(baseline_height + face->glyph->bitmap_top - face->glyph->bitmap.rows),
+                .width = (int)face->glyph->bitmap.width,
+                .height = (int)face->glyph->bitmap.rows,
             };
-            characters[c][weight] = character;
+            characters[{c, weight}] = character;
         }
+
 
         FT_Done_Face(face);
     }
 
     FT_Done_FreeType(ft);
 
+    // now bitmap contains all glyphs
+    // second pass: convert pixels to uv coordinates
+    for (auto &pair : characters) {
+        pair.second.left /= font_width - 1;
+        pair.second.right /= font_width - 1;
+        pair.second.top /= bitmap_height - 1;
+        pair.second.bottom /= bitmap_height - 1;
+    }
+
     // disable byte-alignment restriction
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
     // generate texture
-    glGenTextures(1, &texture_id);
     glBindTexture(GL_TEXTURE_2D, texture_id);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, row_stride, font_height * NUM_WEIGHT, 0, GL_RED, GL_UNSIGNED_BYTE,
-                 bitmap.data());
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, row_stride, bitmap_height, 0, GL_RED, GL_UNSIGNED_BYTE, bitmap.data());
 
     // set texture options
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -322,14 +348,17 @@ static void Draw() {
 
     int max_lines = height / font_height;
     // vec4 vertex
-    static std::vector<GLfloat> vertex_data;
+    static std::vector<GLfloat> vertex_pass0_data;
+    static std::vector<GLfloat> vertex_pass1_data;
     // vec3 textColor
     static std::vector<GLfloat> text_color_data;
     // vec3 backgroundColor
     static std::vector<GLfloat> background_color_data;
 
-    vertex_data.clear();
-    vertex_data.reserve(row * col * 24);
+    vertex_pass0_data.clear();
+    vertex_pass0_data.reserve(row * col * 24);
+    vertex_pass1_data.clear();
+    vertex_pass1_data.reserve(row * col * 24);
     text_color_data.clear();
     text_color_data.reserve(row * col * 18);
     background_color_data.clear();
@@ -359,12 +388,20 @@ static void Draw() {
         int cur_col = 0;
         for (auto c : ch) {
             uint32_t codepoint = c.ch;
-            if (c.ch >= MAX_CHAR) {
-                // we don't have the character, fallback
-                c.ch = ' ';
+            auto key = std::pair<uint32_t, enum weight>(c.ch, c.style.weight);
+            auto it = characters.find(key);
+            if (it == characters.end()) {
+                // reload font to locate it
+                OH_LOG_WARN(LOG_APP, "Missing character: %{public}d of weight %{public}d", c.ch, c.style.weight);
+                need_reload_font = true;
+                codepoints_to_load.insert(c.ch);
+
+                // we don't have the character, fallback to space
+                it = characters.find(std::pair<uint32_t, enum weight>(' ', c.style.weight));
+                assert(it != characters.end());
             }
 
-            character ch = characters[c.ch][c.style.weight];
+            character ch = it->second;
             float xpos = x;
             float ypos = y;
             float w = font_width;
@@ -377,13 +414,27 @@ static void Draw() {
             // (xpos + w, ypos + h): 2
             // (xpos    , ypos    ): 3
             // (xpos + w, ypos    ): 4
-            GLfloat g_vertex_buffer_data[24] = {// first triangle: 1->3->4
-                                                xpos, ypos + h, ch.left, ch.top, xpos, ypos, ch.left, ch.bottom,
-                                                xpos + w, ypos, ch.right, ch.bottom,
-                                                // second triangle: 1->4->2
-                                                xpos, ypos + h, ch.left, ch.top, xpos + w, ypos, ch.right, ch.bottom,
-                                                xpos + w, ypos + h, ch.right, ch.top};
-            vertex_data.insert(vertex_data.end(), &g_vertex_buffer_data[0], &g_vertex_buffer_data[24]);
+
+            // pass 0: draw background
+            GLfloat g_vertex_pass0_data[24] = {// first triangle: 1->3->4
+                                               xpos, ypos + h, 0.0, 0.0, xpos, ypos, 0.0, 0.0, xpos + w, ypos, 0.0, 0.0,
+                                               // second triangle: 1->4->2
+                                               xpos, ypos + h, 0.0, 0.0, xpos + w, ypos, 0.0, 0.0, xpos + w, ypos + h,
+                                               0.0, 0.0};
+            vertex_pass0_data.insert(vertex_pass0_data.end(), &g_vertex_pass0_data[0], &g_vertex_pass0_data[24]);
+
+            // pass 1: draw text
+            xpos = x + ch.xoff;
+            ypos = y + ch.yoff;
+            w = ch.width;
+            h = ch.height;
+            GLfloat g_vertex_pass1_data[24] = {// first triangle: 1->3->4
+                                               xpos, ypos + h, ch.left, ch.top, xpos, ypos, ch.left, ch.bottom,
+                                               xpos + w, ypos, ch.right, ch.bottom,
+                                               // second triangle: 1->4->2
+                                               xpos, ypos + h, ch.left, ch.top, xpos + w, ypos, ch.right, ch.bottom,
+                                               xpos + w, ypos + h, ch.right, ch.top};
+            vertex_pass1_data.insert(vertex_pass1_data.end(), &g_vertex_pass1_data[0], &g_vertex_pass1_data[24]);
 
             GLfloat g_text_color_buffer_data[18];
             GLfloat g_background_color_buffer_data[18];
@@ -418,15 +469,24 @@ static void Draw() {
     }
     pthread_mutex_unlock(&lock);
 
-    // draw in one pass
-    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * vertex_data.size(), vertex_data.data(), GL_STREAM_DRAW);
+    // draw in two pass
     glBindBuffer(GL_ARRAY_BUFFER, text_color_buffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * text_color_data.size(), text_color_data.data(), GL_STREAM_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, background_color_buffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * background_color_data.size(), background_color_data.data(),
                  GL_STREAM_DRAW);
-    glDrawArrays(GL_TRIANGLES, 0, vertex_data.size() / 4);
+
+    // first pass
+    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * vertex_pass0_data.size(), vertex_pass0_data.data(), GL_STREAM_DRAW);
+    glUniform1i(render_pass_location, 0);
+    glDrawArrays(GL_TRIANGLES, 0, vertex_pass0_data.size() / 4);
+
+    // second pass
+    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * vertex_pass1_data.size(), vertex_pass1_data.data(), GL_STREAM_DRAW);
+    glUniform1i(render_pass_location, 1);
+    glDrawArrays(GL_TRIANGLES, 0, vertex_pass1_data.size() / 4);
 
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -484,8 +544,8 @@ static void *RenderWorker(void *) {
                                 "in vec3 textColor;\n"
                                 "in vec3 backgroundColor;\n"
                                 "out vec2 texCoords;\n"
-                                "out vec3 outTextColor;\n"
-                                "out vec3 outBackgroundColor;\n"
+                                "out vec3 fragTextColor;\n"
+                                "out vec3 fragBackgroundColor;\n"
                                 "uniform vec2 surface;\n"
                                 "void main() {\n"
                                 "  gl_Position.x = vertex.x / surface.x * 2.0f - 1.0f;\n"
@@ -493,8 +553,8 @@ static void *RenderWorker(void *) {
                                 "  gl_Position.z = 0.0;\n"
                                 "  gl_Position.w = 1.0;\n"
                                 "  texCoords = vertex.zw;\n"
-                                "  outTextColor = textColor;\n"
-                                "  outBackgroundColor = backgroundColor;\n"
+                                "  fragTextColor = textColor;\n"
+                                "  fragBackgroundColor = backgroundColor;\n"
                                 "}";
     glShaderSource(vertex_shader_id, 1, &vertex_source, NULL);
     glCompileShader(vertex_shader_id);
@@ -504,7 +564,7 @@ static void *RenderWorker(void *) {
     if (info_log_length > 0) {
         std::vector<char> vertex_shader_error_message(info_log_length + 1);
         glGetShaderInfoLog(vertex_shader_id, info_log_length, NULL, &vertex_shader_error_message[0]);
-        OH_LOG_INFO(LOG_APP, "Failed to build vertex shader: %{public}s", &vertex_shader_error_message[0]);
+        OH_LOG_ERROR(LOG_APP, "Failed to build vertex shader: %{public}s", &vertex_shader_error_message[0]);
     }
 
     GLuint fragment_shader_id = glCreateShader(GL_FRAGMENT_SHADER);
@@ -512,14 +572,24 @@ static void *RenderWorker(void *) {
                                   "\n"
                                   "precision lowp float;\n"
                                   "in vec2 texCoords;\n"
-                                  "in vec3 outTextColor;\n"
-                                  "in vec3 outBackgroundColor;\n"
+                                  "in vec3 fragTextColor;\n"
+                                  "in vec3 fragBackgroundColor;\n"
                                   "out vec4 color;\n"
                                   "uniform sampler2D text;\n"
+                                  "uniform int renderPass;\n"
                                   "void main() {\n"
-                                  "  float alpha = texture(text, texCoords).r;\n"
-                                  "  color = vec4(outTextColor * alpha + outBackgroundColor * (1.0 - alpha), 1.0);\n"
+                                  "  if (renderPass == 0) {\n"
+                                  "    color = vec4(fragBackgroundColor, 1.0);\n"
+                                  "  } else {\n"
+                                  "    float alpha = texture(text, texCoords).r;\n"
+                                  "    color = vec4(fragTextColor, 1.0) * alpha;\n"
+                                  "  }\n"
                                   "}";
+    // blending is done by opengl (GL_ONE + GL_ONE_MINUS_SRC_ALPHA):
+    // final = src * 1 + dest * (1 - src.a)
+    // first pass: src = (fragBackgroundColor, 1.0), dest = (1.0, 1.0, 1.0, 1.0), final = (fragBackgroundColor, 1.0)
+    // second pass: src = (fragTextColor * alpha, alpha), dest = (fragBackgroundColor, 1.0), final = (fragTextColor *
+    // alpha + fragBackgroundColor * (1 - alpha), 1.0)
     glShaderSource(fragment_shader_id, 1, &fragment_source, NULL);
     glCompileShader(fragment_shader_id);
 
@@ -527,7 +597,7 @@ static void *RenderWorker(void *) {
     if (info_log_length > 0) {
         std::vector<char> fragment_shader_error_message(info_log_length + 1);
         glGetShaderInfoLog(fragment_shader_id, info_log_length, NULL, &fragment_shader_error_message[0]);
-        OH_LOG_INFO(LOG_APP, "Failed to build fragment shader: %{public}s", &fragment_shader_error_message[0]);
+        OH_LOG_ERROR(LOG_APP, "Failed to build fragment shader: %{public}s", &fragment_shader_error_message[0]);
     }
 
     GLuint program_id = glCreateProgram();
@@ -539,17 +609,25 @@ static void *RenderWorker(void *) {
     if (info_log_length > 0) {
         std::vector<char> link_program_error_message(info_log_length + 1);
         glGetProgramInfoLog(program_id, info_log_length, NULL, &link_program_error_message[0]);
-        OH_LOG_INFO(LOG_APP, "Failed to link program: %{public}s", &link_program_error_message[0]);
+        OH_LOG_ERROR(LOG_APP, "Failed to link program: %{public}s", &link_program_error_message[0]);
     }
 
     surface_location = glGetUniformLocation(program_id, "surface");
     assert(surface_location != -1);
 
+    render_pass_location = glGetUniformLocation(program_id, "renderPass");
+    assert(render_pass_location != -1);
+
     glUseProgram(program_id);
     glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
-    // load font from ttf
+    // load font from ttf for the initial characters
+    glGenTextures(1, &texture_id);
+    // load common characters initially
+    for (uint32_t i = 0; i < 128; i++) {
+        codepoints_to_load.insert(i);
+    }
     LoadFont();
 
     // create buffers for drawing
@@ -642,6 +720,10 @@ static void *RenderWorker(void *) {
             fps = 0;
             time.clear();
         }
+
+        if (need_reload_font) {
+            LoadFont();
+        }
     }
 }
 
@@ -711,7 +793,7 @@ static void *TerminalWorker(void *) {
                             escape_state = state_dcs;
                         } else {
                             // unknown
-                            OH_LOG_INFO(LOG_APP, "Unknown escape sequence after ESC: %{public}s %{public}c",
+                            OH_LOG_WARN(LOG_APP, "Unknown escape sequence after ESC: %{public}s %{public}c",
                                         escape_buffer.c_str(), buffer[i]);
                             escape_state = state_idle;
                         }
@@ -867,7 +949,7 @@ static void *TerminalWorker(void *) {
                                     // CSI ? 2004 h, set bracketed paste mode
                                     // TODO
                                 } else {
-                                    OH_LOG_INFO(LOG_APP, "Unknown CSI ? Pm h: %{public}s %{public}c",
+                                    OH_LOG_WARN(LOG_APP, "Unknown CSI ? Pm h: %{public}s %{public}c",
                                                 escape_buffer.c_str(), buffer[i]);
                                 }
                             }
@@ -886,7 +968,7 @@ static void *TerminalWorker(void *) {
                                     // CSI ? 2004 l, reset bracketed paste mode
                                     // TODO
                                 } else {
-                                    OH_LOG_INFO(LOG_APP, "Unknown CSI ? Pm l: %{public}s %{public}c",
+                                    OH_LOG_WARN(LOG_APP, "Unknown CSI ? Pm l: %{public}s %{public}c",
                                                 escape_buffer.c_str(), buffer[i]);
                                 }
                             }
@@ -1012,7 +1094,7 @@ static void *TerminalWorker(void *) {
                                     current_style.fg_green = 0.5;
                                     current_style.fg_blue = 0.5;
                                 } else {
-                                    OH_LOG_INFO(LOG_APP, "Unknown CSI Pm m: %{public}s %{public}c",
+                                    OH_LOG_WARN(LOG_APP, "Unknown CSI Pm m: %{public}s %{public}c",
                                                 escape_buffer.c_str(), buffer[i]);
                                 }
                             }
@@ -1051,7 +1133,7 @@ static void *TerminalWorker(void *) {
                             escape_buffer += buffer[i];
                         } else {
                             // unknown
-                            OH_LOG_INFO(LOG_APP, "Unknown escape sequence in CSI: %{public}s %{public}c",
+                            OH_LOG_WARN(LOG_APP, "Unknown escape sequence in CSI: %{public}s %{public}c",
                                         escape_buffer.c_str(), buffer[i]);
                             escape_state = state_idle;
                         }
@@ -1069,7 +1151,7 @@ static void *TerminalWorker(void *) {
                             escape_buffer += buffer[i];
                         } else {
                             // unknown
-                            OH_LOG_INFO(LOG_APP, "Unknown escape sequence in OSC: %{public}s %{public}c",
+                            OH_LOG_WARN(LOG_APP, "Unknown escape sequence in OSC: %{public}s %{public}c",
                                         escape_buffer.c_str(), buffer[i]);
                             escape_state = state_idle;
                         }
@@ -1083,7 +1165,7 @@ static void *TerminalWorker(void *) {
                             escape_buffer += buffer[i];
                         } else {
                             // unknown
-                            OH_LOG_INFO(LOG_APP, "Unknown escape sequence in DCS: %{public}s %{public}c",
+                            OH_LOG_WARN(LOG_APP, "Unknown escape sequence in DCS: %{public}s %{public}c",
                                         escape_buffer.c_str(), buffer[i]);
                             escape_state = state_idle;
                         }
@@ -1213,7 +1295,6 @@ static void *TerminalWorker(void *) {
                         assert(false && "unreachable escape state");
                     }
                 }
-                OH_LOG_INFO(LOG_APP, "Final state: %{public}d", escape_state);
                 pthread_mutex_unlock(&lock);
             }
         }
