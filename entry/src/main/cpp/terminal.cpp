@@ -1,5 +1,5 @@
 // for standalone build to test on Linux:
-// g++ terminal.cpp -I/usr/include/freetype2 -DSTANDALONE -Wno-changes-meaning -lfreetype -lGLESv2 -lglfw -o terminal
+// g++ terminal.cpp -I/usr/include/freetype2 -DSTANDALONE -lfreetype -lGLESv2 -lglfw -o terminal
 
 #include "terminal.h"
 #include <GLES3/gl32.h>
@@ -32,16 +32,16 @@
 #endif
 
 // font weight
-enum weight {
+enum font_weight {
     regular = 0,
     bold = 1,
     NUM_WEIGHT,
 };
 
 // maintain terminal status
-struct style {
+struct term_style {
     // font weight
-    weight weight = regular;
+    font_weight weight = regular;
     // foreground color
     float fg_red = 0.0;
     float fg_green = 0.0;
@@ -55,7 +55,7 @@ struct style {
 // character in terminal
 struct term_char {
     uint32_t ch = ' ';
-    style style;
+    term_style style;
 };
 
 // docs for escape codes:
@@ -92,7 +92,7 @@ enum utf8_states {
 static utf8_states utf8_state = state_initial;
 static uint32_t current_utf8 = 0;
 static std::string escape_buffer;
-static style current_style;
+static term_style current_style;
 static int width = 0;
 static int height = 0;
 static bool show_cursor = true;
@@ -144,7 +144,7 @@ struct character {
 
 // record info for each character
 // map from (codepoint, font weight) to character
-static std::map<std::pair<uint32_t, enum weight>, struct character> characters;
+static std::map<std::pair<uint32_t, enum font_weight>, struct character> characters;
 // code points to load from the font
 static std::set<uint32_t> codepoints_to_load;
 // do we need to reload font due to missing glyphs?
@@ -452,7 +452,7 @@ static void *TerminalWorker(void *) {
                         } else if (buffer[i] == 'm' && escape_buffer == "") {
                             // CSI Pm m, Character Attributes (SGR)
                             // reset all attributes to their defaults
-                            current_style = style();
+                            current_style = term_style();
                             escape_state = state_idle;
                         } else if (buffer[i] == 'm' && escape_buffer.size() > 0 && escape_buffer[0] != '>') {
                             // CSI Pm m, Character Attributes (SGR)
@@ -462,10 +462,10 @@ static void *TerminalWorker(void *) {
                             for (auto part : parts) {
                                 if (part == "0") {
                                     // reset all attributes to their defaults
-                                    current_style = style();
+                                    current_style = term_style();
                                 } else if (part == "1" || part == "01") {
                                     // set bold
-                                    current_style.weight = weight::bold;
+                                    current_style.weight = font_weight::bold;
                                 } else if (part == "7") {
                                     // inverse
                                     std::swap(current_style.fg_red, current_style.bg_red);
@@ -473,7 +473,7 @@ static void *TerminalWorker(void *) {
                                     std::swap(current_style.fg_blue, current_style.bg_blue);
                                 } else if (part == "10") {
                                     // reset to primary font
-                                    current_style = style();
+                                    current_style = term_style();
                                 } else if (part == "30") {
                                     // black foreground
                                     current_style.fg_red = 0.0;
@@ -848,13 +848,13 @@ static void LoadFont() {
     FT_Error err = FT_Init_FreeType(&ft);
     assert(err == 0);
 
-    std::vector<std::pair<const char *, weight>> fonts = {
+    std::vector<std::pair<const char *, font_weight>> fonts = {
 #ifdef STANDALONE
-        {"../../../../../fonts/ttf/Inconsolata-Regular.ttf", weight::regular},
-        {"../../../../../fonts/ttf/Inconsolata-Bold.ttf", weight::bold},
+        {"../../../../../fonts/ttf/Inconsolata-Regular.ttf", font_weight::regular},
+        {"../../../../../fonts/ttf/Inconsolata-Bold.ttf", font_weight::bold},
 #else
-        {"/data/storage/el2/base/haps/entry/files/Inconsolata-Regular.ttf", weight::regular},
-        {"/data/storage/el2/base/haps/entry/files/Inconsolata-Bold.ttf", weight::bold},
+        {"/data/storage/el2/base/haps/entry/files/Inconsolata-Regular.ttf", font_weight::regular},
+        {"/data/storage/el2/base/haps/entry/files/Inconsolata-Bold.ttf", font_weight::bold},
 #endif
     };
 
@@ -866,7 +866,7 @@ static void LoadFont() {
 
     for (auto pair : fonts) {
         const char *font = pair.first;
-        weight weight = pair.second;
+        font_weight weight = pair.second;
 
         FT_Face face;
         err = FT_New_Face(ft, font, 0, &face);
@@ -1018,7 +1018,7 @@ static void Draw() {
         int cur_col = 0;
         for (auto c : ch) {
             uint32_t codepoint = c.ch;
-            auto key = std::pair<uint32_t, enum weight>(c.ch, c.style.weight);
+            auto key = std::pair<uint32_t, enum font_weight>(c.ch, c.style.weight);
             auto it = characters.find(key);
             if (it == characters.end()) {
                 // reload font to locate it
@@ -1027,7 +1027,7 @@ static void Draw() {
                 codepoints_to_load.insert(c.ch);
 
                 // we don't have the character, fallback to space
-                it = characters.find(std::pair<uint32_t, enum weight>(' ', c.style.weight));
+                it = characters.find(std::pair<uint32_t, enum font_weight>(' ', c.style.weight));
                 assert(it != characters.end());
             }
 
