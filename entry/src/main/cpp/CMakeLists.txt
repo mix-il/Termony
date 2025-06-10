@@ -19,5 +19,5 @@ find_library(
 
 add_subdirectory(freetype)
 
-add_library(entry SHARED napi_init.cpp)
+add_library(entry SHARED napi_init.cpp terminal.cpp)
 target_link_libraries(entry PUBLIC libace_napi.z.so ${EGL-lib} ${GLES-lib} libnative_window.so libhilog_ndk.z.so freetype)
