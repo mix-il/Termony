@@ -329,14 +329,17 @@ static void Draw() {
 
     int max_lines = height / font_height;
     // vec4 vertex
-    static std::vector<GLfloat> vertex_data;
+    static std::vector<GLfloat> vertex_pass0_data;
+    static std::vector<GLfloat> vertex_pass1_data;
     // vec3 textColor
     static std::vector<GLfloat> text_color_data;
     // vec3 backgroundColor
     static std::vector<GLfloat> background_color_data;
 
-    vertex_data.clear();
-    vertex_data.reserve(row * col * 24);
+    vertex_pass0_data.clear();
+    vertex_pass0_data.reserve(row * col * 24);
+    vertex_pass1_data.clear();
+    vertex_pass1_data.reserve(row * col * 24);
     text_color_data.clear();
     text_color_data.reserve(row * col * 18);
     background_color_data.clear();
@@ -384,13 +387,23 @@ static void Draw() {
             // (xpos + w, ypos + h): 2
             // (xpos    , ypos    ): 3
             // (xpos + w, ypos    ): 4
-            GLfloat g_vertex_buffer_data[24] = {// first triangle: 1->3->4
-                                                xpos, ypos + h, ch.left, ch.top, xpos, ypos, ch.left, ch.bottom,
-                                                xpos + w, ypos, ch.right, ch.bottom,
-                                                // second triangle: 1->4->2
-                                                xpos, ypos + h, ch.left, ch.top, xpos + w, ypos, ch.right, ch.bottom,
-                                                xpos + w, ypos + h, ch.right, ch.top};
-            vertex_data.insert(vertex_data.end(), &g_vertex_buffer_data[0], &g_vertex_buffer_data[24]);
+
+            // pass 0: draw background
+            GLfloat g_vertex_pass0_data[24] = {// first triangle: 1->3->4
+                                               xpos, ypos + h, 0.0, 0.0, xpos, ypos, 0.0, 0.0, xpos + w, ypos, 0.0, 0.0,
+                                               // second triangle: 1->4->2
+                                               xpos, ypos + h, 0.0, 0.0, xpos + w, ypos, 0.0, 0.0, xpos + w, ypos + h,
+                                               0.0, 0.0};
+            vertex_pass0_data.insert(vertex_pass0_data.end(), &g_vertex_pass0_data[0], &g_vertex_pass0_data[24]);
+
+            // pass 1: draw text
+            GLfloat g_vertex_pass1_data[24] = {// first triangle: 1->3->4
+                                               xpos, ypos + h, ch.left, ch.top, xpos, ypos, ch.left, ch.bottom,
+                                               xpos + w, ypos, ch.right, ch.bottom,
+                                               // second triangle: 1->4->2
+                                               xpos, ypos + h, ch.left, ch.top, xpos + w, ypos, ch.right, ch.bottom,
+                                               xpos + w, ypos + h, ch.right, ch.top};
+            vertex_pass1_data.insert(vertex_pass1_data.end(), &g_vertex_pass1_data[0], &g_vertex_pass1_data[24]);
 
             GLfloat g_text_color_buffer_data[18];
             GLfloat g_background_color_buffer_data[18];
@@ -426,19 +439,23 @@ static void Draw() {
     pthread_mutex_unlock(&lock);
 
     // draw in two pass
-    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * vertex_data.size(), vertex_data.data(), GL_STREAM_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, text_color_buffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * text_color_data.size(), text_color_data.data(), GL_STREAM_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, background_color_buffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * background_color_data.size(), background_color_data.data(),
                  GL_STREAM_DRAW);
     // first pass
+
+    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * vertex_pass0_data.size(), vertex_pass0_data.data(), GL_STREAM_DRAW);
     glUniform1i(render_pass_location, 0);
-    glDrawArrays(GL_TRIANGLES, 0, vertex_data.size() / 4);
+    glDrawArrays(GL_TRIANGLES, 0, vertex_pass0_data.size() / 4);
+
     // second pass
+    glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * vertex_pass1_data.size(), vertex_pass1_data.data(), GL_STREAM_DRAW);
     glUniform1i(render_pass_location, 1);
-    glDrawArrays(GL_TRIANGLES, 0, vertex_data.size() / 4);
+    glDrawArrays(GL_TRIANGLES, 0, vertex_pass1_data.size() / 4);
 
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -540,7 +557,8 @@ static void *RenderWorker(void *) {
     // blending is done by opengl (GL_ONE + GL_ONE_MINUS_SRC_ALPHA):
     // final = src * 1 + dest * (1 - src.a)
     // first pass: src = (fragBackgroundColor, 1.0), dest = (1.0, 1.0, 1.0, 1.0), final = (fragBackgroundColor, 1.0)
-    // second pass: src = (fragTextColor * alpha, alpha), dest = (fragBackgroundColor, 1.0), final = (fragTextColor * alpha + fragBackgroundColor * (1 - alpha), 1.0)
+    // second pass: src = (fragTextColor * alpha, alpha), dest = (fragBackgroundColor, 1.0), final = (fragTextColor *
+    // alpha + fragBackgroundColor * (1 - alpha), 1.0)
     glShaderSource(fragment_shader_id, 1, &fragment_source, NULL);
     glCompileShader(fragment_shader_id);
 
