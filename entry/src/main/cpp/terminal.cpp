@@ -690,6 +690,15 @@ static void *TerminalWorker(void *) {
                         } else if (buffer[i] == 'P') {
                             // ESC P = DCS
                             escape_state = state_dcs;
+                        } else if (i + 1 < r && buffer[i] == '#' && buffer[i + 1] == '8') {
+                            // ESC # 8, DECALN fill viewport with a test pattern (E)
+                            for (int i = 0;i < term_row;i++) {
+                                for (int j = 0;j < term_col;j++) {
+                                    terminal[i][j] = term_char();
+                                    terminal[i][j].ch = 'E';
+                                }
+                            }
+                            escape_state = state_idle;
                         } else {
                             // unknown
                             OH_LOG_WARN(LOG_APP, "Unknown escape sequence after ESC: %{public}s %{public}c",
