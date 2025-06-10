@@ -91,6 +91,7 @@ static GLint surface_location = -1;
 static GLint render_pass_location = -1;
 static int font_height = 48;
 static int font_width = 24;
+static int max_font_width = 48;
 static int baseline_height = 10;
 static int term_col = 80;
 static int term_row = 24;
@@ -205,7 +206,7 @@ static GLuint texture_id;
 
 // load font
 // texture contains all glyphs of all weights:
-// fixed width of font_width, variable height based on face->glyph->bitmap.rows
+// fixed width of max_font_width, variable height based on face->glyph->bitmap.rows
 // glyph goes in vertical, possibly not filling the whole row space:
 //    0.0       1.0
 // 0.0 +------+--+
@@ -228,7 +229,7 @@ static void LoadFont() {
     // save glyph for all characters of all weights
     // only one channel
     std::vector<uint8_t> bitmap;
-    int row_stride = font_width;
+    int row_stride = max_font_width;
     int bitmap_height = 0;
 
     for (auto pair : fonts) {
@@ -264,7 +265,7 @@ static void LoadFont() {
             bitmap.resize(row_stride * new_bitmap_height);
             bitmap_height = new_bitmap_height;
 
-            assert(face->glyph->bitmap.width <= font_width);
+            assert(face->glyph->bitmap.width <= row_stride);
             for (int i = 0; i < face->glyph->bitmap.rows; i++) {
                 for (int j = 0; j < face->glyph->bitmap.width; j++) {
                     // compute offset in the large texture
@@ -297,8 +298,8 @@ static void LoadFont() {
     // now bitmap contains all glyphs
     // second pass: convert pixels to uv coordinates
     for (auto &pair : characters) {
-        pair.second.left /= font_width - 1;
-        pair.second.right /= font_width - 1;
+        pair.second.left /= row_stride - 1;
+        pair.second.right /= row_stride - 1;
         pair.second.top /= bitmap_height - 1;
         pair.second.bottom /= bitmap_height - 1;
     }
