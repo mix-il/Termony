@@ -2,12 +2,14 @@
 #include <EGL/egl.h>
 #include <GLES3/gl32.h>
 #include <assert.h>
+#include <cstdint>
 #include <deque>
 #include <fcntl.h>
 #include <map>
 #include <native_window/external_window.h>
 #include <poll.h>
 #include <pty.h>
+#include <set>
 #include <stdio.h>
 #include <string>
 #include <sys/time.h>
@@ -79,7 +81,7 @@ enum utf8_states {
     state_4byte_4,        // expected 4th byte of 4-byte sequence
 };
 static utf8_states utf8_state = state_initial;
-static uint8_t current_utf8 = 0;
+static uint32_t current_utf8 = 0;
 static std::string escape_buffer;
 static style current_style;
 static int width = 0;
@@ -191,9 +193,12 @@ struct character {
 };
 
 // record info for each character
-const int MAX_CHAR = 128;
 // map from (codepoint, font weight) to character
 static std::map<std::pair<uint32_t, enum weight>, struct character> characters;
+// code points to load from the font
+static std::set<uint32_t> codepoints_to_load;
+// do we need to reload font due to missing glyphs?
+static bool need_reload_font = false;
 
 // id of texture for glyphs
 static GLuint texture_id;
@@ -209,6 +214,8 @@ static GLuint texture_id;
 //     | 0x01    |
 // 1.0 +------+--+
 static void LoadFont() {
+    need_reload_font = false;
+
     FT_Library ft;
     FT_Error err = FT_Init_FreeType(&ft);
     assert(err == 0);
@@ -239,11 +246,9 @@ static void LoadFont() {
                     face->ascender, face->descender, face->height, face->bbox.xMin, face->bbox.xMax, face->bbox.yMin,
                     face->bbox.yMax, face->size->metrics.x_scale, face->size->metrics.y_scale);
 
-        for (uint32_t c = 0; c < MAX_CHAR; c++) {
+        for (uint32_t c : codepoints_to_load) {
             // load character glyph
-            if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
-                continue;
-            }
+            assert(FT_Load_Char(face, c, FT_LOAD_RENDER) == 0);
 
             OH_LOG_INFO(LOG_APP,
                         "Weight: %{public}d Char: %{public}c(%{public}d) Glyph: %{public}d %{public}d Left: "
@@ -302,7 +307,6 @@ static void LoadFont() {
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
     // generate texture
-    glGenTextures(1, &texture_id);
     glBindTexture(GL_TEXTURE_2D, texture_id);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, row_stride, bitmap_height, 0, GL_RED, GL_UNSIGNED_BYTE, bitmap.data());
 
@@ -387,8 +391,12 @@ static void Draw() {
             auto key = std::pair<uint32_t, enum weight>(c.ch, c.style.weight);
             auto it = characters.find(key);
             if (it == characters.end()) {
+                // reload font to locate it
+                OH_LOG_WARN(LOG_APP, "Missing character: %{public}d of weight %{public}d", c.ch, c.style.weight);
+                need_reload_font = true;
+                codepoints_to_load.insert(c.ch);
+
                 // we don't have the character, fallback to space
-                // OH_LOG_WARN(LOG_APP, "Missing character: %{public}d of weight %{public}d", c.ch, c.style.weight);
                 it = characters.find(std::pair<uint32_t, enum weight>(' ', c.style.weight));
                 assert(it != characters.end());
             }
@@ -614,7 +622,12 @@ static void *RenderWorker(void *) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
-    // load font from ttf
+    // load font from ttf for the initial characters
+    glGenTextures(1, &texture_id);
+    // load common characters initially
+    for (uint32_t i = 0; i < 128; i++) {
+        codepoints_to_load.insert(i);
+    }
     LoadFont();
 
     // create buffers for drawing
@@ -706,6 +719,10 @@ static void *RenderWorker(void *) {
             OH_LOG_INFO(LOG_APP, "FPS: %{public}d, %{public}ld ms per draw", fps, sum / fps);
             fps = 0;
             time.clear();
+        }
+
+        if (need_reload_font) {
+            LoadFont();
         }
     }
 }
