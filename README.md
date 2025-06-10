@@ -30,6 +30,7 @@ Bundled packages:
 - readline
 - sl
 - strace
+- stream
 - tar
 - tree
 - vim

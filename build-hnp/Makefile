@@ -23,7 +23,8 @@ PKGS=bash \
 	readline \
 	htop \
 	vkpeak \
-	kbd
+	kbd \
+	stream
 STAMP=$(patsubst %,%/.stamp,$(PKGS))
 
 all: copy
