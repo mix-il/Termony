@@ -108,6 +108,9 @@ static napi_value CreateSurface(napi_env env, napi_callback_info info) {
 
     EGLint context_attributes[] = {EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE};
     egl_context = eglCreateContext(egl_display, egl_config, EGL_NO_CONTEXT, context_attributes);
+
+    // start render thread
+    StartRender();
     return nullptr;
 }
 
