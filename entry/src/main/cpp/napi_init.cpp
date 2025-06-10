@@ -49,7 +49,7 @@ struct style {
     float bg_blue = 1.0;
 };
 struct term_char {
-    char ch = ' ';
+    uint32_t ch = ' ';
     style style;
 };
 
@@ -66,6 +66,20 @@ enum escape_states {
     state_dcs,
 };
 static escape_states escape_state = state_idle;
+enum utf8_states {
+    state_initial,
+    state_2byte_2,        // expected 2nd byte of 2-byte sequence
+    state_3byte_2_e0,     // expected 2nd byte of 3-byte sequence starting with 0xe0
+    state_3byte_2_non_e0, // expected 2nd byte of 3-byte sequence starting with non-0xe0
+    state_3byte_3,        // expected 3rd byte of 3-byte sequence
+    state_4byte_2_f0,     // expected 2nd byte of 4-byte sequence starting with 0xf0
+    state_4byte_2_f1_f3,  // expected 2nd byte of 4-byte sequence starting with 0xf1 to 0xf3
+    state_4byte_2_f4,     // expected 2nd byte of 4-byte sequence starting with 0xf4
+    state_4byte_3,        // expected 3rd byte of 4-byte sequence
+    state_4byte_4,        // expected 4th byte of 4-byte sequence
+};
+static utf8_states utf8_state = state_initial;
+static uint8_t current_utf8 = 0;
 static std::string escape_buffer;
 static style current_style;
 static int width = 0;
@@ -211,17 +225,18 @@ static void LoadFont() {
         assert(err == 0);
         FT_Set_Pixel_Sizes(face, 0, font_height);
 
-        for (unsigned char c = 0; c < MAX_CHAR; c++) {
+        for (uint32_t c = 0; c < MAX_CHAR; c++) {
             // load character glyph
             if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
                 continue;
             }
 
             OH_LOG_INFO(LOG_APP,
-                        "Char: %{public}c Size: %{public}d %{public}d Glyph: %{public}d %{public}d Left: %{public}d "
+                        "Char: %{public}c(%{public}d) Size: %{public}d %{public}d Glyph: %{public}d %{public}d Left: "
+                        "%{public}d "
                         "Top: %{public}d "
                         "Advance: %{public}ld",
-                        c, font_width, font_height, face->glyph->bitmap.width, face->glyph->bitmap.rows,
+                        c, c, font_width, font_height, face->glyph->bitmap.width, face->glyph->bitmap.rows,
                         face->glyph->bitmap_left, face->glyph->bitmap_top, face->glyph->advance.x);
 
             // copy to bitmap font_width * font_height
@@ -343,6 +358,12 @@ static void Draw() {
 
         int cur_col = 0;
         for (auto c : ch) {
+            uint32_t codepoint = c.ch;
+            if (c.ch >= MAX_CHAR) {
+                // we don't have the character, fallback
+                c.ch = ' ';
+            }
+
             character ch = characters[c.ch][c.style.weight];
             float xpos = x;
             float ypos = y;
@@ -621,6 +642,19 @@ static void *RenderWorker(void *) {
             fps = 0;
             time.clear();
         }
+    }
+}
+
+static void InsertUtf8(uint32_t codepoint) {
+    assert(row >= 0 && row < term_row);
+    assert(col >= 0 && col < term_col);
+    terminal[row][col].ch = codepoint;
+    terminal[row][col].style = current_style;
+    col++;
+    if (col == term_col) {
+        col = 0;
+        row++;
+        DropFirstRowIfOverflow();
     }
 }
 
@@ -1053,40 +1087,130 @@ static void *TerminalWorker(void *) {
                                         escape_buffer.c_str(), buffer[i]);
                             escape_state = state_idle;
                         }
-                    } else {
+                    } else if (escape_state == state_idle) {
                         // escape state is idle
-                        if (buffer[i] >= ' ' && buffer[i] < 127) {
-                            // printable
-                            assert(row >= 0 && row < term_row);
-                            assert(col >= 0 && col < term_col);
-                            terminal[row][col].ch = buffer[i];
-                            terminal[row][col].style = current_style;
-                            col++;
-                            if (col == term_col) {
+                        if (utf8_state == state_initial) {
+                            if (buffer[i] >= ' ' && buffer[i] <= 0x7f) {
+                                // printable
+                                InsertUtf8(buffer[i]);
+                            } else if (buffer[i] >= 0xc2 && buffer[i] <= 0xdf) {
+                                // 2-byte utf8
+                                utf8_state = state_2byte_2;
+                                current_utf8 = (uint32_t)(buffer[i] & 0x1f) << 6;
+                            } else if (buffer[i] == 0xe0) {
+                                // 3-byte utf8 starting with e0
+                                utf8_state = state_3byte_2_e0;
+                                current_utf8 = (uint32_t)(buffer[i] & 0x0f) << 12;
+                            } else if (buffer[i] >= 0xe1 && buffer[i] <= 0xef) {
+                                // 3-byte utf8 starting with non-e0
+                                utf8_state = state_3byte_2_non_e0;
+                                current_utf8 = (uint32_t)(buffer[i] & 0x0f) << 12;
+                            } else if (buffer[i] == 0xf0) {
+                                // 4-byte utf8 starting with f0
+                                utf8_state = state_4byte_2_f0;
+                                current_utf8 = (uint32_t)(buffer[i] & 0x07) << 18;
+                            } else if (buffer[i] >= 0xf1 && buffer[i] <= 0xf3) {
+                                // 4-byte utf8 starting with f1 to f3
+                                utf8_state = state_4byte_2_f1_f3;
+                                current_utf8 = (uint32_t)(buffer[i] & 0x07) << 18;
+                            } else if (buffer[i] == 0xf4) {
+                                // 4-byte utf8 starting with f4
+                                utf8_state = state_4byte_2_f4;
+                                current_utf8 = (uint32_t)(buffer[i] & 0x07) << 18;
+                            } else if (buffer[i] == '\r') {
                                 col = 0;
-                                row++;
+                            } else if (buffer[i] == '\n') {
+                                row += 1;
                                 DropFirstRowIfOverflow();
+                            } else if (buffer[i] == '\b') {
+                                if (col > 0) {
+                                    col -= 1;
+                                }
+                            } else if (buffer[i] == '\t') {
+                                col = (col + 8) / 8 * 8;
+                                if (col >= term_col) {
+                                    col = 0;
+                                    row++;
+                                    DropFirstRowIfOverflow();
+                                }
+                            } else if (buffer[i] == 0x1b) {
+                                escape_buffer = "";
+                                escape_state = state_esc;
                             }
-                        } else if (buffer[i] == '\r') {
-                            col = 0;
-                        } else if (buffer[i] == '\n') {
-                            row += 1;
-                            DropFirstRowIfOverflow();
-                        } else if (buffer[i] == '\b') {
-                            if (col > 0) {
-                                col -= 1;
+                        } else if (utf8_state == state_2byte_2) {
+                            // expecting the second byte of 2-byte utf-8
+                            if (buffer[i] >= 0x80 && buffer[i] <= 0xbf) {
+                                current_utf8 |= (buffer[i] & 0x3f);
+                                InsertUtf8(current_utf8);
                             }
-                        } else if (buffer[i] == '\t') {
-                            col = (col + 8) / 8 * 8;
-                            if (col >= term_col) {
-                                col = 0;
-                                row++;
-                                DropFirstRowIfOverflow();
+                            utf8_state = state_initial;
+                        } else if (utf8_state == state_3byte_2_e0) {
+                            // expecting the second byte of 3-byte utf-8 starting with 0xe0
+                            if (buffer[i] >= 0xa0 && buffer[i] <= 0xbf) {
+                                current_utf8 |= (uint32_t)(buffer[i] & 0x3f) << 6;
+                                utf8_state = state_3byte_3;
+                            } else {
+                                utf8_state = state_initial;
                             }
-                        } else if (buffer[i] == 0x1b) {
-                            escape_buffer = "";
-                            escape_state = state_esc;
+                        } else if (utf8_state == state_3byte_2_non_e0) {
+                            // expecting the second byte of 3-byte utf-8 starting with non-0xe0
+                            if (buffer[i] >= 0x80 && buffer[i] <= 0xbf) {
+                                current_utf8 |= (uint32_t)(buffer[i] & 0x3f) << 6;
+                                utf8_state = state_3byte_3;
+                            } else {
+                                utf8_state = state_initial;
+                            }
+                        } else if (utf8_state == state_3byte_3) {
+                            // expecting the third byte of 3-byte utf-8 starting with 0xe0
+                            if (buffer[i] >= 0x80 && buffer[i] <= 0xbf) {
+                                current_utf8 |= (buffer[i] & 0x3f);
+                                InsertUtf8(current_utf8);
+                            }
+                            utf8_state = state_initial;
+                        } else if (utf8_state == state_4byte_2_f0) {
+                            // expecting the second byte of 4-byte utf-8 starting with 0xf0
+                            if (buffer[i] >= 0x90 && buffer[i] <= 0xbf) {
+                                current_utf8 |= (uint32_t)(buffer[i] & 0x3f) << 12;
+                                utf8_state = state_4byte_3;
+                            } else {
+                                utf8_state = state_initial;
+                            }
+                        } else if (utf8_state == state_4byte_2_f1_f3) {
+                            // expecting the second byte of 4-byte utf-8 starting with 0xf0 to 0xf3
+                            if (buffer[i] >= 0x80 && buffer[i] <= 0xbf) {
+                                current_utf8 |= (uint32_t)(buffer[i] & 0x3f) << 12;
+                                utf8_state = state_4byte_3;
+                            } else {
+                                utf8_state = state_initial;
+                            }
+                        } else if (utf8_state == state_4byte_2_f4) {
+                            // expecting the second byte of 4-byte utf-8 starting with 0xf4
+                            if (buffer[i] >= 0x80 && buffer[i] <= 0x8f) {
+                                current_utf8 |= (uint32_t)(buffer[i] & 0x3f) << 12;
+                                utf8_state = state_4byte_3;
+                            } else {
+                                utf8_state = state_initial;
+                            }
+                        } else if (utf8_state == state_4byte_3) {
+                            // expecting the third byte of 4-byte utf-8
+                            if (buffer[i] >= 0x80 && buffer[i] <= 0xbf) {
+                                current_utf8 |= (uint32_t)(buffer[i] & 0x3f) << 6;
+                                utf8_state = state_4byte_4;
+                            } else {
+                                utf8_state = state_initial;
+                            }
+                        } else if (utf8_state == state_4byte_4) {
+                            // expecting the third byte of 4-byte utf-8
+                            if (buffer[i] >= 0x80 && buffer[i] <= 0xbf) {
+                                current_utf8 |= (buffer[i] & 0x3f);
+                                InsertUtf8(current_utf8);
+                            }
+                            utf8_state = state_initial;
+                        } else {
+                            assert(false && "unreachable utf8 state");
                         }
+                    } else {
+                        assert(false && "unreachable escape state");
                     }
                 }
                 OH_LOG_INFO(LOG_APP, "Final state: %{public}d", escape_state);
