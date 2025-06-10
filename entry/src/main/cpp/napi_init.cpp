@@ -86,6 +86,7 @@ static int width = 0;
 static int height = 0;
 static bool show_cursor = true;
 static GLint surface_location = -1;
+static GLint render_pass_location = -1;
 static int font_height = 48;
 static int font_width = 24;
 static int baseline_height = 10;
@@ -224,6 +225,12 @@ static void LoadFont() {
         err = FT_New_Face(ft, font, 0, &face);
         assert(err == 0);
         FT_Set_Pixel_Sizes(face, 0, font_height);
+        // Note: in 26.6 fractional pixel format
+        OH_LOG_INFO(LOG_APP,
+                    "Ascender: %{public}d Descender: %{public}d Height: %{public}d XMin: %{public}d XMax: %{public}d "
+                    "YMin: %{public}d YMax: %{public}d XScale: %{public}d YScale: %{public}d",
+                    face->ascender, face->descender, face->height, face->bbox.xMin, face->bbox.xMax, face->bbox.yMin,
+                    face->bbox.yMax, face->size->metrics.x_scale, face->size->metrics.y_scale);
 
         for (uint32_t c = 0; c < MAX_CHAR; c++) {
             // load character glyph
@@ -418,7 +425,7 @@ static void Draw() {
     }
     pthread_mutex_unlock(&lock);
 
-    // draw in one pass
+    // draw in two pass
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * vertex_data.size(), vertex_data.data(), GL_STREAM_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, text_color_buffer);
@@ -426,6 +433,11 @@ static void Draw() {
     glBindBuffer(GL_ARRAY_BUFFER, background_color_buffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * background_color_data.size(), background_color_data.data(),
                  GL_STREAM_DRAW);
+    // first pass
+    glUniform1i(render_pass_location, 0);
+    glDrawArrays(GL_TRIANGLES, 0, vertex_data.size() / 4);
+    // second pass
+    glUniform1i(render_pass_location, 1);
     glDrawArrays(GL_TRIANGLES, 0, vertex_data.size() / 4);
 
     glBindVertexArray(0);
@@ -484,8 +496,8 @@ static void *RenderWorker(void *) {
                                 "in vec3 textColor;\n"
                                 "in vec3 backgroundColor;\n"
                                 "out vec2 texCoords;\n"
-                                "out vec3 outTextColor;\n"
-                                "out vec3 outBackgroundColor;\n"
+                                "out vec3 fragTextColor;\n"
+                                "out vec3 fragBackgroundColor;\n"
                                 "uniform vec2 surface;\n"
                                 "void main() {\n"
                                 "  gl_Position.x = vertex.x / surface.x * 2.0f - 1.0f;\n"
@@ -493,8 +505,8 @@ static void *RenderWorker(void *) {
                                 "  gl_Position.z = 0.0;\n"
                                 "  gl_Position.w = 1.0;\n"
                                 "  texCoords = vertex.zw;\n"
-                                "  outTextColor = textColor;\n"
-                                "  outBackgroundColor = backgroundColor;\n"
+                                "  fragTextColor = textColor;\n"
+                                "  fragBackgroundColor = backgroundColor;\n"
                                 "}";
     glShaderSource(vertex_shader_id, 1, &vertex_source, NULL);
     glCompileShader(vertex_shader_id);
@@ -512,14 +524,23 @@ static void *RenderWorker(void *) {
                                   "\n"
                                   "precision lowp float;\n"
                                   "in vec2 texCoords;\n"
-                                  "in vec3 outTextColor;\n"
-                                  "in vec3 outBackgroundColor;\n"
+                                  "in vec3 fragTextColor;\n"
+                                  "in vec3 fragBackgroundColor;\n"
                                   "out vec4 color;\n"
                                   "uniform sampler2D text;\n"
+                                  "uniform int renderPass;\n"
                                   "void main() {\n"
-                                  "  float alpha = texture(text, texCoords).r;\n"
-                                  "  color = vec4(outTextColor * alpha + outBackgroundColor * (1.0 - alpha), 1.0);\n"
+                                  "  if (renderPass == 0) {\n"
+                                  "    color = vec4(fragBackgroundColor, 1.0);\n"
+                                  "  } else {\n"
+                                  "    float alpha = texture(text, texCoords).r;\n"
+                                  "    color = vec4(fragTextColor, 1.0) * alpha;\n"
+                                  "  }\n"
                                   "}";
+    // blending is done by opengl (GL_ONE + GL_ONE_MINUS_SRC_ALPHA):
+    // final = src * 1 + dest * (1 - src.a)
+    // first pass: src = (fragBackgroundColor, 1.0), dest = (1.0, 1.0, 1.0, 1.0), final = (fragBackgroundColor, 1.0)
+    // second pass: src = (fragTextColor * alpha, alpha), dest = (fragBackgroundColor, 1.0), final = (fragTextColor * alpha + fragBackgroundColor * (1 - alpha), 1.0)
     glShaderSource(fragment_shader_id, 1, &fragment_source, NULL);
     glCompileShader(fragment_shader_id);
 
@@ -545,9 +566,12 @@ static void *RenderWorker(void *) {
     surface_location = glGetUniformLocation(program_id, "surface");
     assert(surface_location != -1);
 
+    render_pass_location = glGetUniformLocation(program_id, "renderPass");
+    assert(render_pass_location != -1);
+
     glUseProgram(program_id);
     glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
     // load font from ttf
     LoadFont();
