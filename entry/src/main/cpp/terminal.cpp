@@ -490,8 +490,11 @@ static void *TerminalWorker(void *) {
                                     // reset all attributes to their defaults
                                     current_style = term_style();
                                 } else if (part == "1" || part == "01") {
-                                    // set bold
+                                    // set bold, CSI 1 m
                                     current_style.weight = font_weight::bold;
+                                } else if (part == "5") {
+                                    // set blink, CSI 5 m
+                                    // TODO
                                 } else if (part == "7") {
                                     // inverse
                                     std::swap(current_style.fg_red, current_style.bg_red);
@@ -704,9 +707,11 @@ static void *TerminalWorker(void *) {
                             } else if (buffer[i] == '\r') {
                                 col = 0;
                             } else if (buffer[i] == '\n') {
+                                // CUD1=\n, cursor down by 1
                                 row += 1;
                                 DropFirstRowIfOverflow();
                             } else if (buffer[i] == '\b') {
+                                // CUB1=^H, cursor backward by 1
                                 if (col > 0) {
                                     col -= 1;
                                 }
@@ -956,10 +961,11 @@ static void LoadFont() {
     // now bitmap contains all glyphs
     // second pass: convert pixels to uv coordinates
     for (auto &pair : characters) {
+        // https://stackoverflow.com/questions/35454432/finding-image-pixel-coordinates-integers-from-uv-values-floats-of-obj-file
         pair.second.left /= row_stride - 1;
         pair.second.right /= row_stride - 1;
-        pair.second.top /= bitmap_height - 1;
-        pair.second.bottom /= bitmap_height - 1;
+        pair.second.top = (pair.second.top + 0.5) / bitmap_height;
+        pair.second.bottom = (pair.second.bottom + 0.5) / bitmap_height;
     }
 
     // disable byte-alignment restriction
