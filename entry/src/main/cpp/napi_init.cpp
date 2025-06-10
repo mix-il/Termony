@@ -807,7 +807,7 @@ static void *TerminalWorker(void *) {
                             row--;
                             clamp_row();
                             escape_state = state_idle;
-                        } else if (buffer[i] == 'h' && escape_buffer.size() > 1 && escape_buffer[0] == '?') {
+                        } else if (buffer[i] == 'h' && escape_buffer.size() > 0 && escape_buffer[0] == '?') {
                             // CSI ? Pm h, DEC Private Mode Set (DECSET)
                             std::vector<std::string> parts = splitString(escape_buffer.substr(1), ";");
                             for (auto part : parts) {
@@ -838,7 +838,7 @@ static void *TerminalWorker(void *) {
                                 }
                             }
                             escape_state = state_idle;
-                        } else if (buffer[i] == 'l' && escape_buffer.size() > 1 && escape_buffer[0] == '?') {
+                        } else if (buffer[i] == 'l' && escape_buffer.size() > 0 && escape_buffer[0] == '?') {
                             // CSI ? Pm l, DEC Private Mode Reset (DECRST)
                             std::vector<std::string> parts = splitString(escape_buffer.substr(1), ";");
                             for (auto part : parts) {
@@ -983,7 +983,7 @@ static void *TerminalWorker(void *) {
                                 }
                             }
                             escape_state = state_idle;
-                        } else if (buffer[i] == 'm' && escape_buffer.size() > 1 && escape_buffer[0] == '>') {
+                        } else if (buffer[i] == 'm' && escape_buffer.size() > 0 && escape_buffer[0] == '>') {
                             // CSI > Pp m, XTMODKEYS, set/reset key modifier options
                             // TODO
                             escape_state = state_idle;
@@ -998,7 +998,7 @@ static void *TerminalWorker(void *) {
                             assert(res == len);
                             escape_state = state_idle;
                         } else if (buffer[i] == '@' &&
-                                   ((escape_buffer.size() > 1 && escape_buffer[escape_buffer.size() - 1] >= '0' &&
+                                   ((escape_buffer.size() > 0 && escape_buffer[escape_buffer.size() - 1] >= '0' &&
                                      escape_buffer[escape_buffer.size() - 1] <= '9') ||
                                     escape_buffer == "")) {
                             // CSI Ps @, ICH, Insert Ps (Blank) Character(s)
