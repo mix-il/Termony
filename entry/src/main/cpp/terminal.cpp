@@ -338,6 +338,12 @@ static void HandleCSI(uint8_t current) {
                 for (int i = 0; i <= col; i++) {
                     terminal[row][i] = term_char();
                 }
+            } else if (escape_buffer == "2") {
+                // CSI 2 K
+                // erase whole line
+                for (int i = 0; i < term_col; i++) {
+                    terminal[row][i] = term_char();
+                }
             } else {
                 goto unknown;
             }
@@ -369,6 +375,20 @@ static void HandleCSI(uint8_t current) {
             // convert from 1-based to 0-based
             row--;
             clamp_row();
+        } else if (current == 'f') {
+            std::vector<std::string> parts = splitString(escape_buffer, ";");
+            if (parts.size() == 2) {
+                // CSI Ps ; PS f, CUP, move cursor to x, y
+                sscanf(parts[0].c_str(), "%d", &row);
+                sscanf(parts[1].c_str(), "%d", &col);
+                // convert from 1-based to 0-based
+                row--;
+                col--;
+                clamp_row();
+                clamp_col();
+            } else {
+                goto unknown;
+            }
         } else if (current == 'h' && escape_buffer.size() > 0 && escape_buffer[0] == '?') {
             // CSI ? Pm h, DEC Private Mode Set (DECSET)
             std::vector<std::string> parts = splitString(escape_buffer.substr(1), ";");
@@ -635,6 +655,37 @@ static void *TerminalWorker(void *) {
                         } else if (buffer[i] == '>') {
                             // ESC >, exit alternate keypad mode
                             // TODO
+                            escape_state = state_idle;
+                        } else if (buffer[i] == 'A') {
+                            // ESC A, cursor up
+                            row --;
+                            clamp_row();
+                            escape_state = state_idle;
+                        } else if (buffer[i] == 'B') {
+                            // ESC B, cursor down
+                            row ++;
+                            clamp_row();
+                            escape_state = state_idle;
+                        } else if (buffer[i] == 'C') {
+                            // ESC C, cursor right
+                            col ++;
+                            clamp_col();
+                            escape_state = state_idle;
+                        } else if (buffer[i] == 'D') {
+                            // ESC D, cursor left
+                            col --;
+                            clamp_col();
+                            escape_state = state_idle;
+                        } else if (buffer[i] == 'E') {
+                            // ESC E, goto to the beginning of next row
+                            row ++;
+                            col = 0;
+                            clamp_row();
+                            escape_state = state_idle;
+                        } else if (buffer[i] == 'M') {
+                            // ESC M, move cursor one line up
+                            row --;
+                            clamp_row();
                             escape_state = state_idle;
                         } else if (buffer[i] == 'P') {
                             // ESC P = DCS
