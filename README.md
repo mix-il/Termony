@@ -42,10 +42,11 @@ Bundled packages:
 
 1. Connect your MateBook Pro to Mac, and do the following steps on Mac
 2. Setup code signing in DevEco-Studio, ignore warnings if any
-3. Run `./create-hnp.sh` to create hnp packages
-4. Run `./build-macos.sh`
-5. Run `./push.sh ./entry/build/default/outputs/default/entry-default-signed.hap`
-6. Input command in the text input of the application, press enter
+3. Install `wget` and `ncurses` from homebrew
+4. Run `./create-hnp.sh` to create hnp packages
+5. Run `./build-macos.sh`
+6. Run `./push.sh ./entry/build/default/outputs/default/entry-default-signed.hap`
+7. Input command in the text input of the application, press enter
 
 ## Usage (if you are a Linux user):
 
