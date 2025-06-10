@@ -47,3 +47,25 @@
 +struct passwd *mygetpwuid(uid_t uid);
  
  #endif /* _MISC_H */
+--- a/scp.c	2025-06-10 16:47:41
++++ b/scp.c	2025-06-10 16:47:46
+@@ -649,7 +649,7 @@
+ 	if (iamremote)
+ 		mode = MODE_SCP;
+ 
+-	if ((pwd = getpwuid(userid = getuid())) == NULL)
++	if ((pwd = mygetpwuid(userid = getuid())) == NULL)
+ 		fatal("unknown user %u", (u_int) userid);
+ 
+ 	if (!isatty(STDOUT_FILENO))
+--- a/ssh-keygen.c	2025-06-10 16:48:14
++++ b/ssh-keygen.c	2025-06-10 16:48:24
+@@ -3416,7 +3416,7 @@
+ 	msetlocale();
+ 
+ 	/* we need this for the home * directory.  */
+-	pw = getpwuid(getuid());
++	pw = mygetpwuid(getuid());
+ 	if (!pw)
+ 		fatal("No user exists for uid %lu", (u_long)getuid());
+ 	pw = pwcopy(pw);
