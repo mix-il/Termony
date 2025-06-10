@@ -32,7 +32,7 @@ prepare_arkuix() {
         echo "arkui-x.dir=${PROJ_BASE_HOME}/arkui-x" > ${PROJ_BASE_HOME}/local.properties
 }
 
-build_harmony_hap() {
+build_termony_hap() {
 	hvigorw assembleHap
 	# add hnp, and sign manually
 	pushd ${PROJ_BASE_HOME}/entry

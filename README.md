@@ -38,7 +38,7 @@ Bundled packages:
 - xxhash
 - yyjson
 
-## Usage:
+## Usage (if you are a Mac user):
 
 1. Connect your MateBook Pro to Mac, and do the following steps on Mac
 2. Setup code signing in DevEco-Studio, ignore warnings if any
