@@ -504,7 +504,7 @@ static void *RenderWorker(void *) {
     if (info_log_length > 0) {
         std::vector<char> vertex_shader_error_message(info_log_length + 1);
         glGetShaderInfoLog(vertex_shader_id, info_log_length, NULL, &vertex_shader_error_message[0]);
-        OH_LOG_INFO(LOG_APP, "Failed to build vertex shader: %{public}s", &vertex_shader_error_message[0]);
+        OH_LOG_ERROR(LOG_APP, "Failed to build vertex shader: %{public}s", &vertex_shader_error_message[0]);
     }
 
     GLuint fragment_shader_id = glCreateShader(GL_FRAGMENT_SHADER);
@@ -527,7 +527,7 @@ static void *RenderWorker(void *) {
     if (info_log_length > 0) {
         std::vector<char> fragment_shader_error_message(info_log_length + 1);
         glGetShaderInfoLog(fragment_shader_id, info_log_length, NULL, &fragment_shader_error_message[0]);
-        OH_LOG_INFO(LOG_APP, "Failed to build fragment shader: %{public}s", &fragment_shader_error_message[0]);
+        OH_LOG_ERROR(LOG_APP, "Failed to build fragment shader: %{public}s", &fragment_shader_error_message[0]);
     }
 
     GLuint program_id = glCreateProgram();
@@ -539,7 +539,7 @@ static void *RenderWorker(void *) {
     if (info_log_length > 0) {
         std::vector<char> link_program_error_message(info_log_length + 1);
         glGetProgramInfoLog(program_id, info_log_length, NULL, &link_program_error_message[0]);
-        OH_LOG_INFO(LOG_APP, "Failed to link program: %{public}s", &link_program_error_message[0]);
+        OH_LOG_ERROR(LOG_APP, "Failed to link program: %{public}s", &link_program_error_message[0]);
     }
 
     surface_location = glGetUniformLocation(program_id, "surface");
@@ -711,7 +711,7 @@ static void *TerminalWorker(void *) {
                             escape_state = state_dcs;
                         } else {
                             // unknown
-                            OH_LOG_INFO(LOG_APP, "Unknown escape sequence after ESC: %{public}s %{public}c",
+                            OH_LOG_WARN(LOG_APP, "Unknown escape sequence after ESC: %{public}s %{public}c",
                                         escape_buffer.c_str(), buffer[i]);
                             escape_state = state_idle;
                         }
@@ -867,7 +867,7 @@ static void *TerminalWorker(void *) {
                                     // CSI ? 2004 h, set bracketed paste mode
                                     // TODO
                                 } else {
-                                    OH_LOG_INFO(LOG_APP, "Unknown CSI ? Pm h: %{public}s %{public}c",
+                                    OH_LOG_WARN(LOG_APP, "Unknown CSI ? Pm h: %{public}s %{public}c",
                                                 escape_buffer.c_str(), buffer[i]);
                                 }
                             }
@@ -886,7 +886,7 @@ static void *TerminalWorker(void *) {
                                     // CSI ? 2004 l, reset bracketed paste mode
                                     // TODO
                                 } else {
-                                    OH_LOG_INFO(LOG_APP, "Unknown CSI ? Pm l: %{public}s %{public}c",
+                                    OH_LOG_WARN(LOG_APP, "Unknown CSI ? Pm l: %{public}s %{public}c",
                                                 escape_buffer.c_str(), buffer[i]);
                                 }
                             }
@@ -1012,7 +1012,7 @@ static void *TerminalWorker(void *) {
                                     current_style.fg_green = 0.5;
                                     current_style.fg_blue = 0.5;
                                 } else {
-                                    OH_LOG_INFO(LOG_APP, "Unknown CSI Pm m: %{public}s %{public}c",
+                                    OH_LOG_WARN(LOG_APP, "Unknown CSI Pm m: %{public}s %{public}c",
                                                 escape_buffer.c_str(), buffer[i]);
                                 }
                             }
@@ -1051,7 +1051,7 @@ static void *TerminalWorker(void *) {
                             escape_buffer += buffer[i];
                         } else {
                             // unknown
-                            OH_LOG_INFO(LOG_APP, "Unknown escape sequence in CSI: %{public}s %{public}c",
+                            OH_LOG_WARN(LOG_APP, "Unknown escape sequence in CSI: %{public}s %{public}c",
                                         escape_buffer.c_str(), buffer[i]);
                             escape_state = state_idle;
                         }
@@ -1069,7 +1069,7 @@ static void *TerminalWorker(void *) {
                             escape_buffer += buffer[i];
                         } else {
                             // unknown
-                            OH_LOG_INFO(LOG_APP, "Unknown escape sequence in OSC: %{public}s %{public}c",
+                            OH_LOG_WARN(LOG_APP, "Unknown escape sequence in OSC: %{public}s %{public}c",
                                         escape_buffer.c_str(), buffer[i]);
                             escape_state = state_idle;
                         }
@@ -1083,7 +1083,7 @@ static void *TerminalWorker(void *) {
                             escape_buffer += buffer[i];
                         } else {
                             // unknown
-                            OH_LOG_INFO(LOG_APP, "Unknown escape sequence in DCS: %{public}s %{public}c",
+                            OH_LOG_WARN(LOG_APP, "Unknown escape sequence in DCS: %{public}s %{public}c",
                                         escape_buffer.c_str(), buffer[i]);
                             escape_state = state_idle;
                         }
@@ -1213,7 +1213,6 @@ static void *TerminalWorker(void *) {
                         assert(false && "unreachable escape state");
                     }
                 }
-                OH_LOG_INFO(LOG_APP, "Final state: %{public}d", escape_state);
                 pthread_mutex_unlock(&lock);
             }
         }
