@@ -242,6 +242,340 @@ static void InsertUtf8(uint32_t codepoint) {
 #define read_int_or_default(def)                                                                                       \
     (temp = 0, (escape_buffer != "" ? sscanf(escape_buffer.c_str(), "%d", &temp) : temp = (def)), temp)
 
+static void HandleCSI(uint8_t current) {
+    int temp = 0;
+    if (current >= 0x40 && current <= 0x7E) {
+        // final byte in [0x40, 0x7E]
+        if (current == 'A') {
+            // CSI Ps A, CUU, move cursor up # lines
+            row -= read_int_or_default(1);
+            clamp_row();
+        } else if (current == 'B') {
+            // CSI Ps B, CUD, move cursor down # lines
+            row += read_int_or_default(1);
+            clamp_row();
+        } else if (current == 'C') {
+            // CSI Ps C, CUF, move cursor right # columns
+            col += read_int_or_default(1);
+            clamp_col();
+        } else if (current == 'D') {
+            // CSI Ps D, CUB, move cursor left # columns
+            col -= read_int_or_default(1);
+            clamp_col();
+        } else if (current == 'E') {
+            // CSI Ps E, CNL, move cursor to the beginning of next line, down # lines
+            row += read_int_or_default(1);
+            clamp_row();
+            col = 0;
+        } else if (current == 'F') {
+            // CSI Ps F, CPL, move cursor to the beginning of previous line, up # lines
+            row -= read_int_or_default(1);
+            clamp_row();
+            col = 0;
+        } else if (current == 'G') {
+            // CSI Ps G, CHA, move cursor to column #
+            col = read_int_or_default(1);
+            // convert from 1-based to 0-based
+            col--;
+            clamp_col();
+        } else if (current == 'H') {
+            // CSI Ps ; PS H, CUP, move cursor to x, y, default to upper left corner
+            std::vector<std::string> parts = splitString(escape_buffer, ";");
+            if (parts.size() == 2) {
+                sscanf(parts[0].c_str(), "%d", &row);
+                sscanf(parts[1].c_str(), "%d", &col);
+                // convert from 1-based to 0-based
+                row--;
+                col--;
+                clamp_row();
+                clamp_col();
+            } else if (escape_buffer == "") {
+                row = col = 0;
+            }
+        } else if (current == 'J') {
+            // CSI Ps J, ED, erase in display
+            if (escape_buffer == "" || escape_buffer == "0") {
+                // erase below
+                for (int i = col; i < term_col; i++) {
+                    terminal[row][i] = term_char();
+                }
+                for (int i = row + 1; i < term_row; i++) {
+                    std::fill(terminal[i].begin(), terminal[i].end(), term_char());
+                }
+            } else if (escape_buffer == "1") {
+                // erase above
+                for (int i = 0; i < row; i++) {
+                    std::fill(terminal[i].begin(), terminal[i].end(), term_char());
+                }
+                for (int i = 0; i <= col; i++) {
+                    terminal[row][i] = term_char();
+                }
+            } else if (escape_buffer == "2") {
+                // erase all
+                for (int i = 0; i < term_row; i++) {
+                    std::fill(terminal[i].begin(), terminal[i].end(), term_char());
+                }
+            }
+        } else if (current == 'K') {
+            // CSI Ps K, EL, erase in line
+            if (escape_buffer == "" || escape_buffer == "0") {
+                // erase to right
+                for (int i = col; i < term_col; i++) {
+                    terminal[row][i] = term_char();
+                }
+            } else if (escape_buffer == "1") {
+                // erase to left
+                for (int i = 0; i <= col; i++) {
+                    terminal[row][i] = term_char();
+                }
+            }
+        } else if (current == 'P') {
+            // CSI Ps P, DCH, delete # characters, move right to left
+            int del = read_int_or_default(1);
+            for (int i = col; i < term_col; i++) {
+                if (i + del < term_col) {
+                    terminal[row][i] = terminal[row][i + del];
+                } else {
+                    terminal[row][i] = term_char();
+                }
+            }
+        } else if (current == 'X') {
+            // CSI Ps X, ECH, erase # characters, do not move others
+            int del = read_int_or_default(1);
+            for (int i = col; i < col + del && i < term_col; i++) {
+                terminal[row][i] = term_char();
+            }
+        } else if (current == 'c' && escape_buffer == "") {
+            // CSI Ps c, Send Device Attributes
+            // send CSI ? 6 c: I am VT102
+            uint8_t send_buffer[] = {0x1b, '[', '?', '6', 'c'};
+            int res = write(fd, send_buffer, sizeof(send_buffer));
+            assert(res == sizeof(send_buffer));
+        } else if (current == 'd' && escape_buffer != "") {
+            // CSI Ps d, VPA, move cursor to row #
+            sscanf(escape_buffer.c_str(), "%d", &row);
+            // convert from 1-based to 0-based
+            row--;
+            clamp_row();
+        } else if (current == 'h' && escape_buffer.size() > 0 && escape_buffer[0] == '?') {
+            // CSI ? Pm h, DEC Private Mode Set (DECSET)
+            std::vector<std::string> parts = splitString(escape_buffer.substr(1), ";");
+            for (auto part : parts) {
+                if (part == "1") {
+                    // CSI ? 1 h, Application Cursor Keys (DECCKM)
+                    // TODO
+                } else if (part == "12") {
+                    // CSI ? 12 h, Start blinking cursor
+                    // TODO
+                } else if (part == "25") {
+                    // CSI ? 25 h, DECTCEM, make cursor visible
+                    show_cursor = true;
+                } else if (part == "1000") {
+                    // CSI ? 1000 h, Send Mouse X & Y on button press and release
+                    // TODO
+                } else if (part == "1002") {
+                    // CSI ? 1002 h, Use Cell Motion Mouse Tracking
+                    // TODO
+                } else if (part == "1006") {
+                    // CSI ? 1006 h, Enable SGR Mouse Mode
+                    // TODO
+                } else if (part == "2004") {
+                    // CSI ? 2004 h, set bracketed paste mode
+                    // TODO
+                } else {
+                    OH_LOG_WARN(LOG_APP, "Unknown CSI ? Pm h: %{public}s %{public}c",
+                                escape_buffer.c_str(), current);
+                }
+            }
+        } else if (current == 'l' && escape_buffer.size() > 0 && escape_buffer[0] == '?') {
+            // CSI ? Pm l, DEC Private Mode Reset (DECRST)
+            std::vector<std::string> parts = splitString(escape_buffer.substr(1), ";");
+            for (auto part : parts) {
+                if (part == "12") {
+                    // CSI ? 12 l, Stop blinking cursor
+                    // TODO
+                } else if (part == "25") {
+                    // CSI ? 25 l, Hide cursor (DECTCEM)
+                    show_cursor = true;
+                } else if (part == "2004") {
+                    // CSI ? 2004 l, reset bracketed paste mode
+                    // TODO
+                } else {
+                    OH_LOG_WARN(LOG_APP, "Unknown CSI ? Pm l: %{public}s %{public}c",
+                                escape_buffer.c_str(), current);
+                }
+            }
+        } else if (current == 'm' && escape_buffer == "") {
+            // CSI Pm m, Character Attributes (SGR)
+            // reset all attributes to their defaults
+            current_style = term_style();
+        } else if (current == 'm' && escape_buffer.size() > 0 && escape_buffer[0] != '>') {
+            // CSI Pm m, Character Attributes (SGR)
+
+            // set color
+            std::vector<std::string> parts = splitString(escape_buffer, ";");
+            for (auto part : parts) {
+                if (part == "0") {
+                    // reset all attributes to their defaults
+                    current_style = term_style();
+                } else if (part == "1" || part == "01") {
+                    // set bold, CSI 1 m
+                    current_style.weight = font_weight::bold;
+                } else if (part == "5") {
+                    // set blink, CSI 5 m
+                    // TODO
+                } else if (part == "7") {
+                    // inverse
+                    std::swap(current_style.fg_red, current_style.bg_red);
+                    std::swap(current_style.fg_green, current_style.bg_green);
+                    std::swap(current_style.fg_blue, current_style.bg_blue);
+                } else if (part == "10") {
+                    // reset to primary font
+                    current_style = term_style();
+                } else if (part == "30") {
+                    // black foreground
+                    current_style.fg_red = 0.0;
+                    current_style.fg_green = 0.0;
+                    current_style.fg_blue = 0.0;
+                } else if (part == "31") {
+                    // red foreground
+                    current_style.fg_red = 1.0;
+                    current_style.fg_green = 0.0;
+                    current_style.fg_blue = 0.0;
+                } else if (part == "32") {
+                    // green foreground
+                    current_style.fg_red = 0.0;
+                    current_style.fg_green = 1.0;
+                    current_style.fg_blue = 0.0;
+                } else if (part == "33") {
+                    // yellow foreground
+                    current_style.fg_red = 1.0;
+                    current_style.fg_green = 1.0;
+                    current_style.fg_blue = 0.0;
+                } else if (part == "34") {
+                    // blue foreground
+                    current_style.fg_red = 0.0;
+                    current_style.fg_green = 0.0;
+                    current_style.fg_blue = 1.0;
+                } else if (part == "35") {
+                    // magenta foreground
+                    current_style.fg_red = 1.0;
+                    current_style.fg_green = 0.0;
+                    current_style.fg_blue = 1.0;
+                } else if (part == "36") {
+                    // cyan foreground
+                    current_style.fg_red = 0.0;
+                    current_style.fg_green = 1.0;
+                    current_style.fg_blue = 1.0;
+                } else if (part == "37") {
+                    // white foreground
+                    current_style.fg_red = 1.0;
+                    current_style.fg_green = 1.0;
+                    current_style.fg_blue = 1.0;
+                } else if (part == "39") {
+                    // default foreground
+                    current_style.fg_red = 0.0;
+                    current_style.fg_green = 0.0;
+                    current_style.fg_blue = 0.0;
+                } else if (part == "40") {
+                    // black background
+                    current_style.bg_red = 0.0;
+                    current_style.bg_green = 0.0;
+                    current_style.bg_blue = 0.0;
+                } else if (part == "41") {
+                    // black background
+                    current_style.bg_red = 1.0;
+                    current_style.bg_green = 0.0;
+                    current_style.bg_blue = 0.0;
+                } else if (part == "42") {
+                    // green background
+                    current_style.bg_red = 0.0;
+                    current_style.bg_green = 1.0;
+                    current_style.bg_blue = 0.0;
+                } else if (part == "43") {
+                    // yellow background
+                    current_style.bg_red = 1.0;
+                    current_style.bg_green = 1.0;
+                    current_style.bg_blue = 0.0;
+                } else if (part == "44") {
+                    // blue background
+                    current_style.bg_red = 0.0;
+                    current_style.bg_green = 0.0;
+                    current_style.bg_blue = 1.0;
+                } else if (part == "45") {
+                    // magenta background
+                    current_style.bg_red = 1.0;
+                    current_style.bg_green = 0.0;
+                    current_style.bg_blue = 1.0;
+                } else if (part == "46") {
+                    // cyan background
+                    current_style.bg_red = 0.0;
+                    current_style.bg_green = 1.0;
+                    current_style.bg_blue = 1.0;
+                } else if (part == "47") {
+                    // white background
+                    current_style.bg_red = 1.0;
+                    current_style.bg_green = 1.0;
+                    current_style.bg_blue = 1.0;
+                } else if (part == "49") {
+                    // default background
+                    current_style.bg_red = 1.0;
+                    current_style.bg_green = 1.0;
+                    current_style.bg_blue = 1.0;
+                } else if (part == "90") {
+                    // bright black foreground
+                    current_style.fg_red = 0.5;
+                    current_style.fg_green = 0.5;
+                    current_style.fg_blue = 0.5;
+                } else {
+                    OH_LOG_WARN(LOG_APP, "Unknown CSI Pm m: %{public}s %{public}c",
+                                escape_buffer.c_str(), current);
+                }
+            }
+        } else if (current == 'm' && escape_buffer.size() > 0 && escape_buffer[0] == '>') {
+            // CSI > Pp m, XTMODKEYS, set/reset key modifier options
+            // TODO
+        } else if (current == 'n' && escape_buffer == "6") {
+            // CSI Ps n, DSR, Device Status Report
+            // Ps = 6: Report Cursor Position (CPR)
+            // send ESC [ row ; col R
+            char send_buffer[128] = {};
+            snprintf(send_buffer, sizeof(send_buffer), "\x1b[%d;%dR", row + 1, col + 1);
+            int len = strlen(send_buffer);
+            int res = write(fd, send_buffer, len);
+            assert(res == len);
+        } else if (current == '@' &&
+                ((escape_buffer.size() > 0 && escape_buffer[escape_buffer.size() - 1] >= '0' &&
+                    escape_buffer[escape_buffer.size() - 1] <= '9') ||
+                    escape_buffer == "")) {
+            // CSI Ps @, ICH, Insert Ps (Blank) Character(s)
+            int count = read_int_or_default(1);
+            for (int i = term_col - 1; i >= col; i--) {
+                if (i - col < count) {
+                    terminal[row][col].ch = ' ';
+                } else {
+                    terminal[row][col] = terminal[row][col - count];
+                }
+            }
+        } else {
+            // unknown
+            OH_LOG_WARN(LOG_APP, "Unknown escape sequence in CSI: %{public}s %{public}c",
+                        escape_buffer.c_str(), current);
+        }
+        escape_state = state_idle;
+    } else if (current >= 0x20 && current <= 0x3F) {
+        // parameter bytes in [0x30, 0x3F],
+        // or intermediate bytes in [0x20, 0x2F]
+        escape_buffer += current;
+    } else {
+        // invalid byte
+        // unknown
+        OH_LOG_WARN(LOG_APP, "Unknown escape sequence in CSI: %{public}s %{public}c",
+                    escape_buffer.c_str(), current);
+        escape_state = state_idle;
+    }
+}
+
 static void *TerminalWorker(void *) {
     pthread_setname_np(pthread_self(), "terminal worker");
 
@@ -299,357 +633,7 @@ static void *TerminalWorker(void *) {
                             escape_state = state_idle;
                         }
                     } else if (escape_state == state_csi) {
-                        if (buffer[i] >= 0x40 && buffer[i] <= 0x7E) {
-                            // final byte in [0x40, 0x7E]
-                            if (buffer[i] == 'A') {
-                                // CSI Ps A, CUU, move cursor up # lines
-                                row -= read_int_or_default(1);
-                                clamp_row();
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'B') {
-                                // CSI Ps B, CUD, move cursor down # lines
-                                row += read_int_or_default(1);
-                                clamp_row();
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'C') {
-                                // CSI Ps C, CUF, move cursor right # columns
-                                col += read_int_or_default(1);
-                                clamp_col();
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'D') {
-                                // CSI Ps D, CUB, move cursor left # columns
-                                col -= read_int_or_default(1);
-                                clamp_col();
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'E') {
-                                // CSI Ps E, CNL, move cursor to the beginning of next line, down # lines
-                                row += read_int_or_default(1);
-                                clamp_row();
-                                col = 0;
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'F') {
-                                // CSI Ps F, CPL, move cursor to the beginning of previous line, up # lines
-                                row -= read_int_or_default(1);
-                                clamp_row();
-                                col = 0;
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'G') {
-                                // CSI Ps G, CHA, move cursor to column #
-                                col = read_int_or_default(1);
-                                // convert from 1-based to 0-based
-                                col--;
-                                clamp_col();
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'H') {
-                                // CSI Ps ; PS H, CUP, move cursor to x, y, default to upper left corner
-                                std::vector<std::string> parts = splitString(escape_buffer, ";");
-                                if (parts.size() == 2) {
-                                    sscanf(parts[0].c_str(), "%d", &row);
-                                    sscanf(parts[1].c_str(), "%d", &col);
-                                    // convert from 1-based to 0-based
-                                    row--;
-                                    col--;
-                                    clamp_row();
-                                    clamp_col();
-                                } else if (escape_buffer == "") {
-                                    row = col = 0;
-                                }
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'J') {
-                                // CSI Ps J, ED, erase in display
-                                if (escape_buffer == "" || escape_buffer == "0") {
-                                    // erase below
-                                    for (int i = col; i < term_col; i++) {
-                                        terminal[row][i] = term_char();
-                                    }
-                                    for (int i = row + 1; i < term_row; i++) {
-                                        std::fill(terminal[i].begin(), terminal[i].end(), term_char());
-                                    }
-                                } else if (escape_buffer == "1") {
-                                    // erase above
-                                    for (int i = 0; i < row; i++) {
-                                        std::fill(terminal[i].begin(), terminal[i].end(), term_char());
-                                    }
-                                    for (int i = 0; i <= col; i++) {
-                                        terminal[row][i] = term_char();
-                                    }
-                                } else if (escape_buffer == "2") {
-                                    // erase all
-                                    for (int i = 0; i < term_row; i++) {
-                                        std::fill(terminal[i].begin(), terminal[i].end(), term_char());
-                                    }
-                                }
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'K') {
-                                // CSI Ps K, EL, erase in line
-                                if (escape_buffer == "" || escape_buffer == "0") {
-                                    // erase to right
-                                    for (int i = col; i < term_col; i++) {
-                                        terminal[row][i] = term_char();
-                                    }
-                                } else if (escape_buffer == "1") {
-                                    // erase to left
-                                    for (int i = 0; i <= col; i++) {
-                                        terminal[row][i] = term_char();
-                                    }
-                                }
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'P') {
-                                // CSI Ps P, DCH, delete # characters, move right to left
-                                int del = read_int_or_default(1);
-                                for (int i = col; i < term_col; i++) {
-                                    if (i + del < term_col) {
-                                        terminal[row][i] = terminal[row][i + del];
-                                    } else {
-                                        terminal[row][i] = term_char();
-                                    }
-                                }
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'X') {
-                                // CSI Ps X, ECH, erase # characters, do not move others
-                                int del = read_int_or_default(1);
-                                for (int i = col; i < col + del && i < term_col; i++) {
-                                    terminal[row][i] = term_char();
-                                }
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'c' && escape_buffer == "") {
-                                // CSI Ps c, Send Device Attributes
-                                // send CSI ? 6 c: I am VT102
-                                uint8_t send_buffer[] = {0x1b, '[', '?', '6', 'c'};
-                                int res = write(fd, send_buffer, sizeof(send_buffer));
-                                assert(res == sizeof(send_buffer));
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'd' && escape_buffer != "") {
-                                // CSI Ps d, VPA, move cursor to row #
-                                sscanf(escape_buffer.c_str(), "%d", &row);
-                                // convert from 1-based to 0-based
-                                row--;
-                                clamp_row();
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'h' && escape_buffer.size() > 0 && escape_buffer[0] == '?') {
-                                // CSI ? Pm h, DEC Private Mode Set (DECSET)
-                                std::vector<std::string> parts = splitString(escape_buffer.substr(1), ";");
-                                for (auto part : parts) {
-                                    if (part == "1") {
-                                        // CSI ? 1 h, Application Cursor Keys (DECCKM)
-                                        // TODO
-                                    } else if (part == "12") {
-                                        // CSI ? 12 h, Start blinking cursor
-                                        // TODO
-                                    } else if (part == "25") {
-                                        // CSI ? 25 h, DECTCEM, make cursor visible
-                                        show_cursor = true;
-                                    } else if (part == "1000") {
-                                        // CSI ? 1000 h, Send Mouse X & Y on button press and release
-                                        // TODO
-                                    } else if (part == "1002") {
-                                        // CSI ? 1002 h, Use Cell Motion Mouse Tracking
-                                        // TODO
-                                    } else if (part == "1006") {
-                                        // CSI ? 1006 h, Enable SGR Mouse Mode
-                                        // TODO
-                                    } else if (part == "2004") {
-                                        // CSI ? 2004 h, set bracketed paste mode
-                                        // TODO
-                                    } else {
-                                        OH_LOG_WARN(LOG_APP, "Unknown CSI ? Pm h: %{public}s %{public}c",
-                                                    escape_buffer.c_str(), buffer[i]);
-                                    }
-                                }
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'l' && escape_buffer.size() > 0 && escape_buffer[0] == '?') {
-                                // CSI ? Pm l, DEC Private Mode Reset (DECRST)
-                                std::vector<std::string> parts = splitString(escape_buffer.substr(1), ";");
-                                for (auto part : parts) {
-                                    if (part == "12") {
-                                        // CSI ? 12 l, Stop blinking cursor
-                                        // TODO
-                                    } else if (part == "25") {
-                                        // CSI ? 25 l, Hide cursor (DECTCEM)
-                                        show_cursor = true;
-                                    } else if (part == "2004") {
-                                        // CSI ? 2004 l, reset bracketed paste mode
-                                        // TODO
-                                    } else {
-                                        OH_LOG_WARN(LOG_APP, "Unknown CSI ? Pm l: %{public}s %{public}c",
-                                                    escape_buffer.c_str(), buffer[i]);
-                                    }
-                                }
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'm' && escape_buffer == "") {
-                                // CSI Pm m, Character Attributes (SGR)
-                                // reset all attributes to their defaults
-                                current_style = term_style();
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'm' && escape_buffer.size() > 0 && escape_buffer[0] != '>') {
-                                // CSI Pm m, Character Attributes (SGR)
-
-                                // set color
-                                std::vector<std::string> parts = splitString(escape_buffer, ";");
-                                for (auto part : parts) {
-                                    if (part == "0") {
-                                        // reset all attributes to their defaults
-                                        current_style = term_style();
-                                    } else if (part == "1" || part == "01") {
-                                        // set bold, CSI 1 m
-                                        current_style.weight = font_weight::bold;
-                                    } else if (part == "5") {
-                                        // set blink, CSI 5 m
-                                        // TODO
-                                    } else if (part == "7") {
-                                        // inverse
-                                        std::swap(current_style.fg_red, current_style.bg_red);
-                                        std::swap(current_style.fg_green, current_style.bg_green);
-                                        std::swap(current_style.fg_blue, current_style.bg_blue);
-                                    } else if (part == "10") {
-                                        // reset to primary font
-                                        current_style = term_style();
-                                    } else if (part == "30") {
-                                        // black foreground
-                                        current_style.fg_red = 0.0;
-                                        current_style.fg_green = 0.0;
-                                        current_style.fg_blue = 0.0;
-                                    } else if (part == "31") {
-                                        // red foreground
-                                        current_style.fg_red = 1.0;
-                                        current_style.fg_green = 0.0;
-                                        current_style.fg_blue = 0.0;
-                                    } else if (part == "32") {
-                                        // green foreground
-                                        current_style.fg_red = 0.0;
-                                        current_style.fg_green = 1.0;
-                                        current_style.fg_blue = 0.0;
-                                    } else if (part == "33") {
-                                        // yellow foreground
-                                        current_style.fg_red = 1.0;
-                                        current_style.fg_green = 1.0;
-                                        current_style.fg_blue = 0.0;
-                                    } else if (part == "34") {
-                                        // blue foreground
-                                        current_style.fg_red = 0.0;
-                                        current_style.fg_green = 0.0;
-                                        current_style.fg_blue = 1.0;
-                                    } else if (part == "35") {
-                                        // magenta foreground
-                                        current_style.fg_red = 1.0;
-                                        current_style.fg_green = 0.0;
-                                        current_style.fg_blue = 1.0;
-                                    } else if (part == "36") {
-                                        // cyan foreground
-                                        current_style.fg_red = 0.0;
-                                        current_style.fg_green = 1.0;
-                                        current_style.fg_blue = 1.0;
-                                    } else if (part == "37") {
-                                        // white foreground
-                                        current_style.fg_red = 1.0;
-                                        current_style.fg_green = 1.0;
-                                        current_style.fg_blue = 1.0;
-                                    } else if (part == "39") {
-                                        // default foreground
-                                        current_style.fg_red = 0.0;
-                                        current_style.fg_green = 0.0;
-                                        current_style.fg_blue = 0.0;
-                                    } else if (part == "40") {
-                                        // black background
-                                        current_style.bg_red = 0.0;
-                                        current_style.bg_green = 0.0;
-                                        current_style.bg_blue = 0.0;
-                                    } else if (part == "41") {
-                                        // black background
-                                        current_style.bg_red = 1.0;
-                                        current_style.bg_green = 0.0;
-                                        current_style.bg_blue = 0.0;
-                                    } else if (part == "42") {
-                                        // green background
-                                        current_style.bg_red = 0.0;
-                                        current_style.bg_green = 1.0;
-                                        current_style.bg_blue = 0.0;
-                                    } else if (part == "43") {
-                                        // yellow background
-                                        current_style.bg_red = 1.0;
-                                        current_style.bg_green = 1.0;
-                                        current_style.bg_blue = 0.0;
-                                    } else if (part == "44") {
-                                        // blue background
-                                        current_style.bg_red = 0.0;
-                                        current_style.bg_green = 0.0;
-                                        current_style.bg_blue = 1.0;
-                                    } else if (part == "45") {
-                                        // magenta background
-                                        current_style.bg_red = 1.0;
-                                        current_style.bg_green = 0.0;
-                                        current_style.bg_blue = 1.0;
-                                    } else if (part == "46") {
-                                        // cyan background
-                                        current_style.bg_red = 0.0;
-                                        current_style.bg_green = 1.0;
-                                        current_style.bg_blue = 1.0;
-                                    } else if (part == "47") {
-                                        // white background
-                                        current_style.bg_red = 1.0;
-                                        current_style.bg_green = 1.0;
-                                        current_style.bg_blue = 1.0;
-                                    } else if (part == "49") {
-                                        // default background
-                                        current_style.bg_red = 1.0;
-                                        current_style.bg_green = 1.0;
-                                        current_style.bg_blue = 1.0;
-                                    } else if (part == "90") {
-                                        // bright black foreground
-                                        current_style.fg_red = 0.5;
-                                        current_style.fg_green = 0.5;
-                                        current_style.fg_blue = 0.5;
-                                    } else {
-                                        OH_LOG_WARN(LOG_APP, "Unknown CSI Pm m: %{public}s %{public}c",
-                                                    escape_buffer.c_str(), buffer[i]);
-                                    }
-                                }
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'm' && escape_buffer.size() > 0 && escape_buffer[0] == '>') {
-                                // CSI > Pp m, XTMODKEYS, set/reset key modifier options
-                                // TODO
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'n' && escape_buffer == "6") {
-                                // CSI Ps n, DSR, Device Status Report
-                                // Ps = 6: Report Cursor Position (CPR)
-                                // send ESC [ row ; col R
-                                char send_buffer[128] = {};
-                                snprintf(send_buffer, sizeof(send_buffer), "\x1b[%d;%dR", row + 1, col + 1);
-                                int len = strlen(send_buffer);
-                                int res = write(fd, send_buffer, len);
-                                assert(res == len);
-                                escape_state = state_idle;
-                            } else if (buffer[i] == '@' &&
-                                    ((escape_buffer.size() > 0 && escape_buffer[escape_buffer.size() - 1] >= '0' &&
-                                        escape_buffer[escape_buffer.size() - 1] <= '9') ||
-                                        escape_buffer == "")) {
-                                // CSI Ps @, ICH, Insert Ps (Blank) Character(s)
-                                int count = read_int_or_default(1);
-                                for (int i = term_col - 1; i >= col; i--) {
-                                    if (i - col < count) {
-                                        terminal[row][col].ch = ' ';
-                                    } else {
-                                        terminal[row][col] = terminal[row][col - count];
-                                    }
-                                }
-                                escape_state = state_idle;
-                            } else {
-                                // unknown
-                                OH_LOG_WARN(LOG_APP, "Unknown escape sequence in CSI: %{public}s %{public}c",
-                                            escape_buffer.c_str(), buffer[i]);
-                                escape_state = state_idle;
-                            }
-                        } else if (buffer[i] >= 0x20 && buffer[i] <= 0x3F) {
-                            // parameter bytes in [0x30, 0x3F],
-                            // or intermediate bytes in [0x20, 0x2F]
-                            escape_buffer += buffer[i];
-                        } else {
-                            // invalid byte
-                            // unknown
-                            OH_LOG_WARN(LOG_APP, "Unknown escape sequence in CSI: %{public}s %{public}c",
-                                        escape_buffer.c_str(), buffer[i]);
-                            escape_state = state_idle;
-                        }
+                        HandleCSI(buffer[i]);
                     } else if (escape_state == state_osc) {
                         if (buffer[i] == '\x07') {
                             // OSC Ps ; Pt BEL, do nothing
