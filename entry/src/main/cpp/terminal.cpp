@@ -1390,6 +1390,18 @@ void KeyCallback(GLFWwindow *window, int key, int scancode, int action,
         } else if (key == GLFW_KEY_BACKSPACE) {
             uint8_t data[] = {0x7f};
             SendData(data, 1);
+        } else if (key == GLFW_KEY_UP) {
+            uint8_t data[] = {0x1b, 0x5b, 0x41};
+            SendData(data, 3);
+        } else if (key == GLFW_KEY_DOWN) {
+            uint8_t data[] = {0x1b, 0x5b, 0x42};
+            SendData(data, 3);
+        } else if (key == GLFW_KEY_RIGHT) {
+            uint8_t data[] = {0x1b, 0x5b, 0x43};
+            SendData(data, 3);
+        } else if (key == GLFW_KEY_LEFT) {
+            uint8_t data[] = {0x1b, 0x5b, 0x44};
+            SendData(data, 3);
         }
     }
 }
