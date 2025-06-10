@@ -279,9 +279,9 @@ static void HandleCSI(uint8_t current) {
             col--;
             clamp_col();
         } else if (current == 'H') {
-            // CSI Ps ; PS H, CUP, move cursor to x, y, default to upper left corner
             std::vector<std::string> parts = splitString(escape_buffer, ";");
             if (parts.size() == 2) {
+                // CSI Ps ; PS H, CUP, move cursor to x, y
                 sscanf(parts[0].c_str(), "%d", &row);
                 sscanf(parts[1].c_str(), "%d", &col);
                 // convert from 1-based to 0-based
@@ -290,11 +290,15 @@ static void HandleCSI(uint8_t current) {
                 clamp_row();
                 clamp_col();
             } else if (escape_buffer == "") {
+                // CSI H, HOME, move cursor upper left corner
                 row = col = 0;
+            } else {
+                goto unknown;
             }
         } else if (current == 'J') {
             // CSI Ps J, ED, erase in display
             if (escape_buffer == "" || escape_buffer == "0") {
+                // CSI J, CSI 0 J
                 // erase below
                 for (int i = col; i < term_col; i++) {
                     terminal[row][i] = term_char();
@@ -303,6 +307,7 @@ static void HandleCSI(uint8_t current) {
                     std::fill(terminal[i].begin(), terminal[i].end(), term_char());
                 }
             } else if (escape_buffer == "1") {
+                // CSI 1 J
                 // erase above
                 for (int i = 0; i < row; i++) {
                     std::fill(terminal[i].begin(), terminal[i].end(), term_char());
@@ -311,23 +316,30 @@ static void HandleCSI(uint8_t current) {
                     terminal[row][i] = term_char();
                 }
             } else if (escape_buffer == "2") {
+                // CSI 2 J
                 // erase all
                 for (int i = 0; i < term_row; i++) {
                     std::fill(terminal[i].begin(), terminal[i].end(), term_char());
                 }
+            } else {
+                goto unknown;
             }
         } else if (current == 'K') {
             // CSI Ps K, EL, erase in line
             if (escape_buffer == "" || escape_buffer == "0") {
+                // CSI K, CSI 0 K
                 // erase to right
                 for (int i = col; i < term_col; i++) {
                     terminal[row][i] = term_char();
                 }
             } else if (escape_buffer == "1") {
+                // CSI 1 K
                 // erase to left
                 for (int i = 0; i <= col; i++) {
                     terminal[row][i] = term_char();
                 }
+            } else {
+                goto unknown;
             }
         } else if (current == 'P') {
             // CSI Ps P, DCH, delete # characters, move right to left
@@ -558,6 +570,7 @@ static void HandleCSI(uint8_t current) {
                 }
             }
         } else {
+unknown:
             // unknown
             OH_LOG_WARN(LOG_APP, "Unknown escape sequence in CSI: %{public}s %{public}c",
                         escape_buffer.c_str(), current);
