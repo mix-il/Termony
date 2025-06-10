@@ -182,24 +182,32 @@ struct character {
     float right;
     float top;
     float bottom;
+    // x, y offset from origin for bearing etc.
+    int xoff;
+    int yoff;
+    // glyph size
+    int width;
+    int height;
 };
 
 // record info for each character
 const int MAX_CHAR = 128;
-std::array<std::array<struct character, NUM_WEIGHT>, MAX_CHAR> characters;
+// map from (codepoint, font weight) to character
+static std::map<std::pair<uint32_t, enum weight>, struct character> characters;
 
 // id of texture for glyphs
 static GLuint texture_id;
 
 // load font
 // texture contains all glyphs of all weights:
-// each glyph: font_width * font_height
-//    0.0   1/128                1.0
-// 0.0 +------+------+     +------+
-//     | 0x00 | 0x01 | ... | 0x7f | regular
-// 0.5 +------+------+     +------+
-//     | 0x00 | 0x01 | ... | 0x7f | bold
-// 1.0 +------+------+     +------+
+// fixed width of font_width, variable height based on face->glyph->bitmap.rows
+// glyph goes in vertical, possibly not filling the whole row space:
+//    0.0       1.0
+// 0.0 +------+--+
+//     | 0x00 |  |
+// 0.5 +------+--+
+//     | 0x01    |
+// 1.0 +------+--+
 static void LoadFont() {
     FT_Library ft;
     FT_Error err = FT_Init_FreeType(&ft);
@@ -213,9 +221,8 @@ static void LoadFont() {
     // save glyph for all characters of all weights
     // only one channel
     std::vector<uint8_t> bitmap;
-    int row_stride = font_width * MAX_CHAR;
-    int weight_stride = font_width * font_height * MAX_CHAR;
-    bitmap.resize(font_width * font_height * MAX_CHAR * NUM_WEIGHT);
+    int row_stride = font_width;
+    int bitmap_height = 0;
 
     for (auto pair : fonts) {
         const char *font = pair.first;
@@ -227,8 +234,8 @@ static void LoadFont() {
         FT_Set_Pixel_Sizes(face, 0, font_height);
         // Note: in 26.6 fractional pixel format
         OH_LOG_INFO(LOG_APP,
-                    "Ascender: %{public}d Descender: %{public}d Height: %{public}d XMin: %{public}d XMax: %{public}d "
-                    "YMin: %{public}d YMax: %{public}d XScale: %{public}d YScale: %{public}d",
+                    "Ascender: %{public}d Descender: %{public}d Height: %{public}d XMin: %{public}ld XMax: %{public}ld "
+                    "YMin: %{public}ld YMax: %{public}ld XScale: %{public}ld YScale: %{public}ld",
                     face->ascender, face->descender, face->height, face->bbox.xMin, face->bbox.xMax, face->bbox.yMin,
                     face->bbox.yMax, face->size->metrics.x_scale, face->size->metrics.y_scale);
 
@@ -239,48 +246,57 @@ static void LoadFont() {
             }
 
             OH_LOG_INFO(LOG_APP,
-                        "Char: %{public}c(%{public}d) Size: %{public}d %{public}d Glyph: %{public}d %{public}d Left: "
+                        "Weight: %{public}d Char: %{public}c(%{public}d) Glyph: %{public}d %{public}d Left: "
                         "%{public}d "
                         "Top: %{public}d "
                         "Advance: %{public}ld",
-                        c, c, font_width, font_height, face->glyph->bitmap.width, face->glyph->bitmap.rows,
-                        face->glyph->bitmap_left, face->glyph->bitmap_top, face->glyph->advance.x);
+                        weight, c, c, face->glyph->bitmap.width, face->glyph->bitmap.rows, face->glyph->bitmap_left,
+                        face->glyph->bitmap_top, face->glyph->advance.x);
 
-            // copy to bitmap font_width * font_height
+            // copy to bitmap
+            int old_bitmap_height = bitmap_height;
+            int new_bitmap_height = bitmap_height + face->glyph->bitmap.rows;
+            bitmap.resize(row_stride * new_bitmap_height);
+            bitmap_height = new_bitmap_height;
+
+            assert(face->glyph->bitmap.width <= font_width);
             for (int i = 0; i < face->glyph->bitmap.rows; i++) {
                 for (int j = 0; j < face->glyph->bitmap.width; j++) {
-                    // compute offset within a glyph
-                    // x goes rightward, y goes downward:
-                    // set (0, 0) to origin,
-                    // then the top left corner of glyph is at (-bitmap_top, bitmap_left)
-                    // now move origin to (font_height - baseline_height, 0)
-                    // top left corner becomes (font_height - baseline_height - bitmap_top, bitmap_left)
-                    int xoff = font_height - baseline_height - face->glyph->bitmap_top;
-                    int yoff = face->glyph->bitmap_left;
-                    assert(i + xoff >= 0 && i + xoff < font_height);
-                    assert(j + yoff >= 0 && j + yoff < font_width);
-
                     // compute offset in the large texture
-                    int off = weight * weight_stride + c * font_width;
-                    bitmap[(i + xoff) * row_stride + (j + yoff) + off] =
-                        face->glyph->bitmap.buffer[i * face->glyph->bitmap.width + j];
+                    int off = old_bitmap_height * row_stride;
+                    bitmap[i * row_stride + j + off] = face->glyph->bitmap.buffer[i * face->glyph->bitmap.width + j];
                 }
             }
 
             // compute location within the texture
+            // first pass: store pixels
             character character = {
-                .left = (float)c / MAX_CHAR,
-                .right = (float)(c + 1) / MAX_CHAR,
-                .top = (float)weight / NUM_WEIGHT,
-                .bottom = (float)(weight + 1) / NUM_WEIGHT,
+                .left = 0,
+                .right = (float)face->glyph->bitmap.width - 1,
+                .top = (float)old_bitmap_height,
+                .bottom = (float)new_bitmap_height - 1,
+                .xoff = face->glyph->bitmap_left,
+                .yoff = (int)(baseline_height + face->glyph->bitmap_top - face->glyph->bitmap.rows),
+                .width = (int)face->glyph->bitmap.width,
+                .height = (int)face->glyph->bitmap.rows,
             };
-            characters[c][weight] = character;
+            characters[{c, weight}] = character;
         }
+
 
         FT_Done_Face(face);
     }
 
     FT_Done_FreeType(ft);
+
+    // now bitmap contains all glyphs
+    // second pass: convert pixels to uv coordinates
+    for (auto &pair : characters) {
+        pair.second.left /= font_width - 1;
+        pair.second.right /= font_width - 1;
+        pair.second.top /= bitmap_height - 1;
+        pair.second.bottom /= bitmap_height - 1;
+    }
 
     // disable byte-alignment restriction
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -288,8 +304,7 @@ static void LoadFont() {
     // generate texture
     glGenTextures(1, &texture_id);
     glBindTexture(GL_TEXTURE_2D, texture_id);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, row_stride, font_height * NUM_WEIGHT, 0, GL_RED, GL_UNSIGNED_BYTE,
-                 bitmap.data());
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, row_stride, bitmap_height, 0, GL_RED, GL_UNSIGNED_BYTE, bitmap.data());
 
     // set texture options
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -369,12 +384,16 @@ static void Draw() {
         int cur_col = 0;
         for (auto c : ch) {
             uint32_t codepoint = c.ch;
-            if (c.ch >= MAX_CHAR) {
-                // we don't have the character, fallback
-                c.ch = ' ';
+            auto key = std::pair<uint32_t, enum weight>(c.ch, c.style.weight);
+            auto it = characters.find(key);
+            if (it == characters.end()) {
+                // we don't have the character, fallback to space
+                // OH_LOG_WARN(LOG_APP, "Missing character: %{public}d of weight %{public}d", c.ch, c.style.weight);
+                it = characters.find(std::pair<uint32_t, enum weight>(' ', c.style.weight));
+                assert(it != characters.end());
             }
 
-            character ch = characters[c.ch][c.style.weight];
+            character ch = it->second;
             float xpos = x;
             float ypos = y;
             float w = font_width;
@@ -397,6 +416,10 @@ static void Draw() {
             vertex_pass0_data.insert(vertex_pass0_data.end(), &g_vertex_pass0_data[0], &g_vertex_pass0_data[24]);
 
             // pass 1: draw text
+            xpos = x + ch.xoff;
+            ypos = y + ch.yoff;
+            w = ch.width;
+            h = ch.height;
             GLfloat g_vertex_pass1_data[24] = {// first triangle: 1->3->4
                                                xpos, ypos + h, ch.left, ch.top, xpos, ypos, ch.left, ch.bottom,
                                                xpos + w, ypos, ch.right, ch.bottom,
@@ -444,8 +467,8 @@ static void Draw() {
     glBindBuffer(GL_ARRAY_BUFFER, background_color_buffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * background_color_data.size(), background_color_data.data(),
                  GL_STREAM_DRAW);
-    // first pass
 
+    // first pass
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * vertex_pass0_data.size(), vertex_pass0_data.data(), GL_STREAM_DRAW);
     glUniform1i(render_pass_location, 0);
