@@ -1,3 +1,6 @@
+// for standalone build to test on Linux:
+// g++ terminal.cpp -I/usr/include/freetype2 -DSTANDALONE -Wno-changes-meaning -lfreetype -lGLESv2 -lglfw -o terminal
+
 #include "terminal.h"
 #include <GLES3/gl32.h>
 #include <assert.h>
@@ -13,13 +16,20 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <vector>
+#include <pthread.h>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
+#ifdef STANDALONE
+#define OH_LOG_ERROR(tag, fmt, ...)
+#define OH_LOG_INFO(tag, fmt, ...)
+#define OH_LOG_WARN(tag, fmt, ...)
+#else
 #include "hilog/log.h"
 #undef LOG_TAG
 #define LOG_TAG "testTag"
+#endif
 
 // font weight
 enum weight {
@@ -768,7 +778,7 @@ static void *TerminalWorker(void *) {
 }
 
 void Start() {
-    if (fd == -1) {
+    if (fd != -1) {
         return;
     }
 
@@ -785,12 +795,16 @@ void Start() {
 
     int pid = forkpty(&fd, nullptr, nullptr, &ws);
     if (!pid) {
+#ifdef STANDALONE
+        execl("/bin/bash", "/bin/bash", nullptr);
+#else
         // override HOME to /storage/Users/currentUser since it is writable
         const char *home = "/storage/Users/currentUser";
         setenv("HOME", home, 1);
         setenv("PWD", home, 1);
         chdir(home);
         execl("/data/app/bin/bash", "/data/app/bin/bash", nullptr);
+#endif
     }
 
     // set as non blocking
@@ -835,8 +849,13 @@ static void LoadFont() {
     assert(err == 0);
 
     std::vector<std::pair<const char *, weight>> fonts = {
+#ifdef STANDALONE
+        {"../../../../../fonts/ttf/Inconsolata-Regular.ttf", weight::regular},
+        {"../../../../../fonts/ttf/Inconsolata-Bold.ttf", weight::bold},
+#else
         {"/data/storage/el2/base/haps/entry/files/Inconsolata-Regular.ttf", weight::regular},
         {"/data/storage/el2/base/haps/entry/files/Inconsolata-Bold.ttf", weight::bold},
+#endif
     };
 
     // save glyph for all characters of all weights
@@ -1349,3 +1368,39 @@ void StartRender() {
     pthread_t render_thread;
     pthread_create(&render_thread, NULL, RenderWorker, NULL);
 }
+
+#ifdef STANDALONE
+#include <GLFW/glfw3.h>
+static GLFWwindow *window;
+void BeforeDraw() {
+    glfwMakeContextCurrent(window);
+}
+void AfterDraw() {
+    glfwSwapBuffers(window);
+}
+int main() {
+    // Init GLFW
+    glfwInit();
+
+    // Set all the required options for GLFW
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+
+    // Create a GLFWwindow object that we can use for GLFW's functions
+    int window_width = 1024;
+    int window_height = 768;
+    window =
+        glfwCreateWindow(window_width, window_height, "Terminal", nullptr, nullptr);
+
+    Start();
+    StartRender();
+    Resize(window_width, window_height);
+    while (!glfwWindowShouldClose(window)) {
+        // Check if any events have been activated (key pressed, mouse moved etc.)
+        // and call corresponding response functions
+        glfwPollEvents();
+    }
+}
+#endif
