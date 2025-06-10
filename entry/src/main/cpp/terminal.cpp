@@ -1372,12 +1372,33 @@ void StartRender() {
 #ifdef STANDALONE
 #include <GLFW/glfw3.h>
 static GLFWwindow *window;
+
 void BeforeDraw() {
     glfwMakeContextCurrent(window);
 }
+
 void AfterDraw() {
     glfwSwapBuffers(window);
 }
+
+void KeyCallback(GLFWwindow *window, int key, int scancode, int action,
+                  int mode) {
+    if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+        if (key == GLFW_KEY_ENTER) {
+            uint8_t data[] = {0x0d};
+            SendData(data, 1);
+        } else if (key == GLFW_KEY_BACKSPACE) {
+            uint8_t data[] = {0x7f};
+            SendData(data, 1);
+        }
+    }
+}
+
+void CharCallback(GLFWwindow* window, uint32_t codepoint) {
+    // TODO: encode utf8 properly
+    SendData((uint8_t *)&codepoint, 1);
+}
+
 int main() {
     // Init GLFW
     glfwInit();
@@ -1393,6 +1414,8 @@ int main() {
     int window_height = 768;
     window =
         glfwCreateWindow(window_width, window_height, "Terminal", nullptr, nullptr);
+    glfwSetKeyCallback(window, KeyCallback);
+    glfwSetCharCallback(window, CharCallback);
 
     Start();
     StartRender();
