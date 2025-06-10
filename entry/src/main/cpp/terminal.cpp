@@ -22,9 +22,28 @@
 #include FT_FREETYPE_H
 
 #ifdef STANDALONE
-#define OH_LOG_ERROR(tag, fmt, ...)
-#define OH_LOG_INFO(tag, fmt, ...)
-#define OH_LOG_WARN(tag, fmt, ...)
+// https://stackoverflow.com/questions/5343190/how-do-i-replace-all-instances-of-a-string-with-another-string
+std::string ReplaceString(std::string subject, const std::string& search,
+                          const std::string& replace) {
+    size_t pos = 0;
+    while ((pos = subject.find(search, pos)) != std::string::npos) {
+         subject.replace(pos, search.length(), replace);
+         pos += replace.length();
+    }
+    return subject;
+}
+
+void custom_printf(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    std::string new_fmt = fmt;
+    new_fmt = ReplaceString(new_fmt, "%{public}", "%");
+    new_fmt += "\n";
+    vfprintf(stderr, new_fmt.c_str(), args);
+}
+#define OH_LOG_ERROR(tag, fmt, ...) custom_printf(fmt, __VA_ARGS__)
+#define OH_LOG_INFO(tag, fmt, ...) custom_printf(fmt, __VA_ARGS__)
+#define OH_LOG_WARN(tag, fmt, ...) custom_printf(fmt, __VA_ARGS__)
 #else
 #include "hilog/log.h"
 #undef LOG_TAG
@@ -98,10 +117,17 @@ static int height = 0;
 static bool show_cursor = true;
 static GLint surface_location = -1;
 static GLint render_pass_location = -1;
+#ifdef STANDALONE
+static int font_height = 24;
+static int font_width = 12;
+static int max_font_width = 24;
+static int baseline_height = 5;
+#else
 static int font_height = 48;
 static int font_width = 24;
 static int max_font_width = 48;
 static int baseline_height = 10;
+#endif
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
 // terminal content
