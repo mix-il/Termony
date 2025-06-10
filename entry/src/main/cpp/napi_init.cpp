@@ -999,7 +999,7 @@ static void *TerminalWorker(void *) {
                             escape_state = state_idle;
                         } else if (buffer[i] == '@' &&
                                    ((escape_buffer.size() > 1 && escape_buffer[escape_buffer.size() - 1] >= '0' &&
-                                     escape_buffer[escape_buffer.size() - 1] <= '0') ||
+                                     escape_buffer[escape_buffer.size() - 1] <= '9') ||
                                     escape_buffer == "")) {
                             // CSI Ps @, ICH, Insert Ps (Blank) Character(s)
                             int count = read_int_or_default(1);
