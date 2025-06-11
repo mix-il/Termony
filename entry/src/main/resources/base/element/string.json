@@ -19,6 +19,10 @@
     {
       "name": "documents_permission",
       "value": "Access ~/Documents"
+    },
+    {
+      "name": "read_pasteboard",
+      "value": "Paste text into terminal"
     }
   ]
 }

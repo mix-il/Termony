@@ -3,6 +3,8 @@ import testNapi from 'libentry.so';
 import { taskpool } from '@kit.ArkTS';
 import { util } from '@kit.ArkTS';
 import fs from '@ohos.file.fs';
+import { pasteboard } from '@kit.BasicServicesKit';
+import { abilityAccessCtrl, bundleManager, Permissions } from '@kit.AbilityKit';
 
 const DOMAIN = 0x0000;
 
@@ -55,6 +57,28 @@ struct Index {
   scroller: Scroller = new Scroller();
   xComponentController: XComponentController = new MyXComponentController();
 
+  @Builder MenuBuilder() {
+    Menu() {
+      MenuItem({ content: "Paste" })
+        .onClick(async () => {
+          const atManager: abilityAccessCtrl.AtManager = abilityAccessCtrl.createAtManager();
+          await atManager.requestPermissionsFromUser(getContext(), ['ohos.permission.READ_PASTEBOARD']);
+          let systemPasteboard: pasteboard.SystemPasteboard = pasteboard.getSystemPasteboard();
+          let data = await systemPasteboard.getData();
+          hilog.info(DOMAIN, 'testTag', 'Got pasteboard data: %{public}s', JSON.stringify(data));
+          let count = data.getRecordCount();
+          for (let i = 0;i < count;i++) {
+            let record = data.getRecord(i);
+            hilog.info(DOMAIN, 'testTag', 'Got pasteboard record: %{public}s', JSON.stringify(record));
+            let plainText: string = record.toPlainText();
+            let textEncoder = util.TextEncoder.create('utf-8');
+            let encodeResult = textEncoder.encode(plainText); 
+            testNapi.send(encodeResult.buffer);
+          }
+        })
+    }
+  }
+
   build() {
     Row() {
       Column() {
@@ -62,6 +86,7 @@ struct Index {
           type: XComponentType.SURFACE,
           controller: this.xComponentController
         })
+        .bindContextMenu(this.MenuBuilder, ResponseType.RightClick)
       }
       .width('100%')
     }
