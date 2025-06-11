@@ -327,6 +327,19 @@ static void MoveCursor(int row_diff, int col_diff) {
     SetCursor(row + row_diff, col + col_diff);
 }
 
+void WriteFull(uint8_t *data, size_t length) {
+    if (fd == -1) {
+        return;
+    }
+
+    int written = 0;
+    while (written < length) {
+        int size = write(fd, (uint8_t *)data + written, length - written);
+        assert(size >= 0);
+        written += size;
+    }
+}
+
 
 // CAUTION: clobbers temp
 #define read_int_or_default(def)                                                                                       \
@@ -502,8 +515,7 @@ static void HandleCSI(uint8_t current) {
             // CSI Ps c, Send Device Attributes
             // send CSI ? 6 c: I am VT102
             uint8_t send_buffer[] = {0x1b, '[', '?', '6', 'c'};
-            int res = write(fd, send_buffer, sizeof(send_buffer));
-            assert(res == sizeof(send_buffer));
+            WriteFull(send_buffer, sizeof(send_buffer));
         } else if (current == 'd' && escape_buffer != "") {
             // CSI Ps d, VPA, move cursor to row #
             sscanf(escape_buffer.c_str(), "%d", &row);
@@ -746,8 +758,7 @@ static void HandleCSI(uint8_t current) {
             char send_buffer[128] = {};
             snprintf(send_buffer, sizeof(send_buffer), "\x1b[%d;%dR", row + 1, col + 1);
             int len = strlen(send_buffer);
-            int res = write(fd, send_buffer, len);
-            assert(res == len);
+            WriteFull((uint8_t *)send_buffer, len);
         } else if (current == 'r') {
             // CSI Ps ; Ps r, Set Scrolling Region [top;bottom]
             std::vector<std::string> parts = splitString(escape_buffer, ";");
@@ -938,7 +949,25 @@ static void *TerminalWorker(void *) {
                         HandleCSI(buffer[i]);
                     } else if (escape_state == state_osc) {
                         if (buffer[i] == '\x07') {
-                            // OSC Ps ; Pt BEL, do nothing
+                            // OSC Ps ; Pt BEL
+                            std::vector<std::string> parts = splitString(escape_buffer, ";");
+                            if (parts.size() == 3 && parts[0] == "52" && parts[1] == "c" && parts[2] != "?") {
+                                // OSC 52 ; c ; BASE64 BEL
+                                // copy to clipboard
+                                std::string base64 = parts[2];
+                                OH_LOG_INFO(LOG_APP, "Copy to pasteboard: %{public}s",
+                                            base64.c_str());
+                                Copy(base64);
+                            } else if (parts.size() == 3 && parts[0] == "52" && parts[1] == "c" && parts[2] == "?") {
+                                // OSC 52 ; c ; ? BEL
+                                // paste from clipboard
+                                std::string base64 = Paste();
+                                OH_LOG_INFO(LOG_APP, "Paste from pasteboard: %{public}s",
+                                            base64.c_str());
+                                // send OSC 52 ; c ; BASE64 BEL
+                                std::string resp = "\x1b]52;c;" + base64 + "\x07";
+                                WriteFull((uint8_t *)resp.c_str(), resp.size());
+                            }
                             escape_state = state_idle;
                         } else if (i + 1 < r && buffer[i] == '\x1b' && buffer[i] == '\\') {
                             // ST is ESC \
@@ -1147,12 +1176,7 @@ void SendData(uint8_t *data, size_t length) {
     // reset scroll offset to bottom
     scroll_offset = 0.0;
 
-    int written = 0;
-    while (written < length) {
-        int size = write(fd, (uint8_t *)data + written, length - written);
-        assert(size >= 0);
-        written += size;
-    }
+    WriteFull(data, length);
 }
 
 // load font

@@ -41,6 +41,12 @@ Bundled packages:
 - xxhash
 - yyjson
 
+Terminal features:
+
+- Basic escape sequence support
+- Paste via context menu (right-click to activate)
+- Copy/paste in command line via pbcopy/pbpaste using OSC52 escape sequence
+
 ## Usage (if you are a Mac user):
 
 1. Connect your MateBook Pro to Mac, and do the following steps on Mac

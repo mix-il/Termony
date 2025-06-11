@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <string>
 
 // start a terminal
 void Start();
@@ -18,5 +19,8 @@ void ScrollBy(double offset);
 extern void BeforeDraw();
 extern void AfterDraw();
 extern void ResizeWidth(int new_width);
+// copy/paste with base64 encoded string
+extern void Copy(std::string base64);
+extern std::string Paste();
 
 #endif
