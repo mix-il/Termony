@@ -968,7 +968,7 @@ static void *TerminalWorker(void *) {
                                 // OSC 52 ; c ; BASE64 BEL
                                 // copy to clipboard
                                 std::string base64 = parts[2];
-                                OH_LOG_INFO(LOG_APP, "Copy to pasteboard: %{public}s",
+                                OH_LOG_INFO(LOG_APP, "Copy to pasteboard in native: %{public}s",
                                             base64.c_str());
                                 Copy(base64);
                             } else if (parts.size() == 3 && parts[0] == "52" && parts[1] == "c" && parts[2] == "?") {

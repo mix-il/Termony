@@ -56,6 +56,33 @@ struct Index {
   @State touchState: Map<number, number> = new Map();
   scroller: Scroller = new Scroller();
   xComponentController: XComponentController = new MyXComponentController();
+  timer: number = -1;
+
+  onPageShow() {
+    this.timer = setInterval(() => {
+      let res = testNapi.checkCopy();
+      if (res !== undefined) {
+        hilog.info(DOMAIN, 'testTag', 'Copy to pasteboard in ArkTS: %{public}s', res);
+        let base64 = new util.Base64();
+        let data = base64.decodeSync(res);
+        let textDecoder = util.TextDecoder.create('utf-8');
+        let result = textDecoder.decode(data);
+        hilog.info(DOMAIN, 'testTag', 'Copy to pasteboard in ArkTS decoded: %{public}s', result);
+        let pasteData: pasteboard.PasteData = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, result);
+        let systemPasteboard: pasteboard.SystemPasteboard = pasteboard.getSystemPasteboard();
+        systemPasteboard.setData(pasteData, (err, data) => {
+          if (err) {
+            hilog.info(0x0000, 'mainTag', 'Failed to set pasteboard: %{public}s', JSON.stringify(err));
+            return;
+          }
+        });
+      }
+    }, 100);
+  }
+
+  onPageHide() {
+    clearInterval(this.timer);
+  }
 
   @Builder MenuBuilder() {
     Menu() {

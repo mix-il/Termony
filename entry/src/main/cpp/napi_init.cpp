@@ -147,7 +147,66 @@ static napi_value Scroll(napi_env env, napi_callback_info info) {
 static napi_value DestroySurface(napi_env env, napi_callback_info info) { return nullptr; }
 
 // TODO
-void Copy(std::string base64) { }
+static pthread_mutex_t pasteboard_lock = PTHREAD_MUTEX_INITIALIZER;
+static std::deque<std::string> copy_queue;
+static int paste_requests = 0;
+static std::deque<std::string> paste_queue;
+
+static napi_value CheckCopy(napi_env env, napi_callback_info info) {
+    napi_value res = nullptr;
+    pthread_mutex_lock(&pasteboard_lock);
+    if (!copy_queue.empty()) {
+        std::string content = copy_queue.front();
+        copy_queue.pop_front();
+        napi_create_string_utf8(env, content.c_str(), content.size(), &res);
+    }
+    pthread_mutex_unlock(&pasteboard_lock);
+
+    return res;
+}
+
+static napi_value CheckPaste(napi_env env, napi_callback_info info) {
+    napi_value res = nullptr;
+    pthread_mutex_lock(&pasteboard_lock);
+    bool has_paste = false;
+    if (paste_requests > 0) {
+        has_paste = true;
+        paste_requests --;
+    }
+    pthread_mutex_unlock(&pasteboard_lock);
+
+    napi_get_boolean(env, has_paste, &res);
+    return res;
+}
+
+static napi_value PushPaste(napi_env env, napi_callback_info info) {
+    size_t argc = 1;
+    napi_value args[1] = {nullptr};
+    napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+
+    size_t size = 0;
+    napi_status res = napi_get_value_string_utf8(env, args[0], NULL, 0, &size);
+    assert(res == napi_ok);
+    std::vector<char> buffer(size + 1);
+
+    res = napi_get_value_string_utf8(env, args[0], buffer.data(), buffer.size(),
+                                        &size);
+    assert(res == napi_ok);
+    std::string s(buffer.data(), size);
+
+    pthread_mutex_lock(&pasteboard_lock);
+    paste_queue.push_back(s);
+    pthread_mutex_unlock(&pasteboard_lock);
+
+    return nullptr;
+}
+
+void Copy(std::string base64) {
+    pthread_mutex_lock(&pasteboard_lock);
+    copy_queue.push_back(base64);
+    pthread_mutex_unlock(&pasteboard_lock);
+}
+
 std::string Paste() { return "SGVsbG8gd29ybGQK"; }
 
 EXTERN_C_START
@@ -159,6 +218,9 @@ static napi_value Init(napi_env env, napi_value exports) {
         {"destroySurface", nullptr, DestroySurface, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"resizeSurface", nullptr, ResizeSurface, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"scroll", nullptr, Scroll, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"checkCopy", nullptr, CheckCopy, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"checkPaste", nullptr, CheckPaste, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"pushPaste", nullptr, PushPaste, nullptr, nullptr, nullptr, napi_default, nullptr},
     };
     napi_define_properties(env, exports, sizeof(desc) / sizeof(desc[0]), desc);
     return exports;
