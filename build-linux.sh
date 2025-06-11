@@ -19,7 +19,6 @@ export PROJ_BASE_HOME=$(dirname $(readlink -f "$0"))
 export DEVECO_SDK_HOME=$TOOL_HOME/sdk
 export PATH=$TOOL_HOME/bin:$PATH
 export PATH=$TOOL_HOME/tool/node/bin:$PATH
-export PATH=$TOOL_HOME/sdk/default/openharmony/toolchains:$PATH
 
 prepare_arkuix() {
 	wget https://repo.huaweicloud.com/arkui-crossplatform/sdk/${ARKUIX_VERSION}/linux/arkui-x-linux-x64-${ARKUIX_VERSION}-Release.zip -c -O ${PROJ_BASE_HOME}/arkuix-sdk.zip
@@ -59,17 +58,23 @@ helpusage() {
 }
 
 hdc_push() {
-	hdc file send ./entry/build/default/outputs/default/entry-default-signed.hap /data/local/tmp
-	hdc shell bm install -p /data/local/tmp/entry-default-signed.hap
-	hdc shell aa start -a EntryAbility -b $(jq ".app.bundleName" AppScope/app.json5)
+	"$TOOL_HOME/sdk/default/openharmony/toolchains/hdc" file send ./entry/build/default/outputs/default/entry-default-signed.hap /data/local/tmp
+	"$TOOL_HOME/sdk/default/openharmony/toolchains/hdc" shell bm install -p /data/local/tmp/entry-default-signed.hap
+	"$TOOL_HOME/sdk/default/openharmony/toolchains/hdc" shell aa start -a EntryAbility -b $(jq ".app.bundleName" AppScope/app.json5)
+}
+
+build_termony() {
+	if [[ ! -f arkui-x/licenses/LICENSE.sha256 ]]; then
+		prepare_arkuix
+	fi
+	build_termony_hnps
+	build_termony_hap
 }
 
 while getopts ":bsph:" optargs; do
 	case ${optargs} in
 		b)
-			prepare_arkuix
-			build_termony_hnps
-			build_termony_hap
+			build_termony
 			;;
 		s)
 			sign_termony
