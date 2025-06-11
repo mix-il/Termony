@@ -184,6 +184,31 @@ static bool need_reload_font = false;
 // id of texture for glyphs
 static GLuint texture_id;
 
+static void ResizeTo(int new_term_row, int new_term_col) {
+    int old_term_col = term_col;
+    term_row = new_term_row;
+    term_col = new_term_col;
+
+    terminal.resize(term_row);
+    for (int i = 0; i < term_row; i++) {
+        terminal[i].resize(term_col);
+    }
+
+    if (row > term_row - 1) {
+        row = term_row - 1;
+    }
+
+    if (col > term_col - 1) {
+        col = term_col - 1;
+    }
+
+    tab_stops.resize(term_col);
+    for (int i = old_term_col;i < term_col;i += tab_size) {
+        tab_stops[i] = true;
+    }
+}
+
+
 static std::vector<std::string> splitString(const std::string &str, const std::string &delimiter) {
     std::vector<std::string> result;
     size_t start = 0;
@@ -418,6 +443,10 @@ static void HandleCSI(uint8_t current) {
                 if (part == "1") {
                     // CSI ? 1 h, Application Cursor Keys (DECCKM)
                     // TODO
+                } else if (part == "3") {
+                    // CSI ? 3 h, Enable 132 Column mode
+                    ResizeTo(term_row, 132);
+                    ResizeWidth(132 * font_width);
                 } else if (part == "7") {
                     // CSI ? 7 h, Set autowrap
                     autowrap = true;
@@ -448,7 +477,11 @@ static void HandleCSI(uint8_t current) {
             // CSI ? Pm l, DEC Private Mode Reset (DECRST)
             std::vector<std::string> parts = splitString(escape_buffer.substr(1), ";");
             for (auto part : parts) {
-                if (part == "7") {
+                if (part == "3") {
+                    // CSI ? 3 h, Disable 132 Column mode
+                    ResizeTo(term_row, 80);
+                    ResizeWidth(80 * font_width);
+                } else if (part == "7") {
                     // CSI ? 7 l, Reset autowrap
                     autowrap = false;
                 } else if (part == "12") {
@@ -911,16 +944,7 @@ void Start() {
     }
 
     // setup terminal
-    terminal.resize(term_row);
-    for (int i = 0; i < term_row; i++) {
-        terminal[i].resize(term_col);
-    }
-
-    tab_stops.clear();
-    tab_stops.resize(term_col);
-    for (int i = 0;i < term_col;i+= tab_size) {
-        tab_stops[i] = true;
-    }
+    ResizeTo(term_row, term_col);
 
     // fork & create pty
     struct winsize ws = {};
@@ -1464,26 +1488,7 @@ void Resize(int new_width, int new_height) {
     width = new_width;
     height = new_height;
 
-    term_col = width / font_width;
-    term_row = height / font_height;
-    terminal.resize(term_row);
-    for (int i = 0; i < term_row; i++) {
-        terminal[i].resize(term_col);
-    }
-
-    tab_stops.clear();
-    tab_stops.resize(term_col);
-    for (int i = 0;i < term_col;i+= tab_size) {
-        tab_stops[i] = true;
-    }
-
-    if (row > term_row - 1) {
-        row = term_row - 1;
-    }
-
-    if (col > term_col - 1) {
-        col = term_col - 1;
-    }
+    ResizeTo(height / font_height, width / font_width);
     pthread_mutex_unlock(&lock);
 
     struct winsize ws = {};
@@ -1550,6 +1555,12 @@ void KeyCallback(GLFWwindow *window, int key, int scancode, int action,
 void CharCallback(GLFWwindow* window, uint32_t codepoint) {
     // TODO: encode utf8 properly
     SendData((uint8_t *)&codepoint, 1);
+}
+
+void ResizeWidth(int new_width) {
+    int current_width, current_height;
+    glfwGetWindowSize(window, &current_width, &current_height);
+    glfwSetWindowSize(window, new_width, current_height);
 }
 
 int main() {

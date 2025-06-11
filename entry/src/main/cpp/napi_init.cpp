@@ -31,6 +31,9 @@ void BeforeDraw() { eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_co
 // called after drawing to swap buffers
 void AfterDraw() { eglSwapBuffers(egl_display, egl_surface); }
 
+// called when terminal want to change width
+void ResizeWidth(int new_width) {}
+
 // start a terminal
 static napi_value Run(napi_env env, napi_callback_info info) {
     Start();
