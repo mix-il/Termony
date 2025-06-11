@@ -1089,6 +1089,8 @@ void Start() {
         const char *home = "/storage/Users/currentUser";
         setenv("HOME", home, 1);
         setenv("PWD", home, 1);
+        // override TMPDIR for tmux
+        setenv("TMUX_TMPDIR", "/data/storage/el2/base/cache", 1);
         chdir(home);
         execl("/data/app/bin/bash", "/data/app/bin/bash", nullptr);
 #endif
