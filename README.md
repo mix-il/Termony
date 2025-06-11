@@ -19,6 +19,7 @@ Bundled packages:
 - fastfetch
 - htop
 - kbd
+- libevent
 - libidn2
 - libunistring
 - lz4
@@ -32,6 +33,7 @@ Bundled packages:
 - strace
 - stream
 - tar
+- tmux
 - tree
 - vim
 - vkpeak

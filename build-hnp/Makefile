@@ -24,7 +24,9 @@ PKGS=bash \
 	htop \
 	vkpeak \
 	kbd \
-	stream
+	stream \
+	libevent \
+	tmux
 STAMP=$(patsubst %,%/.stamp,$(PKGS))
 
 all: copy
