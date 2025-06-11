@@ -141,13 +141,16 @@ static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 // terminal content
 static std::vector<std::vector<term_char>> terminal;
 // terminal size
-static int term_col = 80;
-static int term_row = 24;
+static int term_col = 0;
+static int term_row = 0;
 // cursor location
 static int row = 0;
 static int col = 0;
 // scroll offset in y axis
 static float scroll_offset = 0;
+// DECSTBM, scrolling region
+static int scroll_top = 0;
+static int scroll_bottom = term_row - 1;
 
 // https://learnopengl.com/In-Practice/Text-Rendering
 struct ivec2 {
@@ -191,6 +194,11 @@ static void ResizeTo(int new_term_row, int new_term_col) {
     term_row = new_term_row;
     term_col = new_term_col;
 
+    // update scroll margin
+    scroll_top = 0;
+    scroll_bottom = term_row - 1;
+
+    // update viewport
     width = term_col * font_width;
     height = term_row * font_height;
 
@@ -229,13 +237,15 @@ static std::vector<std::string> splitString(const std::string &str, const std::s
 
 
 static void DropFirstRowIfOverflow() {
-    if (row == term_row) {
-        // drop first row
-        history.push_back(terminal[0]);
-        terminal.erase(terminal.begin());
-        terminal.resize(term_row);
-        terminal[term_row - 1].resize(term_col);
+    if (row == scroll_bottom + 1) {
+        // drop first row in scrolling margin
+        assert(scroll_top < scroll_bottom);
+        history.push_back(terminal[scroll_top]);
+        terminal.erase(terminal.begin() + scroll_top);
+        terminal.insert(terminal.begin() + scroll_bottom, std::vector<term_char>());
+        terminal[scroll_bottom].resize(term_col);
         row--;
+
         while (history.size() > MAX_HISTORY_LINES) {
             history.pop_front();
         }
@@ -648,6 +658,28 @@ static void HandleCSI(uint8_t current) {
             int len = strlen(send_buffer);
             int res = write(fd, send_buffer, len);
             assert(res == len);
+        } else if (current == 'r') {
+            // CSI Ps ; Ps r, Set Scrolling Region [top;bottom]
+            std::vector<std::string> parts = splitString(escape_buffer, ";");
+            if (parts.size() == 2) {
+                int new_top = 1;
+                int new_bottom = term_row;
+                sscanf(parts[0].c_str(), "%d", &new_top);
+                sscanf(parts[0].c_str(), "%d", &new_bottom);
+                // convert to 1-based
+                new_top --;
+                new_bottom --;
+                if (new_bottom > new_top) {
+                    scroll_top = new_top;
+                    scroll_bottom = new_bottom;
+
+                    // move cursor to new home position
+                    row = scroll_top;
+                    col = 0;
+                }
+            } else {
+                goto unknown;
+            }
         } else if (current == '@' &&
                 ((escape_buffer.size() > 0 && escape_buffer[escape_buffer.size() - 1] >= '0' &&
                     escape_buffer[escape_buffer.size() - 1] <= '9') ||
@@ -954,8 +986,8 @@ void Start() {
         return;
     }
 
-    // setup terminal
-    ResizeTo(term_row, term_col);
+    // setup terminal, default to 80x24
+    ResizeTo(80, 24);
 
     // fork & create pty
     struct winsize ws = {};
