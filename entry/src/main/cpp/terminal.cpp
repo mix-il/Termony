@@ -977,9 +977,9 @@ static void *TerminalWorker(void *) {
                                 std::string base64 = Paste();
                                 OH_LOG_INFO(LOG_APP, "Paste from pasteboard: %{public}s",
                                             base64.c_str());
-                                // send OSC 52 ; c ; BASE64 BEL
+                                // send OSC 52 ; c ; BASE64 ESC \
                                 // FIXME: we need extra CR to pass through line buffering
-                                std::string resp = "\x1b]52;c;" + base64 + "\x07\r";
+                                std::string resp = "\x1b]52;c;" + base64 + "\x1b\\";
                                 WriteFull((uint8_t *)resp.c_str(), resp.size());
                             }
                             escape_state = state_idle;
