@@ -96,7 +96,7 @@ struct Index {
           for (let i = 0;i < count;i++) {
             let record = data.getRecord(i);
             hilog.info(DOMAIN, 'testTag', 'Got pasteboard record: %{public}s', JSON.stringify(record));
-            let plainText: string = record.toPlainText();
+            let plainText: string = record.plainText;
 
             let textEncoder = util.TextEncoder.create('utf-8');
             let encodeResult = textEncoder.encode(plainText); 
@@ -133,7 +133,7 @@ struct Index {
           for (let i = 0;i < count;i++) {
             let record = data.getRecord(i);
             hilog.info(DOMAIN, 'testTag', 'Got pasteboard record: %{public}s', JSON.stringify(record));
-            let plainText: string = record.toPlainText();
+            let plainText: string = record.plainText;
             let textEncoder = util.TextEncoder.create('utf-8');
             let encodeResult = textEncoder.encode(plainText); 
             testNapi.send(encodeResult.buffer);
