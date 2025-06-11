@@ -448,18 +448,35 @@ static void HandleCSI(uint8_t current) {
             } else {
                 goto unknown;
             }
+        } else if (current == 'L') {
+            // CSI Ps L, Insert Ps blank lines at active row
+            int line = read_int_or_default(1);
+            if (row < scroll_top || row > scroll_bottom) {
+                // outside the scroll margins, do nothing
+            } else {
+                // insert lines from current row, add new rows from scroll bottom
+                for (int i = scroll_bottom;i > row;i --) {
+                    if (i - line >= row) {
+                        terminal[i] = terminal[i - line];
+                    } else {
+                        std::fill(terminal[i].begin(), terminal[i].end(), term_char());
+                    }
+                }
+                // set to first column
+                col = 0;
+            }
         } else if (current == 'M') {
             // CSI Ps M, Delete Ps lines at active row
             int line = read_int_or_default(1);
-            if (col < scroll_top || col > scroll_bottom) {
+            if (row < scroll_top || row > scroll_bottom) {
                 // outside the scroll margins, do nothing
             } else {
-                // delete lines from scroll top, add new rows from scroll bottom
-                for (int row = scroll_top;row <= scroll_bottom;row ++) {
-                    if (row + line <= scroll_bottom) {
-                        terminal[row] = terminal[row + line];
+                // delete lines from current row, add new rows from scroll bottom
+                for (int i = row;i <= scroll_bottom;i ++) {
+                    if (i + line <= scroll_bottom) {
+                        terminal[i] = terminal[i + line];
                     } else {
-                        std::fill(terminal[row].begin(), terminal[row].end(), term_char());
+                        std::fill(terminal[i].begin(), terminal[i].end(), term_char());
                     }
                 }
                 // set to first column
