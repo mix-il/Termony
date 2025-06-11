@@ -41,6 +41,8 @@ base.hnp: $(STAMP)
 	rm -rfv sysroot/share/man
 	rm -rfv sysroot/share/doc
 	rm -rfv sysroot/share/info
+	cp utils/pbcopy sysroot/bin
+	cp utils/pbpaste sysroot/bin
 	$(TOOL_HOME)/sdk/default/openharmony/toolchains/hnpcli pack -i sysroot -n base -v 1.0
 
 %/.stamp: %/Makefile
