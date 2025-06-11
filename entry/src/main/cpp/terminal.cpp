@@ -115,6 +115,9 @@ static term_style current_style;
 static int width = 0;
 static int height = 0;
 static bool show_cursor = true;
+// DECAWM, Autowrap Mode
+// https://vt100.net/docs/vt510-rm/DECAWM.html
+static bool autowrap = true;
 static GLint surface_location = -1;
 static GLint render_pass_location = -1;
 #ifdef STANDALONE
@@ -213,9 +216,14 @@ static void InsertUtf8(uint32_t codepoint) {
     terminal[row][col].style = current_style;
     col++;
     if (col == term_col) {
-        col = 0;
-        row++;
-        DropFirstRowIfOverflow();
+        if (autowrap) {
+            // wrap to next line
+            col = 0;
+            row++;
+            DropFirstRowIfOverflow();
+        } else {
+            col = term_col - 1;
+        }
     }
 }
 
@@ -363,7 +371,7 @@ static void HandleCSI(uint8_t current) {
             for (int i = col; i < col + del && i < term_col; i++) {
                 terminal[row][i] = term_char();
             }
-        } else if (current == 'c' && escape_buffer == "") {
+        } else if (current == 'c' && (escape_buffer == "" || escape_buffer == "0")) {
             // CSI Ps c, Send Device Attributes
             // send CSI ? 6 c: I am VT102
             uint8_t send_buffer[] = {0x1b, '[', '?', '6', 'c'};
@@ -396,6 +404,9 @@ static void HandleCSI(uint8_t current) {
                 if (part == "1") {
                     // CSI ? 1 h, Application Cursor Keys (DECCKM)
                     // TODO
+                } else if (part == "7") {
+                    // CSI ? 7 h, Set autowrap
+                    autowrap = true;
                 } else if (part == "12") {
                     // CSI ? 12 h, Start blinking cursor
                     // TODO
@@ -423,7 +434,10 @@ static void HandleCSI(uint8_t current) {
             // CSI ? Pm l, DEC Private Mode Reset (DECRST)
             std::vector<std::string> parts = splitString(escape_buffer.substr(1), ";");
             for (auto part : parts) {
-                if (part == "12") {
+                if (part == "7") {
+                    // CSI ? 7 l, Reset autowrap
+                    autowrap = false;
+                } else if (part == "12") {
                     // CSI ? 12 l, Stop blinking cursor
                     // TODO
                 } else if (part == "25") {
@@ -1519,8 +1533,8 @@ int main() {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
     // Create a GLFWwindow object that we can use for GLFW's functions
-    int window_width = 1024;
-    int window_height = 768;
+    int window_width = 80 * font_width;
+    int window_height = 30 * font_height;
     window =
         glfwCreateWindow(window_width, window_height, "Terminal", nullptr, nullptr);
     glfwSetKeyCallback(window, KeyCallback);
