@@ -118,6 +118,8 @@ static bool show_cursor = true;
 // DECAWM, Autowrap Mode
 // https://vt100.net/docs/vt510-rm/DECAWM.html
 static bool autowrap = true;
+// DECSCNM, Reverse Video
+static bool reverse_video = false;
 static int tab_size = 8;
 // columns where tab stops
 static std::vector<bool> tab_stops;
@@ -188,6 +190,9 @@ static void ResizeTo(int new_term_row, int new_term_col) {
     int old_term_col = term_col;
     term_row = new_term_row;
     term_col = new_term_col;
+
+    width = term_col * font_width;
+    height = term_row * font_height;
 
     terminal.resize(term_row);
     for (int i = 0; i < term_row; i++) {
@@ -444,9 +449,12 @@ static void HandleCSI(uint8_t current) {
                     // CSI ? 1 h, Application Cursor Keys (DECCKM)
                     // TODO
                 } else if (part == "3") {
-                    // CSI ? 3 h, Enable 132 Column mode
+                    // CSI ? 3 h, Enable 132 Column mode, DECCOLM
                     ResizeTo(term_row, 132);
                     ResizeWidth(132 * font_width);
+                } else if (part == "5") {
+                    // CSI ? 5 h, Reverse Video (DECSCNM)
+                    reverse_video = true;
                 } else if (part == "7") {
                     // CSI ? 7 h, Set autowrap
                     autowrap = true;
@@ -478,9 +486,12 @@ static void HandleCSI(uint8_t current) {
             std::vector<std::string> parts = splitString(escape_buffer.substr(1), ";");
             for (auto part : parts) {
                 if (part == "3") {
-                    // CSI ? 3 h, Disable 132 Column mode
+                    // CSI ? 3 l, 80 Column Mode (DECCOLM)
                     ResizeTo(term_row, 80);
                     ResizeWidth(80 * font_width);
+                } else if (part == "5") {
+                    // CSI ? 5 l, Normal Video (DECSCNM)
+                    reverse_video = false;
                 } else if (part == "7") {
                     // CSI ? 7 l, Reset autowrap
                     autowrap = false;
@@ -1145,13 +1156,13 @@ static void Draw() {
     static std::vector<GLfloat> background_color_data;
 
     vertex_pass0_data.clear();
-    vertex_pass0_data.reserve(row * col * 24);
+    vertex_pass0_data.reserve(term_row * term_col * 24);
     vertex_pass1_data.clear();
-    vertex_pass1_data.reserve(row * col * 24);
+    vertex_pass1_data.reserve(term_row * term_col * 24);
     text_color_data.clear();
-    text_color_data.reserve(row * col * 18);
+    text_color_data.reserve(term_row * term_col * 18);
     background_color_data.clear();
-    background_color_data.reserve(row * col * 18);
+    background_color_data.reserve(term_row * term_col * 18);
 
     // ensure at least one line shown, for very large scroll_offset
     int scroll_rows = scroll_offset / font_height;
@@ -1248,6 +1259,15 @@ static void Draw() {
                     g_background_color_buffer_data[i * 3 + 2] = c.style.bg_blue;
                 }
             }
+
+            if (reverse_video) {
+                // invert all colors
+                for (int i = 0; i < 18; i++) {
+                    g_text_color_buffer_data[i] = 1.0 - g_text_color_buffer_data[i];
+                    g_background_color_buffer_data[i] = 1.0 - g_background_color_buffer_data[i];
+                }
+            }
+
             text_color_data.insert(text_color_data.end(), &g_text_color_buffer_data[0], &g_text_color_buffer_data[18]);
             background_color_data.insert(background_color_data.end(), &g_background_color_buffer_data[0],
                                          &g_background_color_buffer_data[18]);
