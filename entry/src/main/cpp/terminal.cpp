@@ -197,7 +197,7 @@ static bool need_reload_font = false;
 // id of texture for glyphs
 static GLuint texture_id;
 
-static void ResizeTo(int new_term_row, int new_term_col) {
+static void ResizeTo(int new_term_row, int new_term_col, bool update_viewport = true) {
     int old_term_col = term_col;
     term_row = new_term_row;
     term_col = new_term_col;
@@ -207,8 +207,10 @@ static void ResizeTo(int new_term_row, int new_term_col) {
     scroll_bottom = term_row - 1;
 
     // update viewport
-    width = term_col * font_width;
-    height = term_row * font_height;
+    if (update_viewport) {
+        width = term_col * font_width;
+        height = term_row * font_height;
+    }
 
     terminal.resize(term_row);
     for (int i = 0; i < term_row; i++) {
@@ -1257,8 +1259,10 @@ static void Draw() {
 
     // update surface size
     pthread_mutex_lock(&lock);
-    glUniform2f(surface_location, width, height);
-    glViewport(0, 0, width, height);
+    int aligned_width = width / font_width * font_width;
+    int aligned_height = height / font_height * font_height;
+    glUniform2f(surface_location, aligned_width, aligned_height);
+    glViewport(0, height - aligned_height, aligned_width, aligned_height);
 
     // set texture
     glActiveTexture(GL_TEXTURE0);
@@ -1293,9 +1297,9 @@ static void Draw() {
     }
 
     for (int i = 0; i < max_lines; i++) {
-        // (height - font_height) is terminal[0] when scroll_offset is zero
+        // (aligned_height - font_height) is terminal[0] when scroll_offset is zero
         float x = 0.0;
-        float y = height - (i + 1) * font_height;
+        float y = aligned_height - (i + 1) * font_height;
         int i_row = i - scroll_rows;
         std::vector<term_char> ch;
         if (i_row >= 0 && i_row < term_row) {
@@ -1636,7 +1640,7 @@ void Resize(int new_width, int new_height) {
     width = new_width;
     height = new_height;
 
-    ResizeTo(height / font_height, width / font_width);
+    ResizeTo(height / font_height, width / font_width, false);
     pthread_mutex_unlock(&lock);
 
     struct winsize ws = {};
