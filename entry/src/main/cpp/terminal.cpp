@@ -711,7 +711,7 @@ static void HandleCSI(uint8_t current) {
                 int new_top = 1;
                 int new_bottom = term_row;
                 sscanf(parts[0].c_str(), "%d", &new_top);
-                sscanf(parts[0].c_str(), "%d", &new_bottom);
+                sscanf(parts[1].c_str(), "%d", &new_bottom);
                 // convert to 1-based
                 new_top --;
                 new_bottom --;
