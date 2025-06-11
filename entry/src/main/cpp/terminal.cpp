@@ -332,6 +332,19 @@ void WriteFull(uint8_t *data, size_t length) {
         return;
     }
 
+    // pretty print
+    std::string hex;
+    for (int i = 0; i < length; i++) {
+        if (data[i] >= 127 || data[i] < 32) {
+            char temp[8];
+            snprintf(temp, sizeof(temp), "\\x%02x", data[i]);
+            hex += temp;
+        } else {
+            hex += (char)data[i];
+        }
+    }
+    OH_LOG_INFO(LOG_APP, "Send: %{public}s", hex.c_str());
+
     int written = 0;
     while (written < length) {
         int size = write(fd, (uint8_t *)data + written, length - written);
