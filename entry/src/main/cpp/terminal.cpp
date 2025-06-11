@@ -455,7 +455,7 @@ static void HandleCSI(uint8_t current) {
                 // outside the scroll margins, do nothing
             } else {
                 // insert lines from current row, add new rows from scroll bottom
-                for (int i = scroll_bottom;i > row;i --) {
+                for (int i = scroll_bottom;i >= row;i --) {
                     if (i - line >= row) {
                         terminal[i] = terminal[i - line];
                     } else {
