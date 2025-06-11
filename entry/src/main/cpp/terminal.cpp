@@ -127,6 +127,10 @@ static bool origin_mode = false;
 static int tab_size = 8;
 // columns where tab stops
 static std::vector<bool> tab_stops;
+// save/restore feature
+static int save_row = 0;
+static int save_col = 0;
+static term_style save_style;
 static GLint surface_location = -1;
 static GLint render_pass_location = -1;
 #ifdef STANDALONE
@@ -567,124 +571,125 @@ static void HandleCSI(uint8_t current) {
                                 escape_buffer.c_str(), current);
                 }
             }
-        } else if (current == 'm' && escape_buffer == "") {
-            // CSI Pm m, Character Attributes (SGR)
-            // reset all attributes to their defaults
-            current_style = term_style();
-        } else if (current == 'm' && escape_buffer.size() > 0 && escape_buffer[0] != '>') {
+        } else if (current == 'm' && (escape_buffer.size() == 0 || escape_buffer[0] != '>')) {
             // CSI Pm m, Character Attributes (SGR)
 
             // set color
             std::vector<std::string> parts = splitString(escape_buffer, ";");
             for (auto part : parts) {
-                if (part == "0") {
+                int param = 0;
+                sscanf(part.c_str(), "%d", &param);
+                if (param == 0) {
                     // reset all attributes to their defaults
                     current_style = term_style();
-                } else if (part == "1" || part == "01") {
+                } else if (param == 1) {
                     // set bold, CSI 1 m
                     current_style.weight = font_weight::bold;
-                } else if (part == "5") {
+                } else if (param == 4) {
+                    // set underline, CSI 4 m
+                    // TODO
+                } else if (param == 5) {
                     // set blink, CSI 5 m
                     current_style.blink = true;
-                } else if (part == "7") {
+                } else if (param == 7) {
                     // inverse
                     std::swap(current_style.fg_red, current_style.bg_red);
                     std::swap(current_style.fg_green, current_style.bg_green);
                     std::swap(current_style.fg_blue, current_style.bg_blue);
-                } else if (part == "10") {
+                } else if (param == 10) {
                     // reset to primary font
                     current_style = term_style();
-                } else if (part == "30") {
+                } else if (param == 30) {
                     // black foreground
                     current_style.fg_red = 0.0;
                     current_style.fg_green = 0.0;
                     current_style.fg_blue = 0.0;
-                } else if (part == "31") {
+                } else if (param == 31) {
                     // red foreground
                     current_style.fg_red = 1.0;
                     current_style.fg_green = 0.0;
                     current_style.fg_blue = 0.0;
-                } else if (part == "32") {
+                } else if (param == 32) {
                     // green foreground
                     current_style.fg_red = 0.0;
                     current_style.fg_green = 1.0;
                     current_style.fg_blue = 0.0;
-                } else if (part == "33") {
+                } else if (param == 33) {
                     // yellow foreground
                     current_style.fg_red = 1.0;
                     current_style.fg_green = 1.0;
                     current_style.fg_blue = 0.0;
-                } else if (part == "34") {
+                } else if (param == 34) {
                     // blue foreground
                     current_style.fg_red = 0.0;
                     current_style.fg_green = 0.0;
                     current_style.fg_blue = 1.0;
-                } else if (part == "35") {
+                } else if (param == 35) {
                     // magenta foreground
                     current_style.fg_red = 1.0;
                     current_style.fg_green = 0.0;
                     current_style.fg_blue = 1.0;
-                } else if (part == "36") {
+                } else if (param == 36) {
                     // cyan foreground
                     current_style.fg_red = 0.0;
                     current_style.fg_green = 1.0;
                     current_style.fg_blue = 1.0;
-                } else if (part == "37") {
+                } else if (param == 37) {
                     // white foreground
                     current_style.fg_red = 1.0;
                     current_style.fg_green = 1.0;
                     current_style.fg_blue = 1.0;
-                } else if (part == "39") {
+                } else if (param == 39) {
                     // default foreground
                     current_style.fg_red = 0.0;
                     current_style.fg_green = 0.0;
                     current_style.fg_blue = 0.0;
-                } else if (part == "40") {
+                } else if (param == 40) {
                     // black background
                     current_style.bg_red = 0.0;
                     current_style.bg_green = 0.0;
                     current_style.bg_blue = 0.0;
-                } else if (part == "41") {
+                } else if (param == 41) {
                     // black background
                     current_style.bg_red = 1.0;
                     current_style.bg_green = 0.0;
                     current_style.bg_blue = 0.0;
-                } else if (part == "42") {
+                } else if (param == 42) {
                     // green background
                     current_style.bg_red = 0.0;
                     current_style.bg_green = 1.0;
                     current_style.bg_blue = 0.0;
-                } else if (part == "43") {
+                } else if (param == 43) {
                     // yellow background
                     current_style.bg_red = 1.0;
                     current_style.bg_green = 1.0;
                     current_style.bg_blue = 0.0;
-                } else if (part == "44") {
+                } else if (param == 44) {
                     // blue background
                     current_style.bg_red = 0.0;
                     current_style.bg_green = 0.0;
                     current_style.bg_blue = 1.0;
-                } else if (part == "45") {
+                } else if (param == 45) {
                     // magenta background
                     current_style.bg_red = 1.0;
                     current_style.bg_green = 0.0;
                     current_style.bg_blue = 1.0;
-                } else if (part == "46") {
+                } else if (param == 46) {
                     // cyan background
                     current_style.bg_red = 0.0;
                     current_style.bg_green = 1.0;
                     current_style.bg_blue = 1.0;
-                } else if (part == "47") {
+                } else if (param == 47) {
                     // white background
                     current_style.bg_red = 1.0;
                     current_style.bg_green = 1.0;
                     current_style.bg_blue = 1.0;
-                } else if (part == "49") {
+                } else if (param == 49) {
                     // default background
                     current_style.bg_red = 1.0;
                     current_style.bg_green = 1.0;
                     current_style.bg_blue = 1.0;
-                } else if (part == "90") {
+                } else if (param == 90) {
                     // bright black foreground
                     current_style.fg_red = 0.5;
                     current_style.fg_green = 0.5;
@@ -862,6 +867,19 @@ static void *TerminalWorker(void *) {
                                     terminal[i][j].ch = 'E';
                                 }
                             }
+                            escape_state = state_idle;
+                        } else if (buffer[i] == '7') {
+                            // ESC 7, save cursor
+                            save_row = row;
+                            save_col = col;
+                            save_style = current_style;
+                            escape_state = state_idle;
+                        } else if (buffer[i] == '8') {
+                            // ESC 8, restore cursor
+                            row = save_row;
+                            col = save_col;
+                            ClampCursor();
+                            current_style = save_style;
                             escape_state = state_idle;
                         } else {
                             // unknown
