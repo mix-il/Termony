@@ -120,6 +120,8 @@ static bool show_cursor = true;
 static bool autowrap = true;
 // DECSCNM, Reverse Video
 static bool reverse_video = false;
+// DECOM, Origin Mode
+static bool origin_mode = false;
 static int tab_size = 8;
 // columns where tab stops
 static std::vector<bool> tab_stops;
@@ -270,24 +272,52 @@ static void InsertUtf8(uint32_t codepoint) {
     }
 }
 
+// clamp cursor to valid range
+static void ClampCursor() {
+    // clamp col
+    if (col < 0) {
+        col = 0;
+    } else if (col > term_col - 1) {
+        col = term_col - 1;
+    }
 
-#define clamp_row()                                                                                                    \
-    do {                                                                                                               \
-        if (row < 0) {                                                                                                 \
-            row = 0;                                                                                                   \
-        } else if (row > term_row - 1) {                                                                               \
-            row = term_row - 1;                                                                                        \
-        }                                                                                                              \
-    } while (0);
+    // clamp row
+    if (origin_mode) {
+        // limit cursor to scroll region
+        if (row < scroll_top) {
+            row = scroll_top;
+        } else if (row > scroll_bottom) {
+            row = scroll_bottom;
+        }
+    } else {
+        // limit cursor to terminal
+        if (row < 0) {
+            row = 0;
+        } else if (row > term_row - 1) {
+            row = term_row - 1;
+        }
+    }
+}
 
-#define clamp_col()                                                                                                    \
-    do {                                                                                                               \
-        if (col < 0) {                                                                                                 \
-            col = 0;                                                                                                   \
-        } else if (col > term_col - 1) {                                                                               \
-            col = term_col - 1;                                                                                        \
-        }                                                                                                              \
-    } while (0);
+// set absolute cursor location
+static void SetCursor(int new_row, int new_col) {
+    if (origin_mode) {
+        // origin mode, home position is the scrolling top
+        row = new_row + scroll_top;
+        col = new_col;
+    } else {
+        row = new_row;
+        col = new_col;
+    }
+    ClampCursor();
+}
+
+// move cursor in relative position
+static void MoveCursor(int row_diff, int col_diff) {
+    ClampCursor();
+    SetCursor(row + row_diff, col + col_diff);
+}
+
 
 // CAUTION: clobbers temp
 #define read_int_or_default(def)                                                                                       \
@@ -299,36 +329,48 @@ static void HandleCSI(uint8_t current) {
         // final byte in [0x40, 0x7E]
         if (current == 'A') {
             // CSI Ps A, CUU, move cursor up # lines
-            row -= read_int_or_default(1);
-            clamp_row();
+            int line = read_int_or_default(1);
+            if (row >= scroll_top) {
+                // do not move past scrolling margin
+                MoveCursor(-std::min(line, row - scroll_top), 0);
+            } else {
+                // we are out of scrolling region, move nevertheless
+                MoveCursor(-line, 0);
+            }
         } else if (current == 'B') {
             // CSI Ps B, CUD, move cursor down # lines
-            row += read_int_or_default(1);
-            clamp_row();
+            int line = read_int_or_default(1);
+            if (row <= scroll_bottom) {
+                // do not move past scrolling margin
+                MoveCursor(std::min(line, scroll_bottom - row), 0);
+            } else {
+                // we are out of scrolling region, move nevertheless
+                MoveCursor(line,  0);
+            }
         } else if (current == 'C') {
             // CSI Ps C, CUF, move cursor right # columns
             col += read_int_or_default(1);
-            clamp_col();
+            ClampCursor();
         } else if (current == 'D') {
             // CSI Ps D, CUB, move cursor left # columns
             col -= read_int_or_default(1);
-            clamp_col();
+            ClampCursor();
         } else if (current == 'E') {
             // CSI Ps E, CNL, move cursor to the beginning of next line, down # lines
             row += read_int_or_default(1);
-            clamp_row();
             col = 0;
+            ClampCursor();
         } else if (current == 'F') {
             // CSI Ps F, CPL, move cursor to the beginning of previous line, up # lines
             row -= read_int_or_default(1);
-            clamp_row();
             col = 0;
+            ClampCursor();
         } else if (current == 'G') {
             // CSI Ps G, CHA, move cursor to column #
             col = read_int_or_default(1);
             // convert from 1-based to 0-based
             col--;
-            clamp_col();
+            ClampCursor();
         } else if (current == 'H') {
             std::vector<std::string> parts = splitString(escape_buffer, ";");
             if (parts.size() == 2) {
@@ -338,8 +380,7 @@ static void HandleCSI(uint8_t current) {
                 // convert from 1-based to 0-based
                 row--;
                 col--;
-                clamp_row();
-                clamp_col();
+                ClampCursor();
             } else if (escape_buffer == "") {
                 // CSI H, HOME, move cursor upper left corner
                 row = col = 0;
@@ -425,7 +466,7 @@ static void HandleCSI(uint8_t current) {
             sscanf(escape_buffer.c_str(), "%d", &row);
             // convert from 1-based to 0-based
             row--;
-            clamp_row();
+            ClampCursor();
         } else if (current == 'f') {
             std::vector<std::string> parts = splitString(escape_buffer, ";");
             if (parts.size() == 2) {
@@ -435,8 +476,7 @@ static void HandleCSI(uint8_t current) {
                 // convert from 1-based to 0-based
                 row--;
                 col--;
-                clamp_row();
-                clamp_col();
+                ClampCursor();
             } else {
                 goto unknown;
             }
@@ -465,6 +505,9 @@ static void HandleCSI(uint8_t current) {
                 } else if (part == "5") {
                     // CSI ? 5 h, Reverse Video (DECSCNM)
                     reverse_video = true;
+                } else if (part == "6") {
+                    // CSI ? 6 h, Origin Mode (DECOM)
+                    origin_mode = true;
                 } else if (part == "7") {
                     // CSI ? 7 h, Set autowrap
                     autowrap = true;
@@ -502,6 +545,9 @@ static void HandleCSI(uint8_t current) {
                 } else if (part == "5") {
                     // CSI ? 5 l, Normal Video (DECSCNM)
                     reverse_video = false;
+                } else if (part == "6") {
+                    // CSI ? 6 l, Normal Cursor Mode (DECOM)
+                    origin_mode = false;
                 } else if (part == "7") {
                     // CSI ? 7 l, Reset autowrap
                     autowrap = false;
@@ -763,37 +809,45 @@ static void *TerminalWorker(void *) {
                         } else if (buffer[i] == 'A') {
                             // ESC A, cursor up
                             row --;
-                            clamp_row();
+                            ClampCursor();
                             escape_state = state_idle;
                         } else if (buffer[i] == 'B') {
                             // ESC B, cursor down
                             row ++;
-                            clamp_row();
+                            ClampCursor();
                             escape_state = state_idle;
                         } else if (buffer[i] == 'C') {
                             // ESC C, cursor right
                             col ++;
-                            clamp_col();
+                            ClampCursor();
                             escape_state = state_idle;
                         } else if (buffer[i] == 'D') {
                             // ESC D, cursor left
                             col --;
-                            clamp_col();
+                            ClampCursor();
                             escape_state = state_idle;
                         } else if (buffer[i] == 'E') {
                             // ESC E, goto to the beginning of next row
                             row ++;
                             col = 0;
-                            clamp_row();
+                            ClampCursor();
                             escape_state = state_idle;
                         } else if (buffer[i] == 'H') {
                             // ESC H, place tab stop at the current position
                             tab_stops[col] = true;
                             escape_state = state_idle;
                         } else if (buffer[i] == 'M') {
-                            // ESC M, move cursor one line up
-                            row --;
-                            clamp_row();
+                            // ESC M, move cursor one line up, scrolls down if at the top margin
+                            if (row == scroll_top) {
+                                // shift rows down
+                                for (int i = scroll_bottom;i > scroll_top;i--) {
+                                    terminal[i] = terminal[i-1];
+                                }
+                                std::fill(terminal[scroll_top].begin(), terminal[scroll_top].end(), term_char());
+                            } else {
+                                row --;
+                                ClampCursor();
+                            }
                             escape_state = state_idle;
                         } else if (buffer[i] == 'P') {
                             // ESC P = DCS
@@ -894,7 +948,7 @@ static void *TerminalWorker(void *) {
                                 while (col < term_col && !tab_stops[col]) {
                                     col ++;
                                 }
-                                clamp_col();
+                                ClampCursor();
                             } else if (buffer[i] == 0x1b) {
                                 escape_buffer = "";
                                 escape_state = state_esc;
