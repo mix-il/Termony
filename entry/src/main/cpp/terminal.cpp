@@ -3,6 +3,7 @@
 
 #include "terminal.h"
 #include <GLES3/gl32.h>
+#include <algorithm>
 #include <assert.h>
 #include <cstdint>
 #include <deque>
@@ -446,6 +447,23 @@ static void HandleCSI(uint8_t current) {
                 }
             } else {
                 goto unknown;
+            }
+        } else if (current == 'M') {
+            // CSI Ps M, Delete Ps lines at active row
+            int line = read_int_or_default(1);
+            if (col < scroll_top || col > scroll_bottom) {
+                // outside the scroll margins, do nothing
+            } else {
+                // delete lines from scroll top, add new rows from scroll bottom
+                for (int row = scroll_top;row <= scroll_bottom;row ++) {
+                    if (row + line <= scroll_bottom) {
+                        terminal[row] = terminal[row + line];
+                    } else {
+                        std::fill(terminal[row].begin(), terminal[row].end(), term_char());
+                    }
+                }
+                // set to first column
+                col = 0;
             }
         } else if (current == 'P') {
             // CSI Ps P, DCH, delete # characters, move right to left
