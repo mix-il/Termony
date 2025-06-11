@@ -118,6 +118,9 @@ static bool show_cursor = true;
 // DECAWM, Autowrap Mode
 // https://vt100.net/docs/vt510-rm/DECAWM.html
 static bool autowrap = true;
+static int tab_size = 8;
+// columns where tab stops
+static std::vector<bool> tab_stops;
 static GLint surface_location = -1;
 static GLint render_pass_location = -1;
 #ifdef STANDALONE
@@ -394,6 +397,17 @@ static void HandleCSI(uint8_t current) {
                 col--;
                 clamp_row();
                 clamp_col();
+            } else {
+                goto unknown;
+            }
+        } else if (current == 'g') {
+            int mode = read_int_or_default(0);
+            if (mode == 0) {
+                // CSI g, CSI 0 g, clear tab stop at the current position
+                tab_stops[col] = false;
+            } else if (mode == 3) {
+                // CSI 3 g, clear all tab stops
+                std::fill(tab_stops.begin(), tab_stops.end(), false);
             } else {
                 goto unknown;
             }
@@ -696,6 +710,10 @@ static void *TerminalWorker(void *) {
                             col = 0;
                             clamp_row();
                             escape_state = state_idle;
+                        } else if (buffer[i] == 'H') {
+                            // ESC H, place tab stop at the current position
+                            tab_stops[col] = true;
+                            escape_state = state_idle;
                         } else if (buffer[i] == 'M') {
                             // ESC M, move cursor one line up
                             row --;
@@ -795,12 +813,12 @@ static void *TerminalWorker(void *) {
                                     col -= 1;
                                 }
                             } else if (buffer[i] == '\t') {
-                                col = (col + 8) / 8 * 8;
-                                if (col >= term_col) {
-                                    col = 0;
-                                    row++;
-                                    DropFirstRowIfOverflow();
+                                // goto next tab stop
+                                col ++;
+                                while (col < term_col && !tab_stops[col]) {
+                                    col ++;
                                 }
+                                clamp_col();
                             } else if (buffer[i] == 0x1b) {
                                 escape_buffer = "";
                                 escape_state = state_esc;
@@ -896,6 +914,12 @@ void Start() {
     terminal.resize(term_row);
     for (int i = 0; i < term_row; i++) {
         terminal[i].resize(term_col);
+    }
+
+    tab_stops.clear();
+    tab_stops.resize(term_col);
+    for (int i = 0;i < term_col;i+= tab_size) {
+        tab_stops[i] = true;
     }
 
     // fork & create pty
@@ -1445,6 +1469,12 @@ void Resize(int new_width, int new_height) {
     terminal.resize(term_row);
     for (int i = 0; i < term_row; i++) {
         terminal[i].resize(term_col);
+    }
+
+    tab_stops.clear();
+    tab_stops.resize(term_col);
+    for (int i = 0;i < term_col;i+= tab_size) {
+        tab_stops[i] = true;
     }
 
     if (row > term_row - 1) {
