@@ -5,6 +5,7 @@ import { util } from '@kit.ArkTS';
 import fs from '@ohos.file.fs';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { abilityAccessCtrl, bundleManager, Permissions } from '@kit.AbilityKit';
+import promptAction from '@ohos.promptAction';
 
 const DOMAIN = 0x0000;
 
@@ -74,6 +75,12 @@ struct Index {
           if (err) {
             hilog.info(0x0000, 'mainTag', 'Failed to set pasteboard: %{public}s', JSON.stringify(err));
             return;
+          } else {
+            promptAction.showToast({
+              message: "Copied to pasteboard",
+              duration: 1000,
+              bottom: "center",
+            })
           }
         });
       }
