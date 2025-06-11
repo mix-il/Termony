@@ -148,7 +148,7 @@ static napi_value DestroySurface(napi_env env, napi_callback_info info) { return
 
 // TODO
 void Copy(std::string base64) { }
-std::string Paste() { return ""; }
+std::string Paste() { return "SGVsbG8gd29ybGQK"; }
 
 EXTERN_C_START
 static napi_value Init(napi_env env, napi_value exports) {
