@@ -2,6 +2,9 @@ all: download/busybox-1.37.0.tar.bz2
 	rm -rf temp
 	mkdir -p temp
 	cd temp && tar xvf ../download/busybox-1.37.0.tar.bz2
+	cd temp/busybox-1.37.0 && cat ../../0001-skip-proc-stat.diff | patch -Np1
+	# TCSANOW does not work, use TCSADRAIN
+	sed -i.bak 's/TCSANOW,/TCSADRAIN,/' $(wildcard temp/busybox-1.37.0/*/*.c)
 	cd temp/busybox-1.37.0 && make defconfig
 	# missing getutxent
 	cd temp/busybox-1.37.0 && /usr/bin/sed -i.bak "s/CONFIG_W=y/CONFIG_W=n/" .config
