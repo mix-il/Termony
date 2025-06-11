@@ -61,6 +61,8 @@ enum font_weight {
 struct term_style {
     // font weight
     font_weight weight = regular;
+    // blinking
+    bool blink = false;
     // foreground color
     float fg_red = 0.0;
     float fg_green = 0.0;
@@ -583,7 +585,7 @@ static void HandleCSI(uint8_t current) {
                     current_style.weight = font_weight::bold;
                 } else if (part == "5") {
                     // set blink, CSI 5 m
-                    // TODO
+                    current_style.blink = true;
                 } else if (part == "7") {
                     // inverse
                     std::swap(current_style.fg_red, current_style.bg_red);
@@ -1216,6 +1218,11 @@ static GLuint text_color_buffer;
 static GLuint background_color_buffer;
 
 static void Draw() {
+    // blink every 0.5s
+    struct timeval tv;
+    gettimeofday(&tv, nullptr);
+    uint64_t current_msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+
     // clear buffer
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1351,6 +1358,13 @@ static void Draw() {
                 for (int i = 0; i < 18; i++) {
                     g_text_color_buffer_data[i] = 1.0 - g_text_color_buffer_data[i];
                     g_background_color_buffer_data[i] = 1.0 - g_background_color_buffer_data[i];
+                }
+            }
+
+            if (c.style.blink && current_msec % 1000 > 500) {
+                // for every 1s, in 0.5s, text color equals to back ground color
+                for (int i = 0; i < 18; i++) {
+                    g_text_color_buffer_data[i] = g_background_color_buffer_data[i];
                 }
             }
 
