@@ -1,0 +1,12 @@
+--- a/src/env.cpp	2025-06-11 16:26:20
++++ b/src/env.cpp	2025-06-11 16:26:30
+@@ -1511,8 +1511,7 @@
+         // Don't rely on $USER being set, as setup_user() has not yet been called.
+         // See https://github.com/fish-shell/fish-shell/issues/5180
+         // getpeuid() can't fail, but getpwuid sure can.
+-        auto pwuid = getpwuid(geteuid());
+-        const char *uname = pwuid ? pwuid->pw_name : nullptr;
++        const char *uname = "currentUser";
+         // /tmp/fish.user
+         std::string tmpdir = get_path_to_tmp_dir() + "/fish.";
+         if (uname) {
