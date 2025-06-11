@@ -837,7 +837,7 @@ static void *TerminalWorker(void *) {
         struct pollfd fds[1];
         fds[0].fd = fd;
         fds[0].events = POLLIN;
-        int res = poll(fds, 1, 1000);
+        int res = poll(fds, 1, 100);
 
         uint8_t buffer[1024];
         if (res > 0) {
@@ -974,13 +974,8 @@ static void *TerminalWorker(void *) {
                             } else if (parts.size() == 3 && parts[0] == "52" && parts[1] == "c" && parts[2] == "?") {
                                 // OSC 52 ; c ; ? BEL
                                 // paste from clipboard
-                                std::string base64 = Paste();
-                                OH_LOG_INFO(LOG_APP, "Paste from pasteboard: %{public}s",
-                                            base64.c_str());
-                                // send OSC 52 ; c ; BASE64 ESC \
-                                // FIXME: we need extra CR to pass through line buffering
-                                std::string resp = "\x1b]52;c;" + base64 + "\x1b\\";
-                                WriteFull((uint8_t *)resp.c_str(), resp.size());
+                                RequestPaste();
+                                OH_LOG_INFO(LOG_APP, "Request Paste from pasteboard");
                             }
                             escape_state = state_idle;
                         } else if (i + 1 < r && buffer[i] == '\x1b' && buffer[i] == '\\') {
@@ -1141,6 +1136,16 @@ static void *TerminalWorker(void *) {
                 }
                 pthread_mutex_unlock(&lock);
             }
+        }
+
+        // check if anything to paste
+        std::string paste = GetPaste();
+        if (paste.size() > 0) {
+            // send OSC 52 ; c ; BASE64 ST
+            OH_LOG_INFO(LOG_APP, "Paste from pasteboard: %{public}s",
+                        paste.c_str());
+            std::string resp = "\x1b]52;c;" + paste + "\x1b\\";
+            WriteFull((uint8_t *)resp.c_str(), resp.size());
         }
     }
 }

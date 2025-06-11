@@ -84,6 +84,35 @@ struct Index {
           }
         });
       }
+
+      if (testNapi.checkPaste()) {
+        // need to paste
+        const atManager: abilityAccessCtrl.AtManager = abilityAccessCtrl.createAtManager();
+        atManager.requestPermissionsFromUser(getContext(), ['ohos.permission.READ_PASTEBOARD']).then(async () => {
+          let systemPasteboard: pasteboard.SystemPasteboard = pasteboard.getSystemPasteboard();
+          let data = await systemPasteboard.getData();
+          hilog.info(DOMAIN, 'testTag', 'Got pasteboard data: %{public}s', JSON.stringify(data));
+          let count = data.getRecordCount();
+          for (let i = 0;i < count;i++) {
+            let record = data.getRecord(i);
+            hilog.info(DOMAIN, 'testTag', 'Got pasteboard record: %{public}s', JSON.stringify(record));
+            let plainText: string = record.toPlainText();
+
+            let textEncoder = util.TextEncoder.create('utf-8');
+            let encodeResult = textEncoder.encode(plainText); 
+
+            let base64 = new util.Base64();
+            let encoded = base64.encodeToStringSync(encodeResult);
+            testNapi.pushPaste(encoded);
+          }
+
+          promptAction.showToast({
+            message: "Pasted from pasteboard",
+            duration: 1000,
+            bottom: "center",
+          })
+        });
+      }
     }, 100);
   }
 

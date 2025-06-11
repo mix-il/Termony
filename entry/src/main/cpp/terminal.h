@@ -21,6 +21,7 @@ extern void AfterDraw();
 extern void ResizeWidth(int new_width);
 // copy/paste with base64 encoded string
 extern void Copy(std::string base64);
-extern std::string Paste();
+extern void RequestPaste();
+extern std::string GetPaste();
 
 #endif

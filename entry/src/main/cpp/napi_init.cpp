@@ -207,7 +207,22 @@ void Copy(std::string base64) {
     pthread_mutex_unlock(&pasteboard_lock);
 }
 
-std::string Paste() { return "SGVsbG8gd29ybGQK"; }
+void RequestPaste() {
+    pthread_mutex_lock(&pasteboard_lock);
+    paste_requests++;
+    pthread_mutex_unlock(&pasteboard_lock);
+}
+
+std::string GetPaste() {
+    std::string res;
+    pthread_mutex_lock(&pasteboard_lock);
+    if (!paste_queue.empty()) {
+        res = paste_queue.front();
+        paste_queue.pop_front();
+    }
+    pthread_mutex_unlock(&pasteboard_lock);
+    return res;
+}
 
 EXTERN_C_START
 static napi_value Init(napi_env env, napi_value exports) {

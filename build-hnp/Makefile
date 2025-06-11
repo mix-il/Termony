@@ -36,7 +36,7 @@ copy: base.hnp
 	rm -f ../entry/hnp/arm64-v8a/*.hnp
 	cp $^ ../entry/hnp/arm64-v8a
 
-base.hnp: $(STAMP)
+base.hnp: $(STAMP) utils/pbcopy utils/pbpaste
 	# reduce size
 	rm -rfv sysroot/share/man
 	rm -rfv sysroot/share/doc
