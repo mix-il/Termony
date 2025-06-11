@@ -1,0 +1,10 @@
+--- a/cmake/Tests.cmake	2025-06-11 14:33:08
++++ b/cmake/Tests.cmake	2025-06-11 14:33:14
+@@ -46,7 +46,5 @@
+ cmake_policy(PUSH)
+ if(POLICY CMP0037)
+-  cmake_policy(SET CMP0037 OLD)
+-  add_custom_target(test DEPENDS fish_run_tests)
+ endif()
+ cmake_policy(POP)
+ 

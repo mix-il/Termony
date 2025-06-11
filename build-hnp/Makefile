@@ -26,7 +26,8 @@ PKGS=bash \
 	kbd \
 	stream \
 	libevent \
-	tmux
+	tmux \
+	fish
 STAMP=$(patsubst %,%/.stamp,$(PKGS))
 
 all: copy
@@ -36,6 +37,10 @@ copy: base.hnp
 	cp $^ ../entry/hnp/arm64-v8a
 
 base.hnp: $(STAMP)
+	# reduce size
+	rm -rfv sysroot/share/man
+	rm -rfv sysroot/share/doc
+	rm -rfv sysroot/share/info
 	$(TOOL_HOME)/sdk/default/openharmony/toolchains/hnpcli pack -i sysroot -n base -v 1.0
 
 %/.stamp: %/Makefile

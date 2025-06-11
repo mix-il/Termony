@@ -17,6 +17,7 @@ Bundled packages:
 - coremark
 - curl
 - fastfetch
+- fish
 - htop
 - kbd
 - libevent
