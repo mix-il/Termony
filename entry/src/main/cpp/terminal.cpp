@@ -881,6 +881,16 @@ static void *TerminalWorker(void *) {
                             ClampCursor();
                             current_style = save_style;
                             escape_state = state_idle;
+                        } else if (buffer[i] == '(') {
+                            // ESC ( C, Designate G0 Character Set
+                            // TODO
+                            i++;
+                            escape_state = state_idle;
+                        } else if (buffer[i] == ')') {
+                            // ESC ) C, Designate G1 Character Set
+                            // TODO
+                            i++;
+                            escape_state = state_idle;
                         } else {
                             // unknown
                             OH_LOG_WARN(LOG_APP, "Unknown escape sequence after ESC: %{public}s %{public}c",
