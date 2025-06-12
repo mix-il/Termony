@@ -1172,6 +1172,8 @@ void Start() {
         const char *home = "/storage/Users/currentUser";
         setenv("HOME", home, 1);
         setenv("PWD", home, 1);
+        // set LD_LIRBARY_PATH for shared libraries
+        setenv("LD_LIBRARY_PATH", "/data/app/base.org/base_1.0/lib", 1);
         // override TMPDIR for tmux
         setenv("TMUX_TMPDIR", "/data/storage/el2/base/cache", 1);
         chdir(home);
