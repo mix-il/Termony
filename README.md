@@ -50,7 +50,7 @@ Bundled packages:
 - xxhash
 - yyjson
 
-Pro tip: you can use these utilites in the builtin Terminal app under `/data/service/hnp`, although some paths might get wrong due to prefix set to `/data/app/base.org/base_1.0` (thanks to @duskmoon314). You can override them like:
+Pro tip: you can use these utilities in the builtin Terminal app under `/data/service/hnp`, although some paths might get wrong due to prefix set to `/data/app/base.org/base_1.0` (thanks to @duskmoon314). You can override them like:
 
 ```shell
 PATH=/data/service/hnp/base.org/base_1.0/bin:$PATH LD_LIBRARY_PATH=/data/service/hnp/base.org/base_1.0/lib TERMINFO=/data/service/hnp/base.org/base_1.0/share/terminfo fish
