@@ -8,6 +8,10 @@ It can run some basic commands on Huawei MateBook Pro now:
 
 ![](./screenshot.jpg)
 
+[Assembly programming](https://www.codalogic.com/blog/2022/10/11/Experiments-with-Aarch64-Assembler-Part-2) & running newly built programs on HarmonyOS Computer:
+
+![](./screenshot_assembly.jpg)
+
 Bundled packages:
 
 - bash
