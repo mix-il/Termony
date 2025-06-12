@@ -8,6 +8,7 @@ all: download/libunistring-1.3.tar.xz
 	cd temp/libunistring-1.3 && make -j $(shell nproc) && make install DESTDIR=$(shell pwd)/build
 	mkdir -p ../sysroot
 	rm -v build/usr/local/lib/*.la
+	$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-strip build/usr/local/lib/*.so
 	cp -rfv build/usr/local/. ../sysroot
 
 download/libunistring-1.3.tar.xz:

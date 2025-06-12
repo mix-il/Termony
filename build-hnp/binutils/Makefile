@@ -21,6 +21,7 @@ all: download/binutils-2.44.tar.xz
 	cd temp/binutils-2.44/build && make clean
 	cd temp/binutils-2.44/build && make -j $(shell nproc) && make install DESTDIR=$(shell pwd)/build
 	$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-strip build/usr/local/bin/*
+	$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-strip build/usr/local/lib/*.so
 	$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-strip build/usr/local/aarch64-unknown-linux-musl/bin/*
 	mkdir -p ../sysroot
 	rm -v build/usr/local/lib/*.la

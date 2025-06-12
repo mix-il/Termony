@@ -6,7 +6,7 @@ all: download/kbd-2.8.0.tar.xz
 	cd temp/kbd-2.8.0 && echo "static char *program_invocation_short_name = \"argv[0]\";" >> config.h
 	cd temp/kbd-2.8.0 && make -j $(shell nproc) && make install DESTDIR=$(shell pwd)/build
 	mkdir -p ../sysroot
-	cp -rv ./build/usr/local/. ../sysroot
+	cp -rv ./build/usr/local/. ../sysroot | tee file.lst
 
 download/kbd-2.8.0.tar.xz:
 	mkdir -p download
