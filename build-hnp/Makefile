@@ -29,7 +29,10 @@ PKGS=bash \
 	tmux \
 	pcre2 \
 	fish \
-	elf-loader
+	elf-loader \
+	gmp \
+	mpfr \
+	mpc
 STAMP=$(patsubst %,%/.stamp,$(PKGS))
 
 all: copy

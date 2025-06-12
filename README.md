@@ -23,6 +23,7 @@ Bundled packages:
 - [elf-loader](https://github.com/MikhailProg/elf) (you can run executable without executable permission! e.g. `cp /data/app/bin/bash ~/ && loader ~/bash`)
 - fastfetch
 - fish
+- gmp
 - htop
 - kbd
 - libevent
@@ -30,6 +31,8 @@ Bundled packages:
 - libunistring
 - lz4
 - make
+- mpc
+- mpfr
 - ncnn
 - ncurses
 - openssh
