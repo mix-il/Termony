@@ -16,7 +16,7 @@ Bundled packages:
 - c-ares
 - coremark
 - curl
-- elf-loader (you can run executable without executable permission! e.g. `cp /data/app/bin/bash ~/ && loader ~/bash`)
+- [elf-loader](https://github.com/MikhailProg/elf) (you can run executable without executable permission! e.g. `cp /data/app/bin/bash ~/ && loader ~/bash`)
 - fastfetch
 - fish
 - htop
