@@ -6,7 +6,7 @@ It can run some basic commands on Huawei MateBook Pro now:
 
 ![](./screenshot.jpg)
 
-Also compile and run C/c++ programs on HarmonyOS Computer:
+Also compile and run C/C++ programs on HarmonyOS Computer:
 
 ![](./screenshot_gcc.jpg)
 
