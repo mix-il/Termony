@@ -1,0 +1,21 @@
+--- a/gcc/Makefile	2025-06-12 20:04:24
++++ b/gcc/Makefile	2025-06-12 20:06:45
+@@ -2290,8 +2290,7 @@
+ # Specify the path to gcc/testsuite/selftests within the srcdir
+ # as an argument to -fself-test.
+ DEVNULL=$(if $(findstring mingw,$(build)),nul,/dev/null)
+-SELFTEST_FLAGS = -nostdinc $(DEVNULL) -S -o $(DEVNULL) \
+-	-fself-test=$(srcdir)/testsuite/selftests
++SELFTEST_FLAGS = -nostdinc $(DEVNULL) -S -o $(DEVNULL)
+ 
+ # Run the selftests during the build once we have a driver and the frontend,
+ # so that self-test failures are caught as early as possible.
+@@ -2481,7 +2480,7 @@
+ 
+ # Dump a specs file to make -B./ read these specs over installed ones.
+ $(SPECS): xgcc$(exeext)
+-	$(GCC_FOR_TARGET) -dumpspecs > tmp-specs
++	echo > tmp-specs
+ 	mv tmp-specs $(SPECS)
+ 
+ # We do want to create an executable named `xgcc', so we can use it to
