@@ -1,5 +1,7 @@
 # Termony
 
+[GitHub](https://github.com/jiegec/Termony) [Gitee](https://gitee.com/jiegec/Termony)
+
 Termux for HarmonyOS Computer. Working in Progress.
 
 It can run some basic commands on Huawei MateBook Pro now:
