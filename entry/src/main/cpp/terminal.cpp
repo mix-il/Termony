@@ -525,9 +525,16 @@ static void HandleCSI(uint8_t current) {
                 terminal[row][i] = term_char();
             }
         } else if (current == 'c' && (escape_buffer == "" || escape_buffer == "0")) {
-            // CSI Ps c, Send Device Attributes
-            // send CSI ? 6 c: I am VT102
-            uint8_t send_buffer[] = {0x1b, '[', '?', '6', 'c'};
+            // CSI Ps c, Send Device Attributes, Primary DA
+            // mimic xterm
+            // send CSI ? 1 ; 2 c: I am VT100 with Advance Video Option
+            uint8_t send_buffer[] = {0x1b, '[', '?', '1', ';', '2', 'c'};
+            WriteFull(send_buffer, sizeof(send_buffer));
+        } else if (current == 'c' && (escape_buffer == ">" || escape_buffer == ">0")) {
+            // CSI > Ps c, Send Device Attributes, Secondary DA
+            // mimic xterm
+            // send CSI > 0 ; 2 7 6 ; 0 c: I am VT100
+            uint8_t send_buffer[] = {0x1b, '[', '>', '0', ';', '2', '7', '6', ';', '0', 'c'};
             WriteFull(send_buffer, sizeof(send_buffer));
         } else if (current == 'd' && escape_buffer != "") {
             // CSI Ps d, VPA, move cursor to row #
@@ -980,8 +987,18 @@ static void *TerminalWorker(void *) {
                             escape_state = state_idle;
                         } else if (i + 1 < r && buffer[i] == '\x1b' && buffer[i] == '\\') {
                             // ST is ESC \
-                            // OSC Ps ; Pt ST, TODO
+                            // OSC Ps ; Pt ST
                             i += 1;
+                            std::vector<std::string> parts = splitString(escape_buffer, ";");
+                            if (parts.size() == 2 && parts[0] == "10" && parts[1] == "?") {
+                                // OSC 10 ; ? ST
+                                // report foreground color
+                                // TODO
+                            } else if (parts.size() == 2 && parts[0] == "11" && parts[1] == "?") {
+                                // OSC 11 ; ? ST
+                                // report background color
+                                // TODO
+                            }
                             escape_state = state_idle;
                         } else if (buffer[i] >= ' ' && buffer[i] < 127) {
                             // printable character
