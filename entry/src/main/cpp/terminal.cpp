@@ -518,6 +518,16 @@ static void HandleCSI(uint8_t current) {
                     terminal[row][i] = term_char();
                 }
             }
+        } else if (current == 'S') {
+            // CSI Ps S, SU, Scroll up Ps lines
+            int line = read_int_or_default(1);
+            for (int i = scroll_top; i <= scroll_bottom; i++) {
+                if (i + line <= scroll_bottom) {
+                    terminal[i] = terminal[i + line];
+                } else {
+                    std::fill(terminal[i].begin(), terminal[i].end(), term_char());
+                }
+            }
         } else if (current == 'X') {
             // CSI Ps X, ECH, erase # characters, do not move others
             int del = read_int_or_default(1);
