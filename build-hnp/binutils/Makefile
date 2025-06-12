@@ -24,7 +24,7 @@ all: download/binutils-2.44.tar.xz
 	$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-strip build/usr/local/aarch64-unknown-linux-musl/bin/*
 	mkdir -p ../sysroot
 	rm -v build/usr/local/lib/*.la
-	cp -rfv build/usr/local/. ../sysroot
+	cp -rfv build/usr/local/. ../sysroot | tee file.lst
 
 download/binutils-2.44.tar.xz:
 	mkdir -p download

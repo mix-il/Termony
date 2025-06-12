@@ -26,7 +26,7 @@ all: download/busybox-1.37.0.tar.bz2
 	cd temp/busybox-1.37.0 && make -j $(shell nproc) CC=$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/aarch64-unknown-linux-ohos-clang AR=$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-ar CFLAGS="-Wno-int-conversion" busybox_unstripped
 	$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-strip temp/busybox-1.37.0/busybox_unstripped
 	mkdir -p ../sysroot/bin
-	cp -v temp/busybox-1.37.0/busybox_unstripped ../sysroot/bin/busybox
+	cp -v temp/busybox-1.37.0/busybox_unstripped ../sysroot/bin/busybox | tee file.lst
 
 download/busybox-1.37.0.tar.bz2:
 	mkdir -p download

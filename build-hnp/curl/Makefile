@@ -9,7 +9,7 @@ all: download/curl-8.14.1.tar.xz
 	$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-strip build/usr/local/bin/curl
 	mkdir -p ../sysroot
 	rm -v build/usr/local/lib/*.la
-	cp -rfv build/usr/local/. ../sysroot
+	cp -rfv build/usr/local/. ../sysroot | tee file.lst
 
 download/curl-8.14.1.tar.xz:
 	mkdir -p download
