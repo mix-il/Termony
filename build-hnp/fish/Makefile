@@ -3,7 +3,9 @@ all: download/fish-3.7.1.tar.xz
 	mkdir -p temp build
 	cd temp && tar xvf ../download/fish-3.7.1.tar.xz
 	# TCSANOW does not work, use TCSADRAIN
-	sed -i.bak 's/TCSANOW,/TCSADRAIN,/' $(wildcard temp/fish-3.7.1/src/*.cpp)
+	sed -i.bak 's/TCSANOW,/TCSADRAIN,/' temp/fish-3.7.1/src/reader.cpp
+	sed -i.bak 's/TCSANOW,/TCSADRAIN,/' temp/fish-3.7.1/src/fish_key_reader.cpp
+	sed -i.bak 's/TCSANOW,/TCSADRAIN,/' temp/fish-3.7.1/src/builtins/fg.cpp
 	cd temp/fish-3.7.1 && cat ../../0001-fix-cmake.diff | patch -Np1
 	cd temp/fish-3.7.1 && cat ../../0002-fix-getpwuid.diff | patch -Np1
 	cd temp/fish-3.7.1 && mkdir build
