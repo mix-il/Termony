@@ -985,19 +985,23 @@ static void *TerminalWorker(void *) {
                                 OH_LOG_INFO(LOG_APP, "Request Paste from pasteboard");
                             }
                             escape_state = state_idle;
-                        } else if (i + 1 < r && buffer[i] == '\x1b' && buffer[i] == '\\') {
+                        } else if (i + 1 < r && buffer[i] == '\x1b' && buffer[i + 1] == '\\') {
                             // ST is ESC \
                             // OSC Ps ; Pt ST
                             i += 1;
                             std::vector<std::string> parts = splitString(escape_buffer, ";");
                             if (parts.size() == 2 && parts[0] == "10" && parts[1] == "?") {
                                 // OSC 10 ; ? ST
-                                // report foreground color
-                                // TODO
+                                // report foreground color: black
+                                // send OSI 10 ; r g b : 0 / 0 / 0 ST
+                                uint8_t send_buffer[] = {0x1b, ']', '1', '0', ';', 'r', 'g', 'b', ':', '0', '/', '0', '/', '0', '\x1b', '\\'};
+                                WriteFull(send_buffer, sizeof(send_buffer));
                             } else if (parts.size() == 2 && parts[0] == "11" && parts[1] == "?") {
                                 // OSC 11 ; ? ST
-                                // report background color
-                                // TODO
+                                // report background color: white
+                                // send OSI 11 ; r g b : f / f / f ST
+                                uint8_t send_buffer[] = {0x1b, ']', '1', '0', ';', 'r', 'g', 'b', ':', 'f', '/', 'f', '/', 'f', '\x1b', '\\'};
+                                WriteFull(send_buffer, sizeof(send_buffer));
                             }
                             escape_state = state_idle;
                         } else if (buffer[i] >= ' ' && buffer[i] < 127) {
