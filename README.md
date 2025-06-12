@@ -29,6 +29,7 @@ Bundled packages:
 - ncurses
 - openssh
 - openssl
+- pcre2
 - readline
 - sl
 - strace
