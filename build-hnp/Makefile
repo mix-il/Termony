@@ -28,7 +28,8 @@ PKGS=bash \
 	libevent \
 	tmux \
 	pcre2 \
-	fish
+	fish \
+	elf-loader
 STAMP=$(patsubst %,%/.stamp,$(PKGS))
 
 all: copy
