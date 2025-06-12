@@ -9,7 +9,8 @@ all: download/vkpeak
 	cd temp/vkpeak-20250531/build && make -j $(shell nproc) 
 	cd temp/vkpeak-20250531/build && cp -vf vkpeak $(shell pwd)/build/bin
 	mkdir -p ../sysroot
-	cp -rv ./build/. ../sysroot
+	$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-strip build/bin/*
+	cp -rv ./build/. ../sysroot | tee file.lst
 
 download/vkpeak:
 	mkdir -p download
