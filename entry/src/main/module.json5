@@ -83,6 +83,10 @@
       {
         "package": "base.hnp",
         "type": "public"
+      },
+      {
+        "package": "base.hnp",
+        "type": "private"
       }
     ]
   }
