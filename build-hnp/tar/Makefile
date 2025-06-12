@@ -6,7 +6,7 @@ all: download/tar-1.35.tar.xz
 	cd temp/tar-1.35/build && ../configure --host aarch64-unknown-linux-musl CC=$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/aarch64-unknown-linux-ohos-clang AR=$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-ar RANLIB=$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-ranlib STRIP=$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-strip
 	cd temp/tar-1.35/build && make -j $(shell nproc) && make install DESTDIR=$(shell pwd)/build
 	mkdir -p ../sysroot
-	cp -rv ./build/usr/local/. ../sysroot
+	cp -rv ./build/usr/local/. ../sysroot | tee file.lst
 
 download/tar-1.35.tar.xz:
 	mkdir -p download
