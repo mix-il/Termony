@@ -32,7 +32,8 @@ PKGS=bash \
 	elf-loader \
 	gmp \
 	mpfr \
-	mpc
+	mpc \
+	gcc
 STAMP=$(patsubst %,%/.stamp,$(PKGS))
 
 all: copy
