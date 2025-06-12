@@ -61,7 +61,7 @@ struct Index {
 
   onPageShow() {
     this.timer = setInterval(() => {
-      let res = testNapi.checkCopy();
+      let res: string | undefined = testNapi.checkCopy();
       if (res !== undefined) {
         hilog.info(DOMAIN, 'testTag', 'Copy to pasteboard in ArkTS: %{public}s', res);
         let base64 = new util.Base64();
