@@ -56,6 +56,7 @@ Pro tip: you can use these utilites in the builtin Terminal app under `/data/ser
 PATH=/data/service/hnp/base.org/base_1.0/bin:$PATH LD_LIBRARY_PATH=/data/service/hnp/base.org/base_1.0/lib TERMINFO=/data/service/hnp/base.org/base_1.0/share/terminfo fish
 ```
 
+However, the builtin Terminal app does not have the permission to map R+X pages, so you cannot use elf loader there. You can use it in Termony.
 
 Terminal features:
 
