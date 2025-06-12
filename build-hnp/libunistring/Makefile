@@ -9,7 +9,7 @@ all: download/libunistring-1.3.tar.xz
 	mkdir -p ../sysroot
 	rm -v build/usr/local/lib/*.la
 	$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-strip build/usr/local/lib/*.so
-	cp -rfv build/usr/local/. ../sysroot
+	cp -rfv build/usr/local/. ../sysroot | tee file.lst
 
 download/libunistring-1.3.tar.xz:
 	mkdir -p download

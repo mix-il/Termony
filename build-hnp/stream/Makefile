@@ -13,7 +13,7 @@ all: download/6703f7504a38a8da96b353cadafa64d3c2d7a2d3.zip download/3b92a2510224
 	cd temp/stream-3b92a251022474a293cefc1291bc4fe7b78b62e7 && cp -vf stream_zfill.exe $(shell pwd)/build/bin/
 
 	mkdir -p ../sysroot
-	cp -rv ./build/. ../sysroot
+	cp -rv ./build/. ../sysroot | tee file.lst
 
 download/6703f7504a38a8da96b353cadafa64d3c2d7a2d3.zip:
 	mkdir -p download
