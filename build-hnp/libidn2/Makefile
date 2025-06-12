@@ -7,6 +7,7 @@ all: download/libidn2-2.3.8.tar.gz
 	cd temp/libidn2-2.3.8 && sed -i.bak "s/archive_cmds=\"\"/archive_cmds='\$$CC -shared \$$pic_flag \$$libobjs \$$deplibs \$$compiler_flags \$$wl-soname \$$wl\$$soname -o \$$lib'/" libtool
 	cd temp/libidn2-2.3.8 && make -j $(shell nproc) && make install DESTDIR=$(shell pwd)/build
 	mkdir -p ../sysroot
+	rm -v build/usr/local/lib/*.la
 	cp -rfv build/usr/local/. ../sysroot
 
 download/libidn2-2.3.8.tar.gz:

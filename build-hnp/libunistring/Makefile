@@ -7,6 +7,7 @@ all: download/libunistring-1.3.tar.xz
 	cd temp/libunistring-1.3 && sed -i.bak "s/archive_cmds=\"\"/archive_cmds='\$$CC -shared \$$pic_flag \$$libobjs \$$deplibs \$$compiler_flags \$$wl-soname \$$wl\$$soname -o \$$lib'/" libtool
 	cd temp/libunistring-1.3 && make -j $(shell nproc) && make install DESTDIR=$(shell pwd)/build
 	mkdir -p ../sysroot
+	rm -v build/usr/local/lib/*.la
 	cp -rfv build/usr/local/. ../sysroot
 
 download/libunistring-1.3.tar.xz:
