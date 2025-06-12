@@ -82,7 +82,7 @@
     "hnpPackages": [
       {
         "package": "base.hnp",
-        "type": "private"
+        "type": "public"
       }
     ]
   }
