@@ -27,6 +27,7 @@ PKGS=bash \
 	stream \
 	libevent \
 	tmux \
+	pcre2 \
 	fish
 STAMP=$(patsubst %,%/.stamp,$(PKGS))
 
