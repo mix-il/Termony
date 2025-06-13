@@ -132,4 +132,128 @@ TEST_CASE( "Insert Characters", "" ) {
     REQUIRE( ctx.col == 0 );
     REQUIRE( ctx.terminal[0][0].ch == ' ' );
     REQUIRE( ctx.terminal[0][1].ch == 'a' );
+
+    // |  a
+    // CSI 2 @
+    ctx.Parse('\x1b');
+    ctx.Parse('[');
+    ctx.Parse('2');
+    ctx.Parse('@');
+    REQUIRE( ctx.row == 0 );
+    REQUIRE( ctx.col == 0 );
+    REQUIRE( ctx.terminal[0][0].ch == ' ' );
+    REQUIRE( ctx.terminal[0][1].ch == ' ' );
+    REQUIRE( ctx.terminal[0][2].ch == ' ' );
+    REQUIRE( ctx.terminal[0][3].ch == 'a' );
+}
+
+TEST_CASE( "Cursor Up", "" ) {
+    terminal_context ctx;
+
+    ctx.ResizeTo(24, 80);
+    REQUIRE( ctx.row == 0 );
+    REQUIRE( ctx.col == 0 );
+
+    // a|
+    ctx.Parse('a');
+    REQUIRE( ctx.row == 0 );
+    REQUIRE( ctx.col == 1 );
+    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+
+    // a|
+    ctx.Parse('\x0d');
+    ctx.Parse('\x1b');
+    ctx.Parse('[');
+    ctx.Parse('A');
+    REQUIRE( ctx.row == 0 );
+    REQUIRE( ctx.col == 0 );
+    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+
+    // a
+    //  |
+    ctx.Parse('\x0a');
+    REQUIRE( ctx.row == 1 );
+    REQUIRE( ctx.col == 0 );
+    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+
+    // a
+    // |
+    ctx.Parse('\x0b');
+    REQUIRE( ctx.row == 1 );
+    REQUIRE( ctx.col == 0 );
+
+    // a
+    // CSI A
+    ctx.Parse('\x0d');
+    ctx.Parse('\x1b');
+    ctx.Parse('[');
+    ctx.Parse('A');
+    REQUIRE( ctx.row == 0 );
+    REQUIRE( ctx.col == 0 );
+    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+
+    // b|
+    ctx.Parse('b');
+    REQUIRE( ctx.row == 0 );
+    REQUIRE( ctx.col == 1 );
+    REQUIRE( ctx.terminal[0][0].ch == 'b' );
+
+    // b
+    // |
+    // set scroll margin [2,3]
+    ctx.Parse('b');
+    ctx.Parse('\x0d');
+    ctx.Parse('\x1b');
+    ctx.Parse('[');
+    ctx.Parse('2');
+    ctx.Parse(';');
+    ctx.Parse('3');
+    ctx.Parse('r');
+    REQUIRE( ctx.row == 1 );
+    REQUIRE( ctx.col == 0 );
+
+    // b
+    // |
+    // CSI A
+    ctx.Parse('\x0d');
+    ctx.Parse('\x1b');
+    ctx.Parse('[');
+    ctx.Parse('A');
+    REQUIRE( ctx.row == 1 );
+    REQUIRE( ctx.col == 0 );
+}
+
+TEST_CASE( "Erase in Display", "" ) {
+    terminal_context ctx;
+
+    ctx.ResizeTo(24, 80);
+    REQUIRE( ctx.row == 0 );
+    REQUIRE( ctx.col == 0 );
+
+    // a|
+    ctx.Parse('a');
+    REQUIRE( ctx.row == 0 );
+    REQUIRE( ctx.col == 1 );
+    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+
+    // ab|
+    ctx.Parse('b');
+    REQUIRE( ctx.row == 0 );
+    REQUIRE( ctx.col == 2 );
+    REQUIRE( ctx.terminal[0][1].ch == 'b' );
+
+    // ab
+    ctx.Parse('\x08');
+    REQUIRE( ctx.row == 0 );
+    REQUIRE( ctx.col == 1 );
+
+    // a|
+    // CSI J
+    ctx.Parse('\x1b');
+    ctx.Parse('[');
+    ctx.Parse('J');
+    REQUIRE( ctx.row == 0 );
+    REQUIRE( ctx.col == 1 );
+    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+    REQUIRE( ctx.terminal[0][1].ch == ' ' );
 }
