@@ -834,6 +834,288 @@ struct terminal_context {
         return NULL;
     }
 
+    void Parse(uint8_t input) {
+        if (escape_state == state_esc) {
+            if (input == '[') {
+                // ESC [ = CSI
+                escape_state = state_csi;
+            } else if (input == ']') {
+                // ESC ] = OSC
+                escape_state = state_osc;
+            } else if (input == '=') {
+                // ESC =, enter alternate keypad mode
+                // TODO
+                escape_state = state_idle;
+            } else if (input == '>') {
+                // ESC >, exit alternate keypad mode
+                // TODO
+                escape_state = state_idle;
+            } else if (input == 'A') {
+                // ESC A, cursor up
+                row --;
+                ClampCursor();
+                escape_state = state_idle;
+            } else if (input == 'B') {
+                // ESC B, cursor down
+                row ++;
+                ClampCursor();
+                escape_state = state_idle;
+            } else if (input == 'C') {
+                // ESC C, cursor right
+                col ++;
+                ClampCursor();
+                escape_state = state_idle;
+            } else if (input == 'D') {
+                // ESC D, cursor left
+                col --;
+                ClampCursor();
+                escape_state = state_idle;
+            } else if (input == 'E') {
+                // ESC E, goto to the beginning of next row
+                row ++;
+                col = 0;
+                ClampCursor();
+                escape_state = state_idle;
+            } else if (input == 'H') {
+                // ESC H, place tab stop at the current position
+                tab_stops[col] = true;
+                escape_state = state_idle;
+            } else if (input == 'M') {
+                // ESC M, move cursor one line up, scrolls down if at the top margin
+                if (row == scroll_top) {
+                    // shift rows down
+                    for (int i = scroll_bottom;i > scroll_top;i--) {
+                        terminal[i] = terminal[i-1];
+                    }
+                    std::fill(terminal[scroll_top].begin(), terminal[scroll_top].end(), term_char());
+                } else {
+                    row --;
+                    ClampCursor();
+                }
+                escape_state = state_idle;
+            } else if (input == 'P') {
+                // ESC P = DCS
+                escape_state = state_dcs;
+            } else if (input == '8' && escape_buffer == "#") {
+                // ESC # 8, DECALN fill viewport with a test pattern (E)
+                for (int i = 0;i < term_row;i++) {
+                    for (int j = 0;j < term_col;j++) {
+                        terminal[i][j] = term_char();
+                        terminal[i][j].ch = 'E';
+                    }
+                }
+                escape_state = state_idle;
+            } else if (input == '7') {
+                // ESC 7, save cursor
+                save_row = row;
+                save_col = col;
+                save_style = current_style;
+                escape_state = state_idle;
+            } else if (input == '8') {
+                // ESC 8, restore cursor
+                row = save_row;
+                col = save_col;
+                ClampCursor();
+                current_style = save_style;
+                escape_state = state_idle;
+            } else if (input == '#' || input == '(' || input == ')') {
+                // non terminal
+                escape_buffer += input;
+            } else {
+                // unknown
+                OH_LOG_WARN(LOG_APP, "Unknown escape sequence after ESC: %{public}s %{public}c",
+                            escape_buffer.c_str(), input);
+                escape_state = state_idle;
+            }
+        } else if (escape_state == state_csi) {
+            HandleCSI(input);
+        } else if (escape_state == state_osc) {
+            if (input == '\x07') {
+                // OSC Ps ; Pt BEL
+                std::vector<std::string> parts = SplitString(escape_buffer, ";");
+                if (parts.size() == 3 && parts[0] == "52" && parts[1] == "c" && parts[2] != "?") {
+                    // OSC 52 ; c ; BASE64 BEL
+                    // copy to clipboard
+                    std::string base64 = parts[2];
+                    OH_LOG_INFO(LOG_APP, "Copy to pasteboard in native: %{public}s",
+                                base64.c_str());
+                    Copy(base64);
+                } else if (parts.size() == 3 && parts[0] == "52" && parts[1] == "c" && parts[2] == "?") {
+                    // OSC 52 ; c ; ? BEL
+                    // paste from clipboard
+                    RequestPaste();
+                    OH_LOG_INFO(LOG_APP, "Request Paste from pasteboard: %{public}s", escape_buffer.c_str());
+                }
+                escape_state = state_idle;
+            } else if (input == '\\' && escape_buffer.size() > 0 && escape_buffer[escape_buffer.size() - 1] == '\x1b') {
+                // ST is ESC \
+                // OSC Ps ; Pt ST
+                std::vector<std::string> parts = SplitString(escape_buffer.substr(0, escape_buffer.size() - 1), ";");
+                if (parts.size() == 2 && parts[0] == "10" && parts[1] == "?") {
+                    // OSC 10 ; ? ST
+                    // report foreground color: black
+                    // send OSI 10 ; r g b : 0 / 0 / 0 ST
+                    uint8_t send_buffer[] = {0x1b, ']', '1', '0', ';', 'r', 'g', 'b', ':', '0', '/', '0', '/', '0', '\x1b', '\\'};
+                    WriteFull(send_buffer, sizeof(send_buffer));
+                } else if (parts.size() == 2 && parts[0] == "11" && parts[1] == "?") {
+                    // OSC 11 ; ? ST
+                    // report background color: white
+                    // send OSI 11 ; r g b : f / f / f ST
+                    uint8_t send_buffer[] = {0x1b, ']', '1', '0', ';', 'r', 'g', 'b', ':', 'f', '/', 'f', '/', 'f', '\x1b', '\\'};
+                    WriteFull(send_buffer, sizeof(send_buffer));
+                }
+                escape_state = state_idle;
+            } else if (input >= ' ' && input < 127) {
+                // printable character
+                escape_buffer += input;
+            } else {
+                // unknown
+                OH_LOG_WARN(LOG_APP, "Unknown escape sequence in OSC: %{public}s %{public}c",
+                            escape_buffer.c_str(), input);
+                escape_state = state_idle;
+            }
+        } else if (escape_state == state_dcs) {
+            if (input == '\\' && escape_buffer.size() > 0 && escape_buffer[escape_buffer.size() - 1] == '\x1b') {
+                // ST
+                escape_state = state_idle;
+            } else if (input >= ' ' && input < 127 && input == '\x1b') {
+                // printable character
+                escape_buffer += input;
+            } else {
+                // unknown
+                OH_LOG_WARN(LOG_APP, "Unknown escape sequence in DCS: %{public}s %{public}c",
+                            escape_buffer.c_str(), input);
+                escape_state = state_idle;
+            }
+        } else if (escape_state == state_idle) {
+            // escape state is idle
+            if (utf8_state == state_initial) {
+                if (input >= ' ' && input <= 0x7f) {
+                    // printable
+                    InsertUtf8(input);
+                } else if (input >= 0xc2 && input <= 0xdf) {
+                    // 2-byte utf8
+                    utf8_state = state_2byte_2;
+                    current_utf8 = (uint32_t)(input & 0x1f) << 6;
+                } else if (input == 0xe0) {
+                    // 3-byte utf8 starting with e0
+                    utf8_state = state_3byte_2_e0;
+                    current_utf8 = (uint32_t)(input & 0x0f) << 12;
+                } else if (input >= 0xe1 && input <= 0xef) {
+                    // 3-byte utf8 starting with non-e0
+                    utf8_state = state_3byte_2_non_e0;
+                    current_utf8 = (uint32_t)(input & 0x0f) << 12;
+                } else if (input == 0xf0) {
+                    // 4-byte utf8 starting with f0
+                    utf8_state = state_4byte_2_f0;
+                    current_utf8 = (uint32_t)(input & 0x07) << 18;
+                } else if (input >= 0xf1 && input <= 0xf3) {
+                    // 4-byte utf8 starting with f1 to f3
+                    utf8_state = state_4byte_2_f1_f3;
+                    current_utf8 = (uint32_t)(input & 0x07) << 18;
+                } else if (input == 0xf4) {
+                    // 4-byte utf8 starting with f4
+                    utf8_state = state_4byte_2_f4;
+                    current_utf8 = (uint32_t)(input & 0x07) << 18;
+                } else if (input == '\r') {
+                    col = 0;
+                } else if (input == '\n') {
+                    // CUD1=\n, cursor down by 1
+                    row += 1;
+                    DropFirstRowIfOverflow();
+                } else if (input == '\b') {
+                    // CUB1=^H, cursor backward by 1
+                    if (col > 0) {
+                        col -= 1;
+                    }
+                } else if (input == '\t') {
+                    // goto next tab stop
+                    col ++;
+                    while (col < term_col && !tab_stops[col]) {
+                        col ++;
+                    }
+                    ClampCursor();
+                } else if (input == 0x1b) {
+                    escape_buffer = "";
+                    escape_state = state_esc;
+                }
+            } else if (utf8_state == state_2byte_2) {
+                // expecting the second byte of 2-byte utf-8
+                if (input >= 0x80 && input <= 0xbf) {
+                    current_utf8 |= (input & 0x3f);
+                    InsertUtf8(current_utf8);
+                }
+                utf8_state = state_initial;
+            } else if (utf8_state == state_3byte_2_e0) {
+                // expecting the second byte of 3-byte utf-8 starting with 0xe0
+                if (input >= 0xa0 && input <= 0xbf) {
+                    current_utf8 |= (uint32_t)(input & 0x3f) << 6;
+                    utf8_state = state_3byte_3;
+                } else {
+                    utf8_state = state_initial;
+                }
+            } else if (utf8_state == state_3byte_2_non_e0) {
+                // expecting the second byte of 3-byte utf-8 starting with non-0xe0
+                if (input >= 0x80 && input <= 0xbf) {
+                    current_utf8 |= (uint32_t)(input & 0x3f) << 6;
+                    utf8_state = state_3byte_3;
+                } else {
+                    utf8_state = state_initial;
+                }
+            } else if (utf8_state == state_3byte_3) {
+                // expecting the third byte of 3-byte utf-8 starting with 0xe0
+                if (input >= 0x80 && input <= 0xbf) {
+                    current_utf8 |= (input & 0x3f);
+                    InsertUtf8(current_utf8);
+                }
+                utf8_state = state_initial;
+            } else if (utf8_state == state_4byte_2_f0) {
+                // expecting the second byte of 4-byte utf-8 starting with 0xf0
+                if (input >= 0x90 && input <= 0xbf) {
+                    current_utf8 |= (uint32_t)(input & 0x3f) << 12;
+                    utf8_state = state_4byte_3;
+                } else {
+                    utf8_state = state_initial;
+                }
+            } else if (utf8_state == state_4byte_2_f1_f3) {
+                // expecting the second byte of 4-byte utf-8 starting with 0xf0 to 0xf3
+                if (input >= 0x80 && input <= 0xbf) {
+                    current_utf8 |= (uint32_t)(input & 0x3f) << 12;
+                    utf8_state = state_4byte_3;
+                } else {
+                    utf8_state = state_initial;
+                }
+            } else if (utf8_state == state_4byte_2_f4) {
+                // expecting the second byte of 4-byte utf-8 starting with 0xf4
+                if (input >= 0x80 && input <= 0x8f) {
+                    current_utf8 |= (uint32_t)(input & 0x3f) << 12;
+                    utf8_state = state_4byte_3;
+                } else {
+                    utf8_state = state_initial;
+                }
+            } else if (utf8_state == state_4byte_3) {
+                // expecting the third byte of 4-byte utf-8
+                if (input >= 0x80 && input <= 0xbf) {
+                    current_utf8 |= (uint32_t)(input & 0x3f) << 6;
+                    utf8_state = state_4byte_4;
+                } else {
+                    utf8_state = state_initial;
+                }
+            } else if (utf8_state == state_4byte_4) {
+                // expecting the third byte of 4-byte utf-8
+                if (input >= 0x80 && input <= 0xbf) {
+                    current_utf8 |= (input & 0x3f);
+                    InsertUtf8(current_utf8);
+                }
+                utf8_state = state_initial;
+            } else {
+                assert(false && "unreachable utf8 state");
+            }
+        } else {
+            assert(false && "unreachable escape state");
+        }
+    }
+
     void Worker() {
         pthread_setname_np(pthread_self(), "terminal worker");
 
@@ -866,294 +1148,7 @@ struct terminal_context {
                     // parse output
                     pthread_mutex_lock(&lock);
                     for (int i = 0; i < r; i++) {
-                        if (escape_state == state_esc) {
-                            if (buffer[i] == '[') {
-                                // ESC [ = CSI
-                                escape_state = state_csi;
-                            } else if (buffer[i] == ']') {
-                                // ESC ] = OSC
-                                escape_state = state_osc;
-                            } else if (buffer[i] == '=') {
-                                // ESC =, enter alternate keypad mode
-                                // TODO
-                                escape_state = state_idle;
-                            } else if (buffer[i] == '>') {
-                                // ESC >, exit alternate keypad mode
-                                // TODO
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'A') {
-                                // ESC A, cursor up
-                                row --;
-                                ClampCursor();
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'B') {
-                                // ESC B, cursor down
-                                row ++;
-                                ClampCursor();
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'C') {
-                                // ESC C, cursor right
-                                col ++;
-                                ClampCursor();
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'D') {
-                                // ESC D, cursor left
-                                col --;
-                                ClampCursor();
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'E') {
-                                // ESC E, goto to the beginning of next row
-                                row ++;
-                                col = 0;
-                                ClampCursor();
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'H') {
-                                // ESC H, place tab stop at the current position
-                                tab_stops[col] = true;
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'M') {
-                                // ESC M, move cursor one line up, scrolls down if at the top margin
-                                if (row == scroll_top) {
-                                    // shift rows down
-                                    for (int i = scroll_bottom;i > scroll_top;i--) {
-                                        terminal[i] = terminal[i-1];
-                                    }
-                                    std::fill(terminal[scroll_top].begin(), terminal[scroll_top].end(), term_char());
-                                } else {
-                                    row --;
-                                    ClampCursor();
-                                }
-                                escape_state = state_idle;
-                            } else if (buffer[i] == 'P') {
-                                // ESC P = DCS
-                                escape_state = state_dcs;
-                            } else if (i + 1 < r && buffer[i] == '#' && buffer[i + 1] == '8') {
-                                // ESC # 8, DECALN fill viewport with a test pattern (E)
-                                for (int i = 0;i < term_row;i++) {
-                                    for (int j = 0;j < term_col;j++) {
-                                        terminal[i][j] = term_char();
-                                        terminal[i][j].ch = 'E';
-                                    }
-                                }
-                                escape_state = state_idle;
-                            } else if (buffer[i] == '7') {
-                                // ESC 7, save cursor
-                                save_row = row;
-                                save_col = col;
-                                save_style = current_style;
-                                escape_state = state_idle;
-                            } else if (buffer[i] == '8') {
-                                // ESC 8, restore cursor
-                                row = save_row;
-                                col = save_col;
-                                ClampCursor();
-                                current_style = save_style;
-                                escape_state = state_idle;
-                            } else if (buffer[i] == '(') {
-                                // ESC ( C, Designate G0 Character Set
-                                // TODO
-                                i++;
-                                escape_state = state_idle;
-                            } else if (buffer[i] == ')') {
-                                // ESC ) C, Designate G1 Character Set
-                                // TODO
-                                i++;
-                                escape_state = state_idle;
-                            } else {
-                                // unknown
-                                OH_LOG_WARN(LOG_APP, "Unknown escape sequence after ESC: %{public}s %{public}c",
-                                            escape_buffer.c_str(), buffer[i]);
-                                escape_state = state_idle;
-                            }
-                        } else if (escape_state == state_csi) {
-                            HandleCSI(buffer[i]);
-                        } else if (escape_state == state_osc) {
-                            if (buffer[i] == '\x07') {
-                                // OSC Ps ; Pt BEL
-                                std::vector<std::string> parts = SplitString(escape_buffer, ";");
-                                if (parts.size() == 3 && parts[0] == "52" && parts[1] == "c" && parts[2] != "?") {
-                                    // OSC 52 ; c ; BASE64 BEL
-                                    // copy to clipboard
-                                    std::string base64 = parts[2];
-                                    OH_LOG_INFO(LOG_APP, "Copy to pasteboard in native: %{public}s",
-                                                base64.c_str());
-                                    Copy(base64);
-                                } else if (parts.size() == 3 && parts[0] == "52" && parts[1] == "c" && parts[2] == "?") {
-                                    // OSC 52 ; c ; ? BEL
-                                    // paste from clipboard
-                                    RequestPaste();
-                                    OH_LOG_INFO(LOG_APP, "Request Paste from pasteboard: %{public}s", escape_buffer.c_str());
-                                }
-                                escape_state = state_idle;
-                            } else if (i + 1 < r && buffer[i] == '\x1b' && buffer[i + 1] == '\\') {
-                                // ST is ESC \
-                                // OSC Ps ; Pt ST
-                                i += 1;
-                                std::vector<std::string> parts = SplitString(escape_buffer, ";");
-                                if (parts.size() == 2 && parts[0] == "10" && parts[1] == "?") {
-                                    // OSC 10 ; ? ST
-                                    // report foreground color: black
-                                    // send OSI 10 ; r g b : 0 / 0 / 0 ST
-                                    uint8_t send_buffer[] = {0x1b, ']', '1', '0', ';', 'r', 'g', 'b', ':', '0', '/', '0', '/', '0', '\x1b', '\\'};
-                                    WriteFull(send_buffer, sizeof(send_buffer));
-                                } else if (parts.size() == 2 && parts[0] == "11" && parts[1] == "?") {
-                                    // OSC 11 ; ? ST
-                                    // report background color: white
-                                    // send OSI 11 ; r g b : f / f / f ST
-                                    uint8_t send_buffer[] = {0x1b, ']', '1', '0', ';', 'r', 'g', 'b', ':', 'f', '/', 'f', '/', 'f', '\x1b', '\\'};
-                                    WriteFull(send_buffer, sizeof(send_buffer));
-                                }
-                                escape_state = state_idle;
-                            } else if (buffer[i] >= ' ' && buffer[i] < 127) {
-                                // printable character
-                                escape_buffer += buffer[i];
-                            } else {
-                                // unknown
-                                OH_LOG_WARN(LOG_APP, "Unknown escape sequence in OSC: %{public}s %{public}c",
-                                            escape_buffer.c_str(), buffer[i]);
-                                escape_state = state_idle;
-                            }
-                        } else if (escape_state == state_dcs) {
-                            if (i + 1 < r && buffer[i] == '\x1b' && buffer[i] == '\\') {
-                                // ST is ESC \
-                                i += 1;
-                                escape_state = state_idle;
-                            } else if (buffer[i] >= ' ' && buffer[i] < 127) {
-                                // printable character
-                                escape_buffer += buffer[i];
-                            } else {
-                                // unknown
-                                OH_LOG_WARN(LOG_APP, "Unknown escape sequence in DCS: %{public}s %{public}c",
-                                            escape_buffer.c_str(), buffer[i]);
-                                escape_state = state_idle;
-                            }
-                        } else if (escape_state == state_idle) {
-                            // escape state is idle
-                            if (utf8_state == state_initial) {
-                                if (buffer[i] >= ' ' && buffer[i] <= 0x7f) {
-                                    // printable
-                                    InsertUtf8(buffer[i]);
-                                } else if (buffer[i] >= 0xc2 && buffer[i] <= 0xdf) {
-                                    // 2-byte utf8
-                                    utf8_state = state_2byte_2;
-                                    current_utf8 = (uint32_t)(buffer[i] & 0x1f) << 6;
-                                } else if (buffer[i] == 0xe0) {
-                                    // 3-byte utf8 starting with e0
-                                    utf8_state = state_3byte_2_e0;
-                                    current_utf8 = (uint32_t)(buffer[i] & 0x0f) << 12;
-                                } else if (buffer[i] >= 0xe1 && buffer[i] <= 0xef) {
-                                    // 3-byte utf8 starting with non-e0
-                                    utf8_state = state_3byte_2_non_e0;
-                                    current_utf8 = (uint32_t)(buffer[i] & 0x0f) << 12;
-                                } else if (buffer[i] == 0xf0) {
-                                    // 4-byte utf8 starting with f0
-                                    utf8_state = state_4byte_2_f0;
-                                    current_utf8 = (uint32_t)(buffer[i] & 0x07) << 18;
-                                } else if (buffer[i] >= 0xf1 && buffer[i] <= 0xf3) {
-                                    // 4-byte utf8 starting with f1 to f3
-                                    utf8_state = state_4byte_2_f1_f3;
-                                    current_utf8 = (uint32_t)(buffer[i] & 0x07) << 18;
-                                } else if (buffer[i] == 0xf4) {
-                                    // 4-byte utf8 starting with f4
-                                    utf8_state = state_4byte_2_f4;
-                                    current_utf8 = (uint32_t)(buffer[i] & 0x07) << 18;
-                                } else if (buffer[i] == '\r') {
-                                    col = 0;
-                                } else if (buffer[i] == '\n') {
-                                    // CUD1=\n, cursor down by 1
-                                    row += 1;
-                                    DropFirstRowIfOverflow();
-                                } else if (buffer[i] == '\b') {
-                                    // CUB1=^H, cursor backward by 1
-                                    if (col > 0) {
-                                        col -= 1;
-                                    }
-                                } else if (buffer[i] == '\t') {
-                                    // goto next tab stop
-                                    col ++;
-                                    while (col < term_col && !tab_stops[col]) {
-                                        col ++;
-                                    }
-                                    ClampCursor();
-                                } else if (buffer[i] == 0x1b) {
-                                    escape_buffer = "";
-                                    escape_state = state_esc;
-                                }
-                            } else if (utf8_state == state_2byte_2) {
-                                // expecting the second byte of 2-byte utf-8
-                                if (buffer[i] >= 0x80 && buffer[i] <= 0xbf) {
-                                    current_utf8 |= (buffer[i] & 0x3f);
-                                    InsertUtf8(current_utf8);
-                                }
-                                utf8_state = state_initial;
-                            } else if (utf8_state == state_3byte_2_e0) {
-                                // expecting the second byte of 3-byte utf-8 starting with 0xe0
-                                if (buffer[i] >= 0xa0 && buffer[i] <= 0xbf) {
-                                    current_utf8 |= (uint32_t)(buffer[i] & 0x3f) << 6;
-                                    utf8_state = state_3byte_3;
-                                } else {
-                                    utf8_state = state_initial;
-                                }
-                            } else if (utf8_state == state_3byte_2_non_e0) {
-                                // expecting the second byte of 3-byte utf-8 starting with non-0xe0
-                                if (buffer[i] >= 0x80 && buffer[i] <= 0xbf) {
-                                    current_utf8 |= (uint32_t)(buffer[i] & 0x3f) << 6;
-                                    utf8_state = state_3byte_3;
-                                } else {
-                                    utf8_state = state_initial;
-                                }
-                            } else if (utf8_state == state_3byte_3) {
-                                // expecting the third byte of 3-byte utf-8 starting with 0xe0
-                                if (buffer[i] >= 0x80 && buffer[i] <= 0xbf) {
-                                    current_utf8 |= (buffer[i] & 0x3f);
-                                    InsertUtf8(current_utf8);
-                                }
-                                utf8_state = state_initial;
-                            } else if (utf8_state == state_4byte_2_f0) {
-                                // expecting the second byte of 4-byte utf-8 starting with 0xf0
-                                if (buffer[i] >= 0x90 && buffer[i] <= 0xbf) {
-                                    current_utf8 |= (uint32_t)(buffer[i] & 0x3f) << 12;
-                                    utf8_state = state_4byte_3;
-                                } else {
-                                    utf8_state = state_initial;
-                                }
-                            } else if (utf8_state == state_4byte_2_f1_f3) {
-                                // expecting the second byte of 4-byte utf-8 starting with 0xf0 to 0xf3
-                                if (buffer[i] >= 0x80 && buffer[i] <= 0xbf) {
-                                    current_utf8 |= (uint32_t)(buffer[i] & 0x3f) << 12;
-                                    utf8_state = state_4byte_3;
-                                } else {
-                                    utf8_state = state_initial;
-                                }
-                            } else if (utf8_state == state_4byte_2_f4) {
-                                // expecting the second byte of 4-byte utf-8 starting with 0xf4
-                                if (buffer[i] >= 0x80 && buffer[i] <= 0x8f) {
-                                    current_utf8 |= (uint32_t)(buffer[i] & 0x3f) << 12;
-                                    utf8_state = state_4byte_3;
-                                } else {
-                                    utf8_state = state_initial;
-                                }
-                            } else if (utf8_state == state_4byte_3) {
-                                // expecting the third byte of 4-byte utf-8
-                                if (buffer[i] >= 0x80 && buffer[i] <= 0xbf) {
-                                    current_utf8 |= (uint32_t)(buffer[i] & 0x3f) << 6;
-                                    utf8_state = state_4byte_4;
-                                } else {
-                                    utf8_state = state_initial;
-                                }
-                            } else if (utf8_state == state_4byte_4) {
-                                // expecting the third byte of 4-byte utf-8
-                                if (buffer[i] >= 0x80 && buffer[i] <= 0xbf) {
-                                    current_utf8 |= (buffer[i] & 0x3f);
-                                    InsertUtf8(current_utf8);
-                                }
-                                utf8_state = state_initial;
-                            } else {
-                                assert(false && "unreachable utf8 state");
-                            }
-                        } else {
-                            assert(false && "unreachable escape state");
-                        }
+                        Parse(buffer[i]);
                     }
                     pthread_mutex_unlock(&lock);
                 } else if (r < 0 && errno == EIO) {
