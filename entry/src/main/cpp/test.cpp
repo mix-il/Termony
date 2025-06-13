@@ -388,13 +388,13 @@ void TestAlacritty(std::string name) {
                         }
                         fprintf(stderr, "\n");
                     } else {
-                        fprintf(stderr, "%02d-", i);
+                        fprintf(stderr, "%02d-", ii);
                         for (int jj = 0;jj < ctx.term_col;jj++) {
                             fprintf(stderr, "%c", ctx.terminal[ii][jj].ch);
                         }
                         fprintf(stderr, "\n");
 
-                        fprintf(stderr, "%02d+", i);
+                        fprintf(stderr, "%02d+", ii);
                         for (int jj = 0;jj < ctx.term_col;jj++) {
                             json expected = grid_json["raw"]["inner"][ctx.term_row - ii - 1]["inner"][jj];
                             std::string c = expected["c"].template get<std::string>();
@@ -410,14 +410,17 @@ void TestAlacritty(std::string name) {
     }
 }
 
-TEST_CASE( "Alacritty test", "" ) {
-    // TODO: pass more tests
-    TestAlacritty("clear_underline");
-    TestAlacritty("colored_reset");
-    TestAlacritty("delete_chars_reset");
-    // TestAlacritty("delete_lines");
-    TestAlacritty("erase_chars_reset");
-    TestAlacritty("erase_in_line");
-    TestAlacritty("sgr");
-    TestAlacritty("underline");
-}
+#define TEST_ALACRITTY(name) \
+    TEST_CASE( "Alacritty test " name, "" ) { \
+        TestAlacritty(name); \
+    }
+
+// TODO: pass more tests
+TEST_ALACRITTY("clear_underline");
+TEST_ALACRITTY("colored_reset");
+TEST_ALACRITTY("delete_chars_reset");
+TEST_ALACRITTY("delete_lines");
+TEST_ALACRITTY("erase_chars_reset");
+TEST_ALACRITTY("erase_in_line");
+TEST_ALACRITTY("sgr");
+TEST_ALACRITTY("underline");

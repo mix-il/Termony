@@ -308,6 +308,13 @@ void terminal_context::HandleCSI(uint8_t current) {
                 row--;
                 col--;
                 ClampCursor();
+            } else if (parts.size() == 1 && escape_buffer != "") {
+                // CSI Ps H, CUP, move cursor to x, y, col is 0
+                sscanf(parts[0].c_str(), "%d", &row);
+                col = 0;
+                // convert from 1-based to 0-based
+                row--;
+                ClampCursor();
             } else if (escape_buffer == "") {
                 // CSI H, HOME, move cursor upper left corner
                 row = col = 0;
