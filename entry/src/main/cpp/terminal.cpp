@@ -1179,7 +1179,7 @@ void Start() {
     }
 
     // setup terminal, default to 80x24
-    term.ResizeTo(80, 24);
+    term.ResizeTo(24, 80);
 
     term.Fork();
 
