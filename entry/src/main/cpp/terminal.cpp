@@ -1909,7 +1909,9 @@ std::string GetPaste() {
     // TODO
     return "";
 }
+#endif
 
+#if defined(STANDALONE) && !defined(TESTING)
 int main() {
     // Init GLFW
     glfwInit();
