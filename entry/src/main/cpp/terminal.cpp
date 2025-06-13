@@ -51,62 +51,12 @@ void CustomPrintf(const char *fmt, ...) {
 #define LOG_TAG "testTag"
 #endif
 
-// font weight
-enum font_weight {
-    regular = 0,
-    bold = 1,
-    NUM_WEIGHT,
-};
-
-// maintain terminal status
-struct term_style {
-    // font weight
-    font_weight weight = regular;
-    // blinking
-    bool blink = false;
-    // foreground color
-    float fg_red = 0.0;
-    float fg_green = 0.0;
-    float fg_blue = 0.0;
-    // background color
-    float bg_red = 1.0;
-    float bg_green = 1.0;
-    float bg_blue = 1.0;
-};
-
-// character in terminal
-struct term_char {
-    uint32_t ch = ' ';
-    term_style style;
-};
-
 // docs for escape codes:
 // https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
 // https://vt100.net/docs/vt220-rm/chapter4.html
 // https://espterm.github.io/docs/VT100%20escape%20codes.html
 // https://ecma-international.org/wp-content/uploads/ECMA-48_5th_edition_june_1991.pdf
 // https://xtermjs.org/docs/api/vtfeatures/
-
-enum escape_states {
-    state_idle,
-    state_esc,
-    state_csi,
-    state_osc,
-    state_dcs,
-};
-
-enum utf8_states {
-    state_initial,
-    state_2byte_2,        // expected 2nd byte of 2-byte sequence
-    state_3byte_2_e0,     // expected 2nd byte of 3-byte sequence starting with 0xe0
-    state_3byte_2_non_e0, // expected 2nd byte of 3-byte sequence starting with non-0xe0
-    state_3byte_3,        // expected 3rd byte of 3-byte sequence
-    state_4byte_2_f0,     // expected 2nd byte of 4-byte sequence starting with 0xf0
-    state_4byte_2_f1_f3,  // expected 2nd byte of 4-byte sequence starting with 0xf1 to 0xf3
-    state_4byte_2_f4,     // expected 2nd byte of 4-byte sequence starting with 0xf4
-    state_4byte_3,        // expected 3rd byte of 4-byte sequence
-    state_4byte_4,        // expected 4th byte of 4-byte sequence
-};
 
 static std::vector<std::string> SplitString(const std::string &str, const std::string &delimiter) {
     std::vector<std::string> result;
@@ -141,1093 +91,1037 @@ static int baseline_height = 10;
 // scroll offset in y axis
 static float scroll_offset = 0;
 
-
 const int MAX_HISTORY_LINES = 5000;
-struct terminal_context {
-    // protect multithreaded usage
-    pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+void terminal_context::ResizeTo(int new_term_row, int new_term_col) {
+    int old_term_col = term_col;
+    term_row = new_term_row;
+    term_col = new_term_col;
 
-    // pty
-    int fd = -1;
+    // update scroll margin
+    scroll_top = 0;
+    scroll_bottom = term_row - 1;
 
-    // escape sequence state machine
-    escape_states escape_state = state_idle;
-    std::string escape_buffer;
+    terminal.resize(term_row);
+    for (int i = 0; i < term_row; i++) {
+        terminal[i].resize(term_col);
+    }
 
-    // utf8 decode state machine
-    utf8_states utf8_state = state_initial;
-    uint32_t current_utf8 = 0;
+    if (row > term_row - 1) {
+        row = term_row - 1;
+    }
 
-    // terminal state
-    // scrollback history
-    std::deque<std::vector<term_char>> history;
-    // current text style, see CSI Pm M, SGR
-    term_style current_style;
+    if (col > term_col - 1) {
+        col = term_col - 1;
+    }
 
-    // DEC private modes
-    // DECTCEM, Show cursor
-    bool show_cursor = true;
-    // DECAWM, Autowrap Mode
-    bool autowrap = true;
-    // DECSCNM, Reverse Video
-    bool reverse_video = false;
-    // DECOM, Origin Mode
-    bool origin_mode = false;
+    tab_stops.resize(term_col);
+    for (int i = old_term_col;i < term_col;i += tab_size) {
+        tab_stops[i] = true;
+    }
 
-    // tab handling
-    int tab_size = 8;
-    // columns where tab stops
-    std::vector<bool> tab_stops;
+    struct winsize ws = {};
+    ws.ws_col = term_col;
+    ws.ws_row = term_row;
+    ioctl(fd, TIOCSWINSZ, &ws);
+}
 
-    // save/restore feature
-    int save_row = 0;
-    int save_col = 0;
-    term_style save_style;
+void terminal_context::DropFirstRowIfOverflow() {
+    if (row == scroll_bottom + 1) {
+        // drop first row in scrolling margin
+        assert(scroll_top < scroll_bottom);
+        history.push_back(terminal[scroll_top]);
+        terminal.erase(terminal.begin() + scroll_top);
+        terminal.insert(terminal.begin() + scroll_bottom, std::vector<term_char>());
+        terminal[scroll_bottom].resize(term_col);
+        row--;
 
-    // terminal content
-    std::vector<std::vector<term_char>> terminal;
-    // terminal size
-    int term_col = 0;
-    int term_row = 0;
-    // cursor location
-    int row = 0;
-    int col = 0;
-
-    // DECSTBM, scrolling region
-    int scroll_top = 0;
-    int scroll_bottom = term_row - 1;
-
-    void ResizeTo(int new_term_row, int new_term_col) {
-        int old_term_col = term_col;
-        term_row = new_term_row;
-        term_col = new_term_col;
-
-        // update scroll margin
-        scroll_top = 0;
-        scroll_bottom = term_row - 1;
-
-        terminal.resize(term_row);
-        for (int i = 0; i < term_row; i++) {
-            terminal[i].resize(term_col);
+        while (history.size() > MAX_HISTORY_LINES) {
+            history.pop_front();
         }
+    }
+}
 
-        if (row > term_row - 1) {
+void terminal_context::InsertUtf8(uint32_t codepoint) {
+    assert(row >= 0 && row < term_row);
+    assert(col >= 0 && col < term_col);
+    terminal[row][col].ch = codepoint;
+    terminal[row][col].style = current_style;
+    col++;
+    if (col == term_col) {
+        if (autowrap) {
+            // wrap to next line
+            col = 0;
+            row++;
+            DropFirstRowIfOverflow();
+        } else {
+            col = term_col - 1;
+        }
+    }
+}
+
+// clamp cursor to valid range
+void terminal_context::ClampCursor() {
+    // clamp col
+    if (col < 0) {
+        col = 0;
+    } else if (col > term_col - 1) {
+        col = term_col - 1;
+    }
+
+    // clamp row
+    if (origin_mode) {
+        // limit cursor to scroll region
+        if (row < scroll_top) {
+            row = scroll_top;
+        } else if (row > scroll_bottom) {
+            row = scroll_bottom;
+        }
+    } else {
+        // limit cursor to terminal
+        if (row < 0) {
+            row = 0;
+        } else if (row > term_row - 1) {
             row = term_row - 1;
         }
+    }
+}
 
-        if (col > term_col - 1) {
-            col = term_col - 1;
-        }
+// set absolute cursor location
+void terminal_context::SetCursor(int new_row, int new_col) {
+    if (origin_mode) {
+        // origin mode, home position is the scrolling top
+        row = new_row + scroll_top;
+        col = new_col;
+    } else {
+        row = new_row;
+        col = new_col;
+    }
+    ClampCursor();
+}
 
-        tab_stops.resize(term_col);
-        for (int i = old_term_col;i < term_col;i += tab_size) {
-            tab_stops[i] = true;
-        }
+// move cursor in relative position
+void terminal_context::MoveCursor(int row_diff, int col_diff) {
+    ClampCursor();
+    SetCursor(row + row_diff, col + col_diff);
+}
 
-        struct winsize ws = {};
-        ws.ws_col = term_col;
-        ws.ws_row = term_row;
-        ioctl(fd, TIOCSWINSZ, &ws);
+// write data to pty until fully sent
+void terminal_context::WriteFull(uint8_t *data, size_t length) {
+    if (fd == -1) {
+        return;
     }
 
-    void DropFirstRowIfOverflow() {
-        if (row == scroll_bottom + 1) {
-            // drop first row in scrolling margin
-            assert(scroll_top < scroll_bottom);
-            history.push_back(terminal[scroll_top]);
-            terminal.erase(terminal.begin() + scroll_top);
-            terminal.insert(terminal.begin() + scroll_bottom, std::vector<term_char>());
-            terminal[scroll_bottom].resize(term_col);
-            row--;
-
-            while (history.size() > MAX_HISTORY_LINES) {
-                history.pop_front();
-            }
+    // pretty print
+    std::string hex;
+    for (int i = 0; i < length; i++) {
+        if (data[i] >= 127 || data[i] < 32) {
+            char temp[8];
+            snprintf(temp, sizeof(temp), "\\x%02x", data[i]);
+            hex += temp;
+        } else {
+            hex += (char)data[i];
         }
     }
+    OH_LOG_INFO(LOG_APP, "Send: %{public}s", hex.c_str());
 
-    void InsertUtf8(uint32_t codepoint) {
-        assert(row >= 0 && row < term_row);
-        assert(col >= 0 && col < term_col);
-        terminal[row][col].ch = codepoint;
-        terminal[row][col].style = current_style;
-        col++;
-        if (col == term_col) {
-            if (autowrap) {
-                // wrap to next line
-                col = 0;
-                row++;
-                DropFirstRowIfOverflow();
+    int written = 0;
+    while (written < length) {
+        int size = write(fd, (uint8_t *)data + written, length - written);
+        assert(size >= 0);
+        written += size;
+    }
+}
+
+// CAUTION: clobbers temp
+#define read_int_or_default(def)                                                                                       \
+    (temp = 0, (escape_buffer != "" ? sscanf(escape_buffer.c_str(), "%d", &temp) : temp = (def)), temp)
+
+// handle CSI escape sequences
+void terminal_context::HandleCSI(uint8_t current) {
+    int temp = 0;
+    if (current >= 0x40 && current <= 0x7E) {
+        // final byte in [0x40, 0x7E]
+        if (current == 'A') {
+            // CSI Ps A, CUU, move cursor up # lines
+            int line = read_int_or_default(1);
+            if (row >= scroll_top) {
+                // do not move past scrolling margin
+                MoveCursor(-std::min(line, row - scroll_top), 0);
             } else {
-                col = term_col - 1;
+                // we are out of scrolling region, move nevertheless
+                MoveCursor(-line, 0);
             }
-        }
-    }
-
-    // clamp cursor to valid range
-    void ClampCursor() {
-        // clamp col
-        if (col < 0) {
+        } else if (current == 'B') {
+            // CSI Ps B, CUD, move cursor down # lines
+            int line = read_int_or_default(1);
+            if (row <= scroll_bottom) {
+                // do not move past scrolling margin
+                MoveCursor(std::min(line, scroll_bottom - row), 0);
+            } else {
+                // we are out of scrolling region, move nevertheless
+                MoveCursor(line,  0);
+            }
+        } else if (current == 'C') {
+            // CSI Ps C, CUF, move cursor right # columns
+            col += read_int_or_default(1);
+            ClampCursor();
+        } else if (current == 'D') {
+            // CSI Ps D, CUB, move cursor left # columns
+            col -= read_int_or_default(1);
+            ClampCursor();
+        } else if (current == 'E') {
+            // CSI Ps E, CNL, move cursor to the beginning of next line, down # lines
+            row += read_int_or_default(1);
             col = 0;
-        } else if (col > term_col - 1) {
-            col = term_col - 1;
-        }
-
-        // clamp row
-        if (origin_mode) {
-            // limit cursor to scroll region
-            if (row < scroll_top) {
-                row = scroll_top;
-            } else if (row > scroll_bottom) {
-                row = scroll_bottom;
-            }
-        } else {
-            // limit cursor to terminal
-            if (row < 0) {
-                row = 0;
-            } else if (row > term_row - 1) {
-                row = term_row - 1;
-            }
-        }
-    }
-
-    // set absolute cursor location
-    void SetCursor(int new_row, int new_col) {
-        if (origin_mode) {
-            // origin mode, home position is the scrolling top
-            row = new_row + scroll_top;
-            col = new_col;
-        } else {
-            row = new_row;
-            col = new_col;
-        }
-        ClampCursor();
-    }
-
-    // move cursor in relative position
-    void MoveCursor(int row_diff, int col_diff) {
-        ClampCursor();
-        SetCursor(row + row_diff, col + col_diff);
-    }
-
-    // write data to pty until fully sent
-    void WriteFull(uint8_t *data, size_t length) {
-        if (fd == -1) {
-            return;
-        }
-
-        // pretty print
-        std::string hex;
-        for (int i = 0; i < length; i++) {
-            if (data[i] >= 127 || data[i] < 32) {
-                char temp[8];
-                snprintf(temp, sizeof(temp), "\\x%02x", data[i]);
-                hex += temp;
-            } else {
-                hex += (char)data[i];
-            }
-        }
-        OH_LOG_INFO(LOG_APP, "Send: %{public}s", hex.c_str());
-
-        int written = 0;
-        while (written < length) {
-            int size = write(fd, (uint8_t *)data + written, length - written);
-            assert(size >= 0);
-            written += size;
-        }
-    }
-
-    // CAUTION: clobbers temp
-    #define read_int_or_default(def)                                                                                       \
-        (temp = 0, (escape_buffer != "" ? sscanf(escape_buffer.c_str(), "%d", &temp) : temp = (def)), temp)
-
-    // handle CSI escape sequences
-    void HandleCSI(uint8_t current) {
-        int temp = 0;
-        if (current >= 0x40 && current <= 0x7E) {
-            // final byte in [0x40, 0x7E]
-            if (current == 'A') {
-                // CSI Ps A, CUU, move cursor up # lines
-                int line = read_int_or_default(1);
-                if (row >= scroll_top) {
-                    // do not move past scrolling margin
-                    MoveCursor(-std::min(line, row - scroll_top), 0);
-                } else {
-                    // we are out of scrolling region, move nevertheless
-                    MoveCursor(-line, 0);
-                }
-            } else if (current == 'B') {
-                // CSI Ps B, CUD, move cursor down # lines
-                int line = read_int_or_default(1);
-                if (row <= scroll_bottom) {
-                    // do not move past scrolling margin
-                    MoveCursor(std::min(line, scroll_bottom - row), 0);
-                } else {
-                    // we are out of scrolling region, move nevertheless
-                    MoveCursor(line,  0);
-                }
-            } else if (current == 'C') {
-                // CSI Ps C, CUF, move cursor right # columns
-                col += read_int_or_default(1);
-                ClampCursor();
-            } else if (current == 'D') {
-                // CSI Ps D, CUB, move cursor left # columns
-                col -= read_int_or_default(1);
-                ClampCursor();
-            } else if (current == 'E') {
-                // CSI Ps E, CNL, move cursor to the beginning of next line, down # lines
-                row += read_int_or_default(1);
-                col = 0;
-                ClampCursor();
-            } else if (current == 'F') {
-                // CSI Ps F, CPL, move cursor to the beginning of previous line, up # lines
-                row -= read_int_or_default(1);
-                col = 0;
-                ClampCursor();
-            } else if (current == 'G') {
-                // CSI Ps G, CHA, move cursor to column #
-                col = read_int_or_default(1);
+            ClampCursor();
+        } else if (current == 'F') {
+            // CSI Ps F, CPL, move cursor to the beginning of previous line, up # lines
+            row -= read_int_or_default(1);
+            col = 0;
+            ClampCursor();
+        } else if (current == 'G') {
+            // CSI Ps G, CHA, move cursor to column #
+            col = read_int_or_default(1);
+            // convert from 1-based to 0-based
+            col--;
+            ClampCursor();
+        } else if (current == 'H') {
+            std::vector<std::string> parts = SplitString(escape_buffer, ";");
+            if (parts.size() == 2) {
+                // CSI Ps ; PS H, CUP, move cursor to x, y
+                sscanf(parts[0].c_str(), "%d", &row);
+                sscanf(parts[1].c_str(), "%d", &col);
                 // convert from 1-based to 0-based
+                row--;
                 col--;
                 ClampCursor();
-            } else if (current == 'H') {
-                std::vector<std::string> parts = SplitString(escape_buffer, ";");
-                if (parts.size() == 2) {
-                    // CSI Ps ; PS H, CUP, move cursor to x, y
-                    sscanf(parts[0].c_str(), "%d", &row);
-                    sscanf(parts[1].c_str(), "%d", &col);
-                    // convert from 1-based to 0-based
-                    row--;
-                    col--;
-                    ClampCursor();
-                } else if (escape_buffer == "") {
-                    // CSI H, HOME, move cursor upper left corner
-                    row = col = 0;
-                } else {
-                    goto unknown;
-                }
-            } else if (current == 'J') {
-                // CSI Ps J, ED, erase in display
-                if (escape_buffer == "" || escape_buffer == "0") {
-                    // CSI J, CSI 0 J
-                    // erase below
-                    for (int i = col; i < term_col; i++) {
-                        terminal[row][i] = term_char();
-                    }
-                    for (int i = row + 1; i < term_row; i++) {
-                        std::fill(terminal[i].begin(), terminal[i].end(), term_char());
-                    }
-                } else if (escape_buffer == "1") {
-                    // CSI 1 J
-                    // erase above
-                    for (int i = 0; i < row; i++) {
-                        std::fill(terminal[i].begin(), terminal[i].end(), term_char());
-                    }
-                    for (int i = 0; i <= col; i++) {
-                        terminal[row][i] = term_char();
-                    }
-                } else if (escape_buffer == "2") {
-                    // CSI 2 J
-                    // erase all
-                    for (int i = 0; i < term_row; i++) {
-                        std::fill(terminal[i].begin(), terminal[i].end(), term_char());
-                    }
-                } else {
-                    goto unknown;
-                }
-            } else if (current == 'K') {
-                // CSI Ps K, EL, erase in line
-                if (escape_buffer == "" || escape_buffer == "0") {
-                    // CSI K, CSI 0 K
-                    // erase to right
-                    for (int i = col; i < term_col; i++) {
-                        terminal[row][i] = term_char();
-                    }
-                } else if (escape_buffer == "1") {
-                    // CSI 1 K
-                    // erase to left
-                    for (int i = 0; i <= col; i++) {
-                        terminal[row][i] = term_char();
-                    }
-                } else if (escape_buffer == "2") {
-                    // CSI 2 K
-                    // erase whole line
-                    for (int i = 0; i < term_col; i++) {
-                        terminal[row][i] = term_char();
-                    }
-                } else {
-                    goto unknown;
-                }
-            } else if (current == 'L') {
-                // CSI Ps L, Insert Ps blank lines at active row
-                int line = read_int_or_default(1);
-                if (row < scroll_top || row > scroll_bottom) {
-                    // outside the scroll margins, do nothing
-                } else {
-                    // insert lines from current row, add new rows from scroll bottom
-                    for (int i = scroll_bottom;i >= row;i --) {
-                        if (i - line >= row) {
-                            terminal[i] = terminal[i - line];
-                        } else {
-                            std::fill(terminal[i].begin(), terminal[i].end(), term_char());
-                        }
-                    }
-                    // set to first column
-                    col = 0;
-                }
-            } else if (current == 'M') {
-                // CSI Ps M, Delete Ps lines at active row
-                int line = read_int_or_default(1);
-                if (row < scroll_top || row > scroll_bottom) {
-                    // outside the scroll margins, do nothing
-                } else {
-                    // delete lines from current row, add new rows from scroll bottom
-                    for (int i = row;i <= scroll_bottom;i ++) {
-                        if (i + line <= scroll_bottom) {
-                            terminal[i] = terminal[i + line];
-                        } else {
-                            std::fill(terminal[i].begin(), terminal[i].end(), term_char());
-                        }
-                    }
-                    // set to first column
-                    col = 0;
-                }
-            } else if (current == 'P') {
-                // CSI Ps P, DCH, delete # characters, move right to left
-                int del = read_int_or_default(1);
+            } else if (escape_buffer == "") {
+                // CSI H, HOME, move cursor upper left corner
+                row = col = 0;
+            } else {
+                goto unknown;
+            }
+        } else if (current == 'J') {
+            // CSI Ps J, ED, erase in display
+            if (escape_buffer == "" || escape_buffer == "0") {
+                // CSI J, CSI 0 J
+                // erase below
                 for (int i = col; i < term_col; i++) {
-                    if (i + del < term_col) {
-                        terminal[row][i] = terminal[row][i + del];
+                    terminal[row][i] = term_char();
+                }
+                for (int i = row + 1; i < term_row; i++) {
+                    std::fill(terminal[i].begin(), terminal[i].end(), term_char());
+                }
+            } else if (escape_buffer == "1") {
+                // CSI 1 J
+                // erase above
+                for (int i = 0; i < row; i++) {
+                    std::fill(terminal[i].begin(), terminal[i].end(), term_char());
+                }
+                for (int i = 0; i <= col; i++) {
+                    terminal[row][i] = term_char();
+                }
+            } else if (escape_buffer == "2") {
+                // CSI 2 J
+                // erase all
+                for (int i = 0; i < term_row; i++) {
+                    std::fill(terminal[i].begin(), terminal[i].end(), term_char());
+                }
+            } else {
+                goto unknown;
+            }
+        } else if (current == 'K') {
+            // CSI Ps K, EL, erase in line
+            if (escape_buffer == "" || escape_buffer == "0") {
+                // CSI K, CSI 0 K
+                // erase to right
+                for (int i = col; i < term_col; i++) {
+                    terminal[row][i] = term_char();
+                }
+            } else if (escape_buffer == "1") {
+                // CSI 1 K
+                // erase to left
+                for (int i = 0; i <= col; i++) {
+                    terminal[row][i] = term_char();
+                }
+            } else if (escape_buffer == "2") {
+                // CSI 2 K
+                // erase whole line
+                for (int i = 0; i < term_col; i++) {
+                    terminal[row][i] = term_char();
+                }
+            } else {
+                goto unknown;
+            }
+        } else if (current == 'L') {
+            // CSI Ps L, Insert Ps blank lines at active row
+            int line = read_int_or_default(1);
+            if (row < scroll_top || row > scroll_bottom) {
+                // outside the scroll margins, do nothing
+            } else {
+                // insert lines from current row, add new rows from scroll bottom
+                for (int i = scroll_bottom;i >= row;i --) {
+                    if (i - line >= row) {
+                        terminal[i] = terminal[i - line];
                     } else {
-                        terminal[row][i] = term_char();
+                        std::fill(terminal[i].begin(), terminal[i].end(), term_char());
                     }
                 }
-            } else if (current == 'S') {
-                // CSI Ps S, SU, Scroll up Ps lines
-                int line = read_int_or_default(1);
-                for (int i = scroll_top; i <= scroll_bottom; i++) {
+                // set to first column
+                col = 0;
+            }
+        } else if (current == 'M') {
+            // CSI Ps M, Delete Ps lines at active row
+            int line = read_int_or_default(1);
+            if (row < scroll_top || row > scroll_bottom) {
+                // outside the scroll margins, do nothing
+            } else {
+                // delete lines from current row, add new rows from scroll bottom
+                for (int i = row;i <= scroll_bottom;i ++) {
                     if (i + line <= scroll_bottom) {
                         terminal[i] = terminal[i + line];
                     } else {
                         std::fill(terminal[i].begin(), terminal[i].end(), term_char());
                     }
                 }
-            } else if (current == 'X') {
-                // CSI Ps X, ECH, erase # characters, do not move others
-                int del = read_int_or_default(1);
-                for (int i = col; i < col + del && i < term_col; i++) {
+                // set to first column
+                col = 0;
+            }
+        } else if (current == 'P') {
+            // CSI Ps P, DCH, delete # characters, move right to left
+            int del = read_int_or_default(1);
+            for (int i = col; i < term_col; i++) {
+                if (i + del < term_col) {
+                    terminal[row][i] = terminal[row][i + del];
+                } else {
                     terminal[row][i] = term_char();
                 }
-            } else if (current == 'c' && (escape_buffer == "" || escape_buffer == "0")) {
-                // CSI Ps c, Send Device Attributes, Primary DA
-                // mimic xterm
-                // send CSI ? 1 ; 2 c: I am VT100 with Advance Video Option
-                uint8_t send_buffer[] = {0x1b, '[', '?', '1', ';', '2', 'c'};
-                WriteFull(send_buffer, sizeof(send_buffer));
-            } else if (current == 'c' && (escape_buffer == ">" || escape_buffer == ">0")) {
-                // CSI > Ps c, Send Device Attributes, Secondary DA
-                // mimic xterm
-                // send CSI > 0 ; 2 7 6 ; 0 c: I am VT100
-                uint8_t send_buffer[] = {0x1b, '[', '>', '0', ';', '2', '7', '6', ';', '0', 'c'};
-                WriteFull(send_buffer, sizeof(send_buffer));
-            } else if (current == 'd' && escape_buffer != "") {
-                // CSI Ps d, VPA, move cursor to row #
-                sscanf(escape_buffer.c_str(), "%d", &row);
+            }
+        } else if (current == 'S') {
+            // CSI Ps S, SU, Scroll up Ps lines
+            int line = read_int_or_default(1);
+            for (int i = scroll_top; i <= scroll_bottom; i++) {
+                if (i + line <= scroll_bottom) {
+                    terminal[i] = terminal[i + line];
+                } else {
+                    std::fill(terminal[i].begin(), terminal[i].end(), term_char());
+                }
+            }
+        } else if (current == 'X') {
+            // CSI Ps X, ECH, erase # characters, do not move others
+            int del = read_int_or_default(1);
+            for (int i = col; i < col + del && i < term_col; i++) {
+                terminal[row][i] = term_char();
+            }
+        } else if (current == 'c' && (escape_buffer == "" || escape_buffer == "0")) {
+            // CSI Ps c, Send Device Attributes, Primary DA
+            // mimic xterm
+            // send CSI ? 1 ; 2 c: I am VT100 with Advance Video Option
+            uint8_t send_buffer[] = {0x1b, '[', '?', '1', ';', '2', 'c'};
+            WriteFull(send_buffer, sizeof(send_buffer));
+        } else if (current == 'c' && (escape_buffer == ">" || escape_buffer == ">0")) {
+            // CSI > Ps c, Send Device Attributes, Secondary DA
+            // mimic xterm
+            // send CSI > 0 ; 2 7 6 ; 0 c: I am VT100
+            uint8_t send_buffer[] = {0x1b, '[', '>', '0', ';', '2', '7', '6', ';', '0', 'c'};
+            WriteFull(send_buffer, sizeof(send_buffer));
+        } else if (current == 'd' && escape_buffer != "") {
+            // CSI Ps d, VPA, move cursor to row #
+            sscanf(escape_buffer.c_str(), "%d", &row);
+            // convert from 1-based to 0-based
+            row--;
+            ClampCursor();
+        } else if (current == 'f') {
+            std::vector<std::string> parts = SplitString(escape_buffer, ";");
+            if (parts.size() == 2) {
+                // CSI Ps ; PS f, CUP, move cursor to x, y
+                sscanf(parts[0].c_str(), "%d", &row);
+                sscanf(parts[1].c_str(), "%d", &col);
                 // convert from 1-based to 0-based
                 row--;
+                col--;
                 ClampCursor();
-            } else if (current == 'f') {
-                std::vector<std::string> parts = SplitString(escape_buffer, ";");
-                if (parts.size() == 2) {
-                    // CSI Ps ; PS f, CUP, move cursor to x, y
-                    sscanf(parts[0].c_str(), "%d", &row);
-                    sscanf(parts[1].c_str(), "%d", &col);
-                    // convert from 1-based to 0-based
-                    row--;
-                    col--;
-                    ClampCursor();
+            } else {
+                goto unknown;
+            }
+        } else if (current == 'g') {
+            int mode = read_int_or_default(0);
+            if (mode == 0) {
+                // CSI g, CSI 0 g, clear tab stop at the current position
+                tab_stops[col] = false;
+            } else if (mode == 3) {
+                // CSI 3 g, clear all tab stops
+                std::fill(tab_stops.begin(), tab_stops.end(), false);
+            } else {
+                goto unknown;
+            }
+        } else if (current == 'h' && escape_buffer.size() > 0 && escape_buffer[0] == '?') {
+            // CSI ? Pm h, DEC Private Mode Set (DECSET)
+            std::vector<std::string> parts = SplitString(escape_buffer.substr(1), ";");
+            for (auto part : parts) {
+                if (part == "1") {
+                    // CSI ? 1 h, Application Cursor Keys (DECCKM)
+                    // TODO
+                } else if (part == "3") {
+                    // CSI ? 3 h, Enable 132 Column mode, DECCOLM
+                    ResizeTo(term_row, 132);
+                    ResizeWidth(132 * font_width);
+                } else if (part == "5") {
+                    // CSI ? 5 h, Reverse Video (DECSCNM)
+                    reverse_video = true;
+                } else if (part == "6") {
+                    // CSI ? 6 h, Origin Mode (DECOM)
+                    origin_mode = true;
+                } else if (part == "7") {
+                    // CSI ? 7 h, Set autowrap
+                    autowrap = true;
+                } else if (part == "12") {
+                    // CSI ? 12 h, Start blinking cursor
+                    // TODO
+                } else if (part == "25") {
+                    // CSI ? 25 h, DECTCEM, make cursor visible
+                    show_cursor = true;
+                } else if (part == "1000") {
+                    // CSI ? 1000 h, Send Mouse X & Y on button press and release
+                    // TODO
+                } else if (part == "1002") {
+                    // CSI ? 1002 h, Use Cell Motion Mouse Tracking
+                    // TODO
+                } else if (part == "1006") {
+                    // CSI ? 1006 h, Enable SGR Mouse Mode
+                    // TODO
+                } else if (part == "2004") {
+                    // CSI ? 2004 h, set bracketed paste mode
+                    // TODO
                 } else {
-                    goto unknown;
+                    OH_LOG_WARN(LOG_APP, "Unknown CSI ? Pm h: %{public}s %{public}c",
+                                escape_buffer.c_str(), current);
                 }
-            } else if (current == 'g') {
-                int mode = read_int_or_default(0);
-                if (mode == 0) {
-                    // CSI g, CSI 0 g, clear tab stop at the current position
-                    tab_stops[col] = false;
-                } else if (mode == 3) {
-                    // CSI 3 g, clear all tab stops
-                    std::fill(tab_stops.begin(), tab_stops.end(), false);
+            }
+        } else if (current == 'l' && escape_buffer.size() > 0 && escape_buffer[0] == '?') {
+            // CSI ? Pm l, DEC Private Mode Reset (DECRST)
+            std::vector<std::string> parts = SplitString(escape_buffer.substr(1), ";");
+            for (auto part : parts) {
+                if (part == "3") {
+                    // CSI ? 3 l, 80 Column Mode (DECCOLM)
+                    ResizeTo(term_row, 80);
+                    ResizeWidth(80 * font_width);
+                } else if (part == "5") {
+                    // CSI ? 5 l, Normal Video (DECSCNM)
+                    reverse_video = false;
+                } else if (part == "6") {
+                    // CSI ? 6 l, Normal Cursor Mode (DECOM)
+                    origin_mode = false;
+                } else if (part == "7") {
+                    // CSI ? 7 l, Reset autowrap
+                    autowrap = false;
+                } else if (part == "12") {
+                    // CSI ? 12 l, Stop blinking cursor
+                    // TODO
+                } else if (part == "25") {
+                    // CSI ? 25 l, Hide cursor (DECTCEM)
+                    show_cursor = true;
+                } else if (part == "2004") {
+                    // CSI ? 2004 l, reset bracketed paste mode
+                    // TODO
                 } else {
-                    goto unknown;
+                    OH_LOG_WARN(LOG_APP, "Unknown CSI ? Pm l: %{public}s %{public}c",
+                                escape_buffer.c_str(), current);
                 }
-            } else if (current == 'h' && escape_buffer.size() > 0 && escape_buffer[0] == '?') {
-                // CSI ? Pm h, DEC Private Mode Set (DECSET)
-                std::vector<std::string> parts = SplitString(escape_buffer.substr(1), ";");
-                for (auto part : parts) {
-                    if (part == "1") {
-                        // CSI ? 1 h, Application Cursor Keys (DECCKM)
-                        // TODO
-                    } else if (part == "3") {
-                        // CSI ? 3 h, Enable 132 Column mode, DECCOLM
-                        ResizeTo(term_row, 132);
-                        ResizeWidth(132 * font_width);
-                    } else if (part == "5") {
-                        // CSI ? 5 h, Reverse Video (DECSCNM)
-                        reverse_video = true;
-                    } else if (part == "6") {
-                        // CSI ? 6 h, Origin Mode (DECOM)
-                        origin_mode = true;
-                    } else if (part == "7") {
-                        // CSI ? 7 h, Set autowrap
-                        autowrap = true;
-                    } else if (part == "12") {
-                        // CSI ? 12 h, Start blinking cursor
-                        // TODO
-                    } else if (part == "25") {
-                        // CSI ? 25 h, DECTCEM, make cursor visible
-                        show_cursor = true;
-                    } else if (part == "1000") {
-                        // CSI ? 1000 h, Send Mouse X & Y on button press and release
-                        // TODO
-                    } else if (part == "1002") {
-                        // CSI ? 1002 h, Use Cell Motion Mouse Tracking
-                        // TODO
-                    } else if (part == "1006") {
-                        // CSI ? 1006 h, Enable SGR Mouse Mode
-                        // TODO
-                    } else if (part == "2004") {
-                        // CSI ? 2004 h, set bracketed paste mode
-                        // TODO
-                    } else {
-                        OH_LOG_WARN(LOG_APP, "Unknown CSI ? Pm h: %{public}s %{public}c",
-                                    escape_buffer.c_str(), current);
-                    }
-                }
-            } else if (current == 'l' && escape_buffer.size() > 0 && escape_buffer[0] == '?') {
-                // CSI ? Pm l, DEC Private Mode Reset (DECRST)
-                std::vector<std::string> parts = SplitString(escape_buffer.substr(1), ";");
-                for (auto part : parts) {
-                    if (part == "3") {
-                        // CSI ? 3 l, 80 Column Mode (DECCOLM)
-                        ResizeTo(term_row, 80);
-                        ResizeWidth(80 * font_width);
-                    } else if (part == "5") {
-                        // CSI ? 5 l, Normal Video (DECSCNM)
-                        reverse_video = false;
-                    } else if (part == "6") {
-                        // CSI ? 6 l, Normal Cursor Mode (DECOM)
-                        origin_mode = false;
-                    } else if (part == "7") {
-                        // CSI ? 7 l, Reset autowrap
-                        autowrap = false;
-                    } else if (part == "12") {
-                        // CSI ? 12 l, Stop blinking cursor
-                        // TODO
-                    } else if (part == "25") {
-                        // CSI ? 25 l, Hide cursor (DECTCEM)
-                        show_cursor = true;
-                    } else if (part == "2004") {
-                        // CSI ? 2004 l, reset bracketed paste mode
-                        // TODO
-                    } else {
-                        OH_LOG_WARN(LOG_APP, "Unknown CSI ? Pm l: %{public}s %{public}c",
-                                    escape_buffer.c_str(), current);
-                    }
-                }
-            } else if (current == 'm' && (escape_buffer.size() == 0 || escape_buffer[0] != '>')) {
-                // CSI Pm m, Character Attributes (SGR)
+            }
+        } else if (current == 'm' && (escape_buffer.size() == 0 || escape_buffer[0] != '>')) {
+            // CSI Pm m, Character Attributes (SGR)
 
-                // set color
-                std::vector<std::string> parts = SplitString(escape_buffer, ";");
-                for (auto part : parts) {
-                    int param = 0;
-                    sscanf(part.c_str(), "%d", &param);
-                    if (param == 0) {
-                        // reset all attributes to their defaults
-                        current_style = term_style();
-                    } else if (param == 1) {
-                        // set bold, CSI 1 m
-                        current_style.weight = font_weight::bold;
-                    } else if (param == 4) {
-                        // set underline, CSI 4 m
-                        // TODO
-                    } else if (param == 5) {
-                        // set blink, CSI 5 m
-                        current_style.blink = true;
-                    } else if (param == 7) {
-                        // inverse
-                        std::swap(current_style.fg_red, current_style.bg_red);
-                        std::swap(current_style.fg_green, current_style.bg_green);
-                        std::swap(current_style.fg_blue, current_style.bg_blue);
-                    } else if (param == 10) {
-                        // reset to primary font
-                        current_style = term_style();
-                    } else if (param == 30) {
-                        // black foreground
-                        current_style.fg_red = 0.0;
-                        current_style.fg_green = 0.0;
-                        current_style.fg_blue = 0.0;
-                    } else if (param == 31) {
-                        // red foreground
-                        current_style.fg_red = 1.0;
-                        current_style.fg_green = 0.0;
-                        current_style.fg_blue = 0.0;
-                    } else if (param == 32) {
-                        // green foreground
-                        current_style.fg_red = 0.0;
-                        current_style.fg_green = 1.0;
-                        current_style.fg_blue = 0.0;
-                    } else if (param == 33) {
-                        // yellow foreground
-                        current_style.fg_red = 1.0;
-                        current_style.fg_green = 1.0;
-                        current_style.fg_blue = 0.0;
-                    } else if (param == 34) {
-                        // blue foreground
-                        current_style.fg_red = 0.0;
-                        current_style.fg_green = 0.0;
-                        current_style.fg_blue = 1.0;
-                    } else if (param == 35) {
-                        // magenta foreground
-                        current_style.fg_red = 1.0;
-                        current_style.fg_green = 0.0;
-                        current_style.fg_blue = 1.0;
-                    } else if (param == 36) {
-                        // cyan foreground
-                        current_style.fg_red = 0.0;
-                        current_style.fg_green = 1.0;
-                        current_style.fg_blue = 1.0;
-                    } else if (param == 37) {
-                        // white foreground
-                        current_style.fg_red = 1.0;
-                        current_style.fg_green = 1.0;
-                        current_style.fg_blue = 1.0;
-                    } else if (param == 39) {
-                        // default foreground
-                        current_style.fg_red = 0.0;
-                        current_style.fg_green = 0.0;
-                        current_style.fg_blue = 0.0;
-                    } else if (param == 40) {
-                        // black background
-                        current_style.bg_red = 0.0;
-                        current_style.bg_green = 0.0;
-                        current_style.bg_blue = 0.0;
-                    } else if (param == 41) {
-                        // black background
-                        current_style.bg_red = 1.0;
-                        current_style.bg_green = 0.0;
-                        current_style.bg_blue = 0.0;
-                    } else if (param == 42) {
-                        // green background
-                        current_style.bg_red = 0.0;
-                        current_style.bg_green = 1.0;
-                        current_style.bg_blue = 0.0;
-                    } else if (param == 43) {
-                        // yellow background
-                        current_style.bg_red = 1.0;
-                        current_style.bg_green = 1.0;
-                        current_style.bg_blue = 0.0;
-                    } else if (param == 44) {
-                        // blue background
-                        current_style.bg_red = 0.0;
-                        current_style.bg_green = 0.0;
-                        current_style.bg_blue = 1.0;
-                    } else if (param == 45) {
-                        // magenta background
-                        current_style.bg_red = 1.0;
-                        current_style.bg_green = 0.0;
-                        current_style.bg_blue = 1.0;
-                    } else if (param == 46) {
-                        // cyan background
-                        current_style.bg_red = 0.0;
-                        current_style.bg_green = 1.0;
-                        current_style.bg_blue = 1.0;
-                    } else if (param == 47) {
-                        // white background
-                        current_style.bg_red = 1.0;
-                        current_style.bg_green = 1.0;
-                        current_style.bg_blue = 1.0;
-                    } else if (param == 49) {
-                        // default background
-                        current_style.bg_red = 1.0;
-                        current_style.bg_green = 1.0;
-                        current_style.bg_blue = 1.0;
-                    } else if (param == 90) {
-                        // bright black foreground
-                        current_style.fg_red = 0.5;
-                        current_style.fg_green = 0.5;
-                        current_style.fg_blue = 0.5;
-                    } else {
-                        OH_LOG_WARN(LOG_APP, "Unknown CSI Pm m: %{public}s %{public}c",
-                                    escape_buffer.c_str(), current);
-                    }
-                }
-            } else if (current == 'm' && escape_buffer.size() > 0 && escape_buffer[0] == '>') {
-                // CSI > Pp m, XTMODKEYS, set/reset key modifier options
-                // TODO
-            } else if (current == 'n' && escape_buffer == "6") {
-                // CSI Ps n, DSR, Device Status Report
-                // Ps = 6: Report Cursor Position (CPR)
-                // send ESC [ row ; col R
-                char send_buffer[128] = {};
-                snprintf(send_buffer, sizeof(send_buffer), "\x1b[%d;%dR", row + 1, col + 1);
-                int len = strlen(send_buffer);
-                WriteFull((uint8_t *)send_buffer, len);
-            } else if (current == 'r') {
-                // CSI Ps ; Ps r, Set Scrolling Region [top;bottom]
-                std::vector<std::string> parts = SplitString(escape_buffer, ";");
-                if (parts.size() == 2) {
-                    int new_top = 1;
-                    int new_bottom = term_row;
-                    sscanf(parts[0].c_str(), "%d", &new_top);
-                    sscanf(parts[1].c_str(), "%d", &new_bottom);
-                    // convert to 1-based
-                    new_top --;
-                    new_bottom --;
-                    if (new_bottom > new_top) {
-                        scroll_top = new_top;
-                        scroll_bottom = new_bottom;
-
-                        // move cursor to new home position
-                        row = scroll_top;
-                        col = 0;
-                    }
+            // set color
+            std::vector<std::string> parts = SplitString(escape_buffer, ";");
+            for (auto part : parts) {
+                int param = 0;
+                sscanf(part.c_str(), "%d", &param);
+                if (param == 0) {
+                    // reset all attributes to their defaults
+                    current_style = term_style();
+                } else if (param == 1) {
+                    // set bold, CSI 1 m
+                    current_style.weight = font_weight::bold;
+                } else if (param == 4) {
+                    // set underline, CSI 4 m
+                    // TODO
+                } else if (param == 5) {
+                    // set blink, CSI 5 m
+                    current_style.blink = true;
+                } else if (param == 7) {
+                    // inverse
+                    std::swap(current_style.fg_red, current_style.bg_red);
+                    std::swap(current_style.fg_green, current_style.bg_green);
+                    std::swap(current_style.fg_blue, current_style.bg_blue);
+                } else if (param == 10) {
+                    // reset to primary font
+                    current_style = term_style();
+                } else if (param == 30) {
+                    // black foreground
+                    current_style.fg_red = 0.0;
+                    current_style.fg_green = 0.0;
+                    current_style.fg_blue = 0.0;
+                } else if (param == 31) {
+                    // red foreground
+                    current_style.fg_red = 1.0;
+                    current_style.fg_green = 0.0;
+                    current_style.fg_blue = 0.0;
+                } else if (param == 32) {
+                    // green foreground
+                    current_style.fg_red = 0.0;
+                    current_style.fg_green = 1.0;
+                    current_style.fg_blue = 0.0;
+                } else if (param == 33) {
+                    // yellow foreground
+                    current_style.fg_red = 1.0;
+                    current_style.fg_green = 1.0;
+                    current_style.fg_blue = 0.0;
+                } else if (param == 34) {
+                    // blue foreground
+                    current_style.fg_red = 0.0;
+                    current_style.fg_green = 0.0;
+                    current_style.fg_blue = 1.0;
+                } else if (param == 35) {
+                    // magenta foreground
+                    current_style.fg_red = 1.0;
+                    current_style.fg_green = 0.0;
+                    current_style.fg_blue = 1.0;
+                } else if (param == 36) {
+                    // cyan foreground
+                    current_style.fg_red = 0.0;
+                    current_style.fg_green = 1.0;
+                    current_style.fg_blue = 1.0;
+                } else if (param == 37) {
+                    // white foreground
+                    current_style.fg_red = 1.0;
+                    current_style.fg_green = 1.0;
+                    current_style.fg_blue = 1.0;
+                } else if (param == 39) {
+                    // default foreground
+                    current_style.fg_red = 0.0;
+                    current_style.fg_green = 0.0;
+                    current_style.fg_blue = 0.0;
+                } else if (param == 40) {
+                    // black background
+                    current_style.bg_red = 0.0;
+                    current_style.bg_green = 0.0;
+                    current_style.bg_blue = 0.0;
+                } else if (param == 41) {
+                    // black background
+                    current_style.bg_red = 1.0;
+                    current_style.bg_green = 0.0;
+                    current_style.bg_blue = 0.0;
+                } else if (param == 42) {
+                    // green background
+                    current_style.bg_red = 0.0;
+                    current_style.bg_green = 1.0;
+                    current_style.bg_blue = 0.0;
+                } else if (param == 43) {
+                    // yellow background
+                    current_style.bg_red = 1.0;
+                    current_style.bg_green = 1.0;
+                    current_style.bg_blue = 0.0;
+                } else if (param == 44) {
+                    // blue background
+                    current_style.bg_red = 0.0;
+                    current_style.bg_green = 0.0;
+                    current_style.bg_blue = 1.0;
+                } else if (param == 45) {
+                    // magenta background
+                    current_style.bg_red = 1.0;
+                    current_style.bg_green = 0.0;
+                    current_style.bg_blue = 1.0;
+                } else if (param == 46) {
+                    // cyan background
+                    current_style.bg_red = 0.0;
+                    current_style.bg_green = 1.0;
+                    current_style.bg_blue = 1.0;
+                } else if (param == 47) {
+                    // white background
+                    current_style.bg_red = 1.0;
+                    current_style.bg_green = 1.0;
+                    current_style.bg_blue = 1.0;
+                } else if (param == 49) {
+                    // default background
+                    current_style.bg_red = 1.0;
+                    current_style.bg_green = 1.0;
+                    current_style.bg_blue = 1.0;
+                } else if (param == 90) {
+                    // bright black foreground
+                    current_style.fg_red = 0.5;
+                    current_style.fg_green = 0.5;
+                    current_style.fg_blue = 0.5;
                 } else {
-                    goto unknown;
+                    OH_LOG_WARN(LOG_APP, "Unknown CSI Pm m: %{public}s %{public}c",
+                                escape_buffer.c_str(), current);
                 }
-            } else if (current == '@' &&
-                    ((escape_buffer.size() > 0 && escape_buffer[escape_buffer.size() - 1] >= '0' &&
-                        escape_buffer[escape_buffer.size() - 1] <= '9') ||
-                        escape_buffer == "")) {
-                // CSI Ps @, ICH, Insert Ps (Blank) Character(s)
-                int count = read_int_or_default(1);
-                for (int i = term_col - 1; i >= col; i--) {
-                    if (i - col < count) {
-                        terminal[row][col].ch = ' ';
-                    } else {
-                        terminal[row][col] = terminal[row][col - count];
-                    }
+            }
+        } else if (current == 'm' && escape_buffer.size() > 0 && escape_buffer[0] == '>') {
+            // CSI > Pp m, XTMODKEYS, set/reset key modifier options
+            // TODO
+        } else if (current == 'n' && escape_buffer == "6") {
+            // CSI Ps n, DSR, Device Status Report
+            // Ps = 6: Report Cursor Position (CPR)
+            // send ESC [ row ; col R
+            char send_buffer[128] = {};
+            snprintf(send_buffer, sizeof(send_buffer), "\x1b[%d;%dR", row + 1, col + 1);
+            int len = strlen(send_buffer);
+            WriteFull((uint8_t *)send_buffer, len);
+        } else if (current == 'r') {
+            // CSI Ps ; Ps r, Set Scrolling Region [top;bottom]
+            std::vector<std::string> parts = SplitString(escape_buffer, ";");
+            if (parts.size() == 2) {
+                int new_top = 1;
+                int new_bottom = term_row;
+                sscanf(parts[0].c_str(), "%d", &new_top);
+                sscanf(parts[1].c_str(), "%d", &new_bottom);
+                // convert to 1-based
+                new_top --;
+                new_bottom --;
+                if (new_bottom > new_top) {
+                    scroll_top = new_top;
+                    scroll_bottom = new_bottom;
+
+                    // move cursor to new home position
+                    row = scroll_top;
+                    col = 0;
                 }
             } else {
-    unknown:
-                // unknown
-                OH_LOG_WARN(LOG_APP, "Unknown escape sequence in CSI: %{public}s %{public}c",
-                            escape_buffer.c_str(), current);
+                goto unknown;
             }
-            escape_state = state_idle;
-        } else if (current >= 0x20 && current <= 0x3F) {
-            // parameter bytes in [0x30, 0x3F],
-            // or intermediate bytes in [0x20, 0x2F]
-            escape_buffer += current;
+        } else if (current == '@' &&
+                ((escape_buffer.size() > 0 && escape_buffer[escape_buffer.size() - 1] >= '0' &&
+                    escape_buffer[escape_buffer.size() - 1] <= '9') ||
+                    escape_buffer == "")) {
+            // CSI Ps @, ICH, Insert Ps (Blank) Character(s)
+            int count = read_int_or_default(1);
+            for (int i = term_col - 1; i >= col; i--) {
+                if (i - col < count) {
+                    terminal[row][col].ch = ' ';
+                } else {
+                    terminal[row][col] = terminal[row][col - count];
+                }
+            }
         } else {
-            // invalid byte
+unknown:
             // unknown
             OH_LOG_WARN(LOG_APP, "Unknown escape sequence in CSI: %{public}s %{public}c",
                         escape_buffer.c_str(), current);
-            escape_state = state_idle;
         }
+        escape_state = state_idle;
+    } else if (current >= 0x20 && current <= 0x3F) {
+        // parameter bytes in [0x30, 0x3F],
+        // or intermediate bytes in [0x20, 0x2F]
+        escape_buffer += current;
+    } else {
+        // invalid byte
+        // unknown
+        OH_LOG_WARN(LOG_APP, "Unknown escape sequence in CSI: %{public}s %{public}c",
+                    escape_buffer.c_str(), current);
+        escape_state = state_idle;
     }
+}
 
-    static void *TerminalWorker(void * data) {
-        terminal_context *ctx = (terminal_context *)data;
-        ctx->Worker();
-        return NULL;
-    }
+void *terminal_context::TerminalWorker(void * data) {
+    terminal_context *ctx = (terminal_context *)data;
+    ctx->Worker();
+    return NULL;
+}
 
-    void Parse(uint8_t input) {
-        if (escape_state == state_esc) {
-            if (input == '[') {
-                // ESC [ = CSI
-                escape_state = state_csi;
-            } else if (input == ']') {
-                // ESC ] = OSC
-                escape_state = state_osc;
-            } else if (input == '=') {
-                // ESC =, enter alternate keypad mode
-                // TODO
-                escape_state = state_idle;
-            } else if (input == '>') {
-                // ESC >, exit alternate keypad mode
-                // TODO
-                escape_state = state_idle;
-            } else if (input == 'A') {
-                // ESC A, cursor up
+void terminal_context::Parse(uint8_t input) {
+    if (escape_state == state_esc) {
+        if (input == '[') {
+            // ESC [ = CSI
+            escape_state = state_csi;
+        } else if (input == ']') {
+            // ESC ] = OSC
+            escape_state = state_osc;
+        } else if (input == '=') {
+            // ESC =, enter alternate keypad mode
+            // TODO
+            escape_state = state_idle;
+        } else if (input == '>') {
+            // ESC >, exit alternate keypad mode
+            // TODO
+            escape_state = state_idle;
+        } else if (input == 'A') {
+            // ESC A, cursor up
+            row --;
+            ClampCursor();
+            escape_state = state_idle;
+        } else if (input == 'B') {
+            // ESC B, cursor down
+            row ++;
+            ClampCursor();
+            escape_state = state_idle;
+        } else if (input == 'C') {
+            // ESC C, cursor right
+            col ++;
+            ClampCursor();
+            escape_state = state_idle;
+        } else if (input == 'D') {
+            // ESC D, cursor left
+            col --;
+            ClampCursor();
+            escape_state = state_idle;
+        } else if (input == 'E') {
+            // ESC E, goto to the beginning of next row
+            row ++;
+            col = 0;
+            ClampCursor();
+            escape_state = state_idle;
+        } else if (input == 'H') {
+            // ESC H, place tab stop at the current position
+            tab_stops[col] = true;
+            escape_state = state_idle;
+        } else if (input == 'M') {
+            // ESC M, move cursor one line up, scrolls down if at the top margin
+            if (row == scroll_top) {
+                // shift rows down
+                for (int i = scroll_bottom;i > scroll_top;i--) {
+                    terminal[i] = terminal[i-1];
+                }
+                std::fill(terminal[scroll_top].begin(), terminal[scroll_top].end(), term_char());
+            } else {
                 row --;
                 ClampCursor();
-                escape_state = state_idle;
-            } else if (input == 'B') {
-                // ESC B, cursor down
-                row ++;
-                ClampCursor();
-                escape_state = state_idle;
-            } else if (input == 'C') {
-                // ESC C, cursor right
-                col ++;
-                ClampCursor();
-                escape_state = state_idle;
-            } else if (input == 'D') {
-                // ESC D, cursor left
-                col --;
-                ClampCursor();
-                escape_state = state_idle;
-            } else if (input == 'E') {
-                // ESC E, goto to the beginning of next row
-                row ++;
-                col = 0;
-                ClampCursor();
-                escape_state = state_idle;
-            } else if (input == 'H') {
-                // ESC H, place tab stop at the current position
-                tab_stops[col] = true;
-                escape_state = state_idle;
-            } else if (input == 'M') {
-                // ESC M, move cursor one line up, scrolls down if at the top margin
-                if (row == scroll_top) {
-                    // shift rows down
-                    for (int i = scroll_bottom;i > scroll_top;i--) {
-                        terminal[i] = terminal[i-1];
-                    }
-                    std::fill(terminal[scroll_top].begin(), terminal[scroll_top].end(), term_char());
-                } else {
-                    row --;
-                    ClampCursor();
-                }
-                escape_state = state_idle;
-            } else if (input == 'P') {
-                // ESC P = DCS
-                escape_state = state_dcs;
-            } else if (input == '8' && escape_buffer == "#") {
-                // ESC # 8, DECALN fill viewport with a test pattern (E)
-                for (int i = 0;i < term_row;i++) {
-                    for (int j = 0;j < term_col;j++) {
-                        terminal[i][j] = term_char();
-                        terminal[i][j].ch = 'E';
-                    }
-                }
-                escape_state = state_idle;
-            } else if (input == '7') {
-                // ESC 7, save cursor
-                save_row = row;
-                save_col = col;
-                save_style = current_style;
-                escape_state = state_idle;
-            } else if (input == '8') {
-                // ESC 8, restore cursor
-                row = save_row;
-                col = save_col;
-                ClampCursor();
-                current_style = save_style;
-                escape_state = state_idle;
-            } else if (input == '#' || input == '(' || input == ')') {
-                // non terminal
-                escape_buffer += input;
-            } else {
-                // unknown
-                OH_LOG_WARN(LOG_APP, "Unknown escape sequence after ESC: %{public}s %{public}c",
-                            escape_buffer.c_str(), input);
-                escape_state = state_idle;
             }
-        } else if (escape_state == state_csi) {
-            HandleCSI(input);
-        } else if (escape_state == state_osc) {
-            if (input == '\x07') {
-                // OSC Ps ; Pt BEL
-                std::vector<std::string> parts = SplitString(escape_buffer, ";");
-                if (parts.size() == 3 && parts[0] == "52" && parts[1] == "c" && parts[2] != "?") {
-                    // OSC 52 ; c ; BASE64 BEL
-                    // copy to clipboard
-                    std::string base64 = parts[2];
-                    OH_LOG_INFO(LOG_APP, "Copy to pasteboard in native: %{public}s",
-                                base64.c_str());
-                    Copy(base64);
-                } else if (parts.size() == 3 && parts[0] == "52" && parts[1] == "c" && parts[2] == "?") {
-                    // OSC 52 ; c ; ? BEL
-                    // paste from clipboard
-                    RequestPaste();
-                    OH_LOG_INFO(LOG_APP, "Request Paste from pasteboard: %{public}s", escape_buffer.c_str());
+            escape_state = state_idle;
+        } else if (input == 'P') {
+            // ESC P = DCS
+            escape_state = state_dcs;
+        } else if (input == '8' && escape_buffer == "#") {
+            // ESC # 8, DECALN fill viewport with a test pattern (E)
+            for (int i = 0;i < term_row;i++) {
+                for (int j = 0;j < term_col;j++) {
+                    terminal[i][j] = term_char();
+                    terminal[i][j].ch = 'E';
                 }
-                escape_state = state_idle;
-            } else if (input == '\\' && escape_buffer.size() > 0 && escape_buffer[escape_buffer.size() - 1] == '\x1b') {
-                // ST is ESC \
-                // OSC Ps ; Pt ST
-                std::vector<std::string> parts = SplitString(escape_buffer.substr(0, escape_buffer.size() - 1), ";");
-                if (parts.size() == 2 && parts[0] == "10" && parts[1] == "?") {
-                    // OSC 10 ; ? ST
-                    // report foreground color: black
-                    // send OSI 10 ; r g b : 0 / 0 / 0 ST
-                    uint8_t send_buffer[] = {0x1b, ']', '1', '0', ';', 'r', 'g', 'b', ':', '0', '/', '0', '/', '0', '\x1b', '\\'};
-                    WriteFull(send_buffer, sizeof(send_buffer));
-                } else if (parts.size() == 2 && parts[0] == "11" && parts[1] == "?") {
-                    // OSC 11 ; ? ST
-                    // report background color: white
-                    // send OSI 11 ; r g b : f / f / f ST
-                    uint8_t send_buffer[] = {0x1b, ']', '1', '0', ';', 'r', 'g', 'b', ':', 'f', '/', 'f', '/', 'f', '\x1b', '\\'};
-                    WriteFull(send_buffer, sizeof(send_buffer));
-                }
-                escape_state = state_idle;
-            } else if (input >= ' ' && input < 127) {
-                // printable character
-                escape_buffer += input;
-            } else {
-                // unknown
-                OH_LOG_WARN(LOG_APP, "Unknown escape sequence in OSC: %{public}s %{public}c",
-                            escape_buffer.c_str(), input);
-                escape_state = state_idle;
             }
-        } else if (escape_state == state_dcs) {
-            if (input == '\\' && escape_buffer.size() > 0 && escape_buffer[escape_buffer.size() - 1] == '\x1b') {
-                // ST
-                escape_state = state_idle;
-            } else if (input >= ' ' && input < 127 && input == '\x1b') {
-                // printable character
-                escape_buffer += input;
-            } else {
-                // unknown
-                OH_LOG_WARN(LOG_APP, "Unknown escape sequence in DCS: %{public}s %{public}c",
-                            escape_buffer.c_str(), input);
-                escape_state = state_idle;
-            }
-        } else if (escape_state == state_idle) {
-            // escape state is idle
-            if (utf8_state == state_initial) {
-                if (input >= ' ' && input <= 0x7f) {
-                    // printable
-                    InsertUtf8(input);
-                } else if (input >= 0xc2 && input <= 0xdf) {
-                    // 2-byte utf8
-                    utf8_state = state_2byte_2;
-                    current_utf8 = (uint32_t)(input & 0x1f) << 6;
-                } else if (input == 0xe0) {
-                    // 3-byte utf8 starting with e0
-                    utf8_state = state_3byte_2_e0;
-                    current_utf8 = (uint32_t)(input & 0x0f) << 12;
-                } else if (input >= 0xe1 && input <= 0xef) {
-                    // 3-byte utf8 starting with non-e0
-                    utf8_state = state_3byte_2_non_e0;
-                    current_utf8 = (uint32_t)(input & 0x0f) << 12;
-                } else if (input == 0xf0) {
-                    // 4-byte utf8 starting with f0
-                    utf8_state = state_4byte_2_f0;
-                    current_utf8 = (uint32_t)(input & 0x07) << 18;
-                } else if (input >= 0xf1 && input <= 0xf3) {
-                    // 4-byte utf8 starting with f1 to f3
-                    utf8_state = state_4byte_2_f1_f3;
-                    current_utf8 = (uint32_t)(input & 0x07) << 18;
-                } else if (input == 0xf4) {
-                    // 4-byte utf8 starting with f4
-                    utf8_state = state_4byte_2_f4;
-                    current_utf8 = (uint32_t)(input & 0x07) << 18;
-                } else if (input == '\r') {
-                    col = 0;
-                } else if (input == '\n') {
-                    // CUD1=\n, cursor down by 1
-                    row += 1;
-                    DropFirstRowIfOverflow();
-                } else if (input == '\b') {
-                    // CUB1=^H, cursor backward by 1
-                    if (col > 0) {
-                        col -= 1;
-                    }
-                } else if (input == '\t') {
-                    // goto next tab stop
-                    col ++;
-                    while (col < term_col && !tab_stops[col]) {
-                        col ++;
-                    }
-                    ClampCursor();
-                } else if (input == 0x1b) {
-                    escape_buffer = "";
-                    escape_state = state_esc;
-                }
-            } else if (utf8_state == state_2byte_2) {
-                // expecting the second byte of 2-byte utf-8
-                if (input >= 0x80 && input <= 0xbf) {
-                    current_utf8 |= (input & 0x3f);
-                    InsertUtf8(current_utf8);
-                }
-                utf8_state = state_initial;
-            } else if (utf8_state == state_3byte_2_e0) {
-                // expecting the second byte of 3-byte utf-8 starting with 0xe0
-                if (input >= 0xa0 && input <= 0xbf) {
-                    current_utf8 |= (uint32_t)(input & 0x3f) << 6;
-                    utf8_state = state_3byte_3;
-                } else {
-                    utf8_state = state_initial;
-                }
-            } else if (utf8_state == state_3byte_2_non_e0) {
-                // expecting the second byte of 3-byte utf-8 starting with non-0xe0
-                if (input >= 0x80 && input <= 0xbf) {
-                    current_utf8 |= (uint32_t)(input & 0x3f) << 6;
-                    utf8_state = state_3byte_3;
-                } else {
-                    utf8_state = state_initial;
-                }
-            } else if (utf8_state == state_3byte_3) {
-                // expecting the third byte of 3-byte utf-8 starting with 0xe0
-                if (input >= 0x80 && input <= 0xbf) {
-                    current_utf8 |= (input & 0x3f);
-                    InsertUtf8(current_utf8);
-                }
-                utf8_state = state_initial;
-            } else if (utf8_state == state_4byte_2_f0) {
-                // expecting the second byte of 4-byte utf-8 starting with 0xf0
-                if (input >= 0x90 && input <= 0xbf) {
-                    current_utf8 |= (uint32_t)(input & 0x3f) << 12;
-                    utf8_state = state_4byte_3;
-                } else {
-                    utf8_state = state_initial;
-                }
-            } else if (utf8_state == state_4byte_2_f1_f3) {
-                // expecting the second byte of 4-byte utf-8 starting with 0xf0 to 0xf3
-                if (input >= 0x80 && input <= 0xbf) {
-                    current_utf8 |= (uint32_t)(input & 0x3f) << 12;
-                    utf8_state = state_4byte_3;
-                } else {
-                    utf8_state = state_initial;
-                }
-            } else if (utf8_state == state_4byte_2_f4) {
-                // expecting the second byte of 4-byte utf-8 starting with 0xf4
-                if (input >= 0x80 && input <= 0x8f) {
-                    current_utf8 |= (uint32_t)(input & 0x3f) << 12;
-                    utf8_state = state_4byte_3;
-                } else {
-                    utf8_state = state_initial;
-                }
-            } else if (utf8_state == state_4byte_3) {
-                // expecting the third byte of 4-byte utf-8
-                if (input >= 0x80 && input <= 0xbf) {
-                    current_utf8 |= (uint32_t)(input & 0x3f) << 6;
-                    utf8_state = state_4byte_4;
-                } else {
-                    utf8_state = state_initial;
-                }
-            } else if (utf8_state == state_4byte_4) {
-                // expecting the third byte of 4-byte utf-8
-                if (input >= 0x80 && input <= 0xbf) {
-                    current_utf8 |= (input & 0x3f);
-                    InsertUtf8(current_utf8);
-                }
-                utf8_state = state_initial;
-            } else {
-                assert(false && "unreachable utf8 state");
-            }
+            escape_state = state_idle;
+        } else if (input == '7') {
+            // ESC 7, save cursor
+            save_row = row;
+            save_col = col;
+            save_style = current_style;
+            escape_state = state_idle;
+        } else if (input == '8') {
+            // ESC 8, restore cursor
+            row = save_row;
+            col = save_col;
+            ClampCursor();
+            current_style = save_style;
+            escape_state = state_idle;
+        } else if (input == '#' || input == '(' || input == ')') {
+            // non terminal
+            escape_buffer += input;
         } else {
-            assert(false && "unreachable escape state");
+            // unknown
+            OH_LOG_WARN(LOG_APP, "Unknown escape sequence after ESC: %{public}s %{public}c",
+                        escape_buffer.c_str(), input);
+            escape_state = state_idle;
         }
+    } else if (escape_state == state_csi) {
+        HandleCSI(input);
+    } else if (escape_state == state_osc) {
+        if (input == '\x07') {
+            // OSC Ps ; Pt BEL
+            std::vector<std::string> parts = SplitString(escape_buffer, ";");
+            if (parts.size() == 3 && parts[0] == "52" && parts[1] == "c" && parts[2] != "?") {
+                // OSC 52 ; c ; BASE64 BEL
+                // copy to clipboard
+                std::string base64 = parts[2];
+                OH_LOG_INFO(LOG_APP, "Copy to pasteboard in native: %{public}s",
+                            base64.c_str());
+                Copy(base64);
+            } else if (parts.size() == 3 && parts[0] == "52" && parts[1] == "c" && parts[2] == "?") {
+                // OSC 52 ; c ; ? BEL
+                // paste from clipboard
+                RequestPaste();
+                OH_LOG_INFO(LOG_APP, "Request Paste from pasteboard: %{public}s", escape_buffer.c_str());
+            }
+            escape_state = state_idle;
+        } else if (input == '\\' && escape_buffer.size() > 0 && escape_buffer[escape_buffer.size() - 1] == '\x1b') {
+            // ST is ESC \
+            // OSC Ps ; Pt ST
+            std::vector<std::string> parts = SplitString(escape_buffer.substr(0, escape_buffer.size() - 1), ";");
+            if (parts.size() == 2 && parts[0] == "10" && parts[1] == "?") {
+                // OSC 10 ; ? ST
+                // report foreground color: black
+                // send OSI 10 ; r g b : 0 / 0 / 0 ST
+                uint8_t send_buffer[] = {0x1b, ']', '1', '0', ';', 'r', 'g', 'b', ':', '0', '/', '0', '/', '0', '\x1b', '\\'};
+                WriteFull(send_buffer, sizeof(send_buffer));
+            } else if (parts.size() == 2 && parts[0] == "11" && parts[1] == "?") {
+                // OSC 11 ; ? ST
+                // report background color: white
+                // send OSI 11 ; r g b : f / f / f ST
+                uint8_t send_buffer[] = {0x1b, ']', '1', '0', ';', 'r', 'g', 'b', ':', 'f', '/', 'f', '/', 'f', '\x1b', '\\'};
+                WriteFull(send_buffer, sizeof(send_buffer));
+            }
+            escape_state = state_idle;
+        } else if (input >= ' ' && input < 127) {
+            // printable character
+            escape_buffer += input;
+        } else {
+            // unknown
+            OH_LOG_WARN(LOG_APP, "Unknown escape sequence in OSC: %{public}s %{public}c",
+                        escape_buffer.c_str(), input);
+            escape_state = state_idle;
+        }
+    } else if (escape_state == state_dcs) {
+        if (input == '\\' && escape_buffer.size() > 0 && escape_buffer[escape_buffer.size() - 1] == '\x1b') {
+            // ST
+            escape_state = state_idle;
+        } else if (input >= ' ' && input < 127 && input == '\x1b') {
+            // printable character
+            escape_buffer += input;
+        } else {
+            // unknown
+            OH_LOG_WARN(LOG_APP, "Unknown escape sequence in DCS: %{public}s %{public}c",
+                        escape_buffer.c_str(), input);
+            escape_state = state_idle;
+        }
+    } else if (escape_state == state_idle) {
+        // escape state is idle
+        if (utf8_state == state_initial) {
+            if (input >= ' ' && input <= 0x7f) {
+                // printable
+                InsertUtf8(input);
+            } else if (input >= 0xc2 && input <= 0xdf) {
+                // 2-byte utf8
+                utf8_state = state_2byte_2;
+                current_utf8 = (uint32_t)(input & 0x1f) << 6;
+            } else if (input == 0xe0) {
+                // 3-byte utf8 starting with e0
+                utf8_state = state_3byte_2_e0;
+                current_utf8 = (uint32_t)(input & 0x0f) << 12;
+            } else if (input >= 0xe1 && input <= 0xef) {
+                // 3-byte utf8 starting with non-e0
+                utf8_state = state_3byte_2_non_e0;
+                current_utf8 = (uint32_t)(input & 0x0f) << 12;
+            } else if (input == 0xf0) {
+                // 4-byte utf8 starting with f0
+                utf8_state = state_4byte_2_f0;
+                current_utf8 = (uint32_t)(input & 0x07) << 18;
+            } else if (input >= 0xf1 && input <= 0xf3) {
+                // 4-byte utf8 starting with f1 to f3
+                utf8_state = state_4byte_2_f1_f3;
+                current_utf8 = (uint32_t)(input & 0x07) << 18;
+            } else if (input == 0xf4) {
+                // 4-byte utf8 starting with f4
+                utf8_state = state_4byte_2_f4;
+                current_utf8 = (uint32_t)(input & 0x07) << 18;
+            } else if (input == '\r') {
+                col = 0;
+            } else if (input == '\n') {
+                // CUD1=\n, cursor down by 1
+                row += 1;
+                DropFirstRowIfOverflow();
+            } else if (input == '\b') {
+                // CUB1=^H, cursor backward by 1
+                if (col > 0) {
+                    col -= 1;
+                }
+            } else if (input == '\t') {
+                // goto next tab stop
+                col ++;
+                while (col < term_col && !tab_stops[col]) {
+                    col ++;
+                }
+                ClampCursor();
+            } else if (input == 0x1b) {
+                escape_buffer = "";
+                escape_state = state_esc;
+            }
+        } else if (utf8_state == state_2byte_2) {
+            // expecting the second byte of 2-byte utf-8
+            if (input >= 0x80 && input <= 0xbf) {
+                current_utf8 |= (input & 0x3f);
+                InsertUtf8(current_utf8);
+            }
+            utf8_state = state_initial;
+        } else if (utf8_state == state_3byte_2_e0) {
+            // expecting the second byte of 3-byte utf-8 starting with 0xe0
+            if (input >= 0xa0 && input <= 0xbf) {
+                current_utf8 |= (uint32_t)(input & 0x3f) << 6;
+                utf8_state = state_3byte_3;
+            } else {
+                utf8_state = state_initial;
+            }
+        } else if (utf8_state == state_3byte_2_non_e0) {
+            // expecting the second byte of 3-byte utf-8 starting with non-0xe0
+            if (input >= 0x80 && input <= 0xbf) {
+                current_utf8 |= (uint32_t)(input & 0x3f) << 6;
+                utf8_state = state_3byte_3;
+            } else {
+                utf8_state = state_initial;
+            }
+        } else if (utf8_state == state_3byte_3) {
+            // expecting the third byte of 3-byte utf-8 starting with 0xe0
+            if (input >= 0x80 && input <= 0xbf) {
+                current_utf8 |= (input & 0x3f);
+                InsertUtf8(current_utf8);
+            }
+            utf8_state = state_initial;
+        } else if (utf8_state == state_4byte_2_f0) {
+            // expecting the second byte of 4-byte utf-8 starting with 0xf0
+            if (input >= 0x90 && input <= 0xbf) {
+                current_utf8 |= (uint32_t)(input & 0x3f) << 12;
+                utf8_state = state_4byte_3;
+            } else {
+                utf8_state = state_initial;
+            }
+        } else if (utf8_state == state_4byte_2_f1_f3) {
+            // expecting the second byte of 4-byte utf-8 starting with 0xf0 to 0xf3
+            if (input >= 0x80 && input <= 0xbf) {
+                current_utf8 |= (uint32_t)(input & 0x3f) << 12;
+                utf8_state = state_4byte_3;
+            } else {
+                utf8_state = state_initial;
+            }
+        } else if (utf8_state == state_4byte_2_f4) {
+            // expecting the second byte of 4-byte utf-8 starting with 0xf4
+            if (input >= 0x80 && input <= 0x8f) {
+                current_utf8 |= (uint32_t)(input & 0x3f) << 12;
+                utf8_state = state_4byte_3;
+            } else {
+                utf8_state = state_initial;
+            }
+        } else if (utf8_state == state_4byte_3) {
+            // expecting the third byte of 4-byte utf-8
+            if (input >= 0x80 && input <= 0xbf) {
+                current_utf8 |= (uint32_t)(input & 0x3f) << 6;
+                utf8_state = state_4byte_4;
+            } else {
+                utf8_state = state_initial;
+            }
+        } else if (utf8_state == state_4byte_4) {
+            // expecting the third byte of 4-byte utf-8
+            if (input >= 0x80 && input <= 0xbf) {
+                current_utf8 |= (input & 0x3f);
+                InsertUtf8(current_utf8);
+            }
+            utf8_state = state_initial;
+        } else {
+            assert(false && "unreachable utf8 state");
+        }
+    } else {
+        assert(false && "unreachable escape state");
     }
+}
 
-    void Worker() {
-        pthread_setname_np(pthread_self(), "terminal worker");
+void terminal_context::Worker() {
+    pthread_setname_np(pthread_self(), "terminal worker");
 
-        int temp = 0;
-        // poll from fd, and render
-        struct timeval tv;
-        while (1) {
-            struct pollfd fds[1];
-            fds[0].fd = fd;
-            fds[0].events = POLLIN;
-            int res = poll(fds, 1, 100);
+    int temp = 0;
+    // poll from fd, and render
+    struct timeval tv;
+    while (1) {
+        struct pollfd fds[1];
+        fds[0].fd = fd;
+        fds[0].events = POLLIN;
+        int res = poll(fds, 1, 100);
 
-            uint8_t buffer[1024];
-            if (res > 0) {
-                ssize_t r = read(fd, buffer, sizeof(buffer) - 1);
-                if (r > 0) {
-                    // pretty print
-                    std::string hex;
-                    for (int i = 0; i < r; i++) {
-                        if (buffer[i] >= 127 || buffer[i] < 32) {
-                            char temp[8];
-                            snprintf(temp, sizeof(temp), "\\x%02x", buffer[i]);
-                            hex += temp;
-                        } else {
-                            hex += (char)buffer[i];
-                        }
+        uint8_t buffer[1024];
+        if (res > 0) {
+            ssize_t r = read(fd, buffer, sizeof(buffer) - 1);
+            if (r > 0) {
+                // pretty print
+                std::string hex;
+                for (int i = 0; i < r; i++) {
+                    if (buffer[i] >= 127 || buffer[i] < 32) {
+                        char temp[8];
+                        snprintf(temp, sizeof(temp), "\\x%02x", buffer[i]);
+                        hex += temp;
+                    } else {
+                        hex += (char)buffer[i];
                     }
-                    OH_LOG_INFO(LOG_APP, "Got: %{public}s", hex.c_str());
+                }
+                OH_LOG_INFO(LOG_APP, "Got: %{public}s", hex.c_str());
 
-                    // parse output
-                    pthread_mutex_lock(&lock);
-                    for (int i = 0; i < r; i++) {
-                        Parse(buffer[i]);
-                    }
-                    pthread_mutex_unlock(&lock);
-                } else if (r < 0 && errno == EIO) {
-                    // handle child exit
-                    OH_LOG_INFO(LOG_APP, "Program exited: %{public}ld %{public}d", r, errno);
-                    // relaunch
-                    pthread_mutex_lock(&lock);
-                    close(fd);
-                    fd = -1;
+                // parse output
+                pthread_mutex_lock(&lock);
+                for (int i = 0; i < r; i++) {
+                    Parse(buffer[i]);
+                }
+                pthread_mutex_unlock(&lock);
+            } else if (r < 0 && errno == EIO) {
+                // handle child exit
+                OH_LOG_INFO(LOG_APP, "Program exited: %{public}ld %{public}d", r, errno);
+                // relaunch
+                pthread_mutex_lock(&lock);
+                close(fd);
+                fd = -1;
 
-                    // print message in a separate line
-                    if (col > 0) {
-                        row += 1;
-                        DropFirstRowIfOverflow();
-                        col = 0;
-                    }
-
-                    std::string message = "[program exited, restarting]";
-                    for (char ch : message) {
-                        InsertUtf8(ch);
-                    }
-
+                // print message in a separate line
+                if (col > 0) {
                     row += 1;
                     DropFirstRowIfOverflow();
                     col = 0;
-
-                    Fork();
-                    pthread_mutex_unlock(&lock);
-                    break;
                 }
-            }
 
-            // check if anything to paste
-            std::string paste = GetPaste();
-            if (paste.size() > 0) {
-                // send OSC 52 ; c ; BASE64 ST
-                OH_LOG_INFO(LOG_APP, "Paste from pasteboard: %{public}s",
-                            paste.c_str());
-                std::string resp = "\x1b]52;c;" + paste + "\x1b\\";
-                WriteFull((uint8_t *)resp.c_str(), resp.size());
+                std::string message = "[program exited, restarting]";
+                for (char ch : message) {
+                    InsertUtf8(ch);
+                }
+
+                row += 1;
+                DropFirstRowIfOverflow();
+                col = 0;
+
+                Fork();
+                pthread_mutex_unlock(&lock);
+                break;
             }
         }
-        return;
+
+        // check if anything to paste
+        std::string paste = GetPaste();
+        if (paste.size() > 0) {
+            // send OSC 52 ; c ; BASE64 ST
+            OH_LOG_INFO(LOG_APP, "Paste from pasteboard: %{public}s",
+                        paste.c_str());
+            std::string resp = "\x1b]52;c;" + paste + "\x1b\\";
+            WriteFull((uint8_t *)resp.c_str(), resp.size());
+        }
     }
+    return;
+}
 
-    // fork & create pty
-    // assume lock is held
-    void Fork() {
-        struct winsize ws = {};
-        ws.ws_col = term_col;
-        ws.ws_row = term_row;
+// fork & create pty
+// assume lock is held
+void terminal_context::Fork() {
+    struct winsize ws = {};
+    ws.ws_col = term_col;
+    ws.ws_row = term_row;
 
-        int pid = forkpty(&fd, nullptr, nullptr, &ws);
-        if (!pid) {
+    int pid = forkpty(&fd, nullptr, nullptr, &ws);
+    if (!pid) {
 #ifdef STANDALONE
-            execl("/bin/bash", "/bin/bash", nullptr);
+        execl("/bin/bash", "/bin/bash", nullptr);
 #else
-            // override HOME to /storage/Users/currentUser since it is writable
-            const char *home = "/storage/Users/currentUser";
-            setenv("HOME", home, 1);
-            setenv("PWD", home, 1);
-            // set LD_LIRBARY_PATH for shared libraries
-            setenv("LD_LIBRARY_PATH", "/data/app/base.org/base_1.0/lib", 1);
-            // override TMPDIR for tmux
-            setenv("TMUX_TMPDIR", "/data/storage/el2/base/cache", 1);
-            chdir(home);
-            execl("/data/app/bin/bash", "/data/app/bin/bash", nullptr);
+        // override HOME to /storage/Users/currentUser since it is writable
+        const char *home = "/storage/Users/currentUser";
+        setenv("HOME", home, 1);
+        setenv("PWD", home, 1);
+        // set LD_LIRBARY_PATH for shared libraries
+        setenv("LD_LIBRARY_PATH", "/data/app/base.org/base_1.0/lib", 1);
+        // override TMPDIR for tmux
+        setenv("TMUX_TMPDIR", "/data/storage/el2/base/cache", 1);
+        chdir(home);
+        execl("/data/app/bin/bash", "/data/app/bin/bash", nullptr);
 #endif
-        }
-
-        // set as non blocking
-        int res = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
-        assert(res == 0);
-
-        // start terminal worker in another thread
-        pthread_t terminal_thread;
-        pthread_create(&terminal_thread, NULL, TerminalWorker, this);
     }
-};
+
+    // set as non blocking
+    int res = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
+    assert(res == 0);
+
+    // start terminal worker in another thread
+    pthread_t terminal_thread;
+    pthread_create(&terminal_thread, NULL, TerminalWorker, this);
+}
 
 static terminal_context term;
 
