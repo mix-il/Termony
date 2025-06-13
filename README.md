@@ -54,7 +54,11 @@ Bundled packages:
 - yyjson
 - zstd
 
-Pro tip: you can use these utilities in the builtin Terminal app under `/data/service/hnp`, although some paths might get wrong due to prefix set to `/data/app/base.org/base_1.0` (thanks to @duskmoon314). You can override them like:
+Pro tip: you can use these utilities in the builtin Terminal app under `/data/service/hnp`:
+
+![](./screenshot_hishell.jpg)
+
+Although some paths might get wrong due to prefix set to `/data/app/base.org/base_1.0` (thanks to @duskmoon314). You can override them like:
 
 ```shell
 LD_LIBRARY_PATH=/data/service/hnp/base.org/base_1.0/lib TERMINFO=/data/service/hnp/base.org/base_1.0/share/terminfo fish
