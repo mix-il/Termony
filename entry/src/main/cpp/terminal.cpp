@@ -1423,7 +1423,7 @@ static void Draw() {
     uint64_t current_msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
 
     // clear buffer with background color
-    glClearColor(1.0f, predefined_colors[white][0] / 255.0, predefined_colors[white][1] / 255.0, predefined_colors[white][2] / 255.0);
+    glClearColor(predefined_colors[white][0] / 255.0, predefined_colors[white][1] / 255.0, predefined_colors[white][2] / 255.0, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // update surface size
