@@ -29,6 +29,7 @@ struct term_style {
     float bg_red = 1.0;
     float bg_green = 1.0;
     float bg_blue = 1.0;
+    term_style();
 };
 
 // character in terminal

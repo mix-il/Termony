@@ -63,6 +63,55 @@ void CustomPrintf(const char *fmt, ...) {
 // Pm: list of Ps, separated by ;
 // Pt: text parameter of printable characters
 
+enum term_colors {
+    brblack,
+    black,
+    brgreen,
+    bryellow,
+    brblue,
+    brcyan,
+    white,
+    brwhite,
+    yellow,
+    brred,
+    red,
+    magenta,
+    brmagenta,
+    blue,
+    cyan,
+    green,
+    max_term_color
+};
+
+// solarized light
+static std::array<int, 3> predefined_colors[max_term_color] = {
+    [brblack] = { 0, 43, 54 },
+    [black] = { 7, 54, 66 },
+    [brgreen] = { 88, 110, 117 },
+    [bryellow] = { 101, 123, 131 },
+    [brblue] = { 131, 148, 150 },
+    [brcyan] = { 147, 161, 161 },
+    [white] = { 238, 232, 213 },
+    [brwhite] = { 253, 246, 227 },
+    [yellow] = { 181, 137, 0 },
+    [brred] = { 203, 75, 22 },
+    [red] = { 220, 50, 47 },
+    [magenta] = { 221, 54, 130 },
+    [brmagenta] = { 108, 113, 196 },
+    [blue] = { 38, 139, 210 },
+    [cyan] = { 42, 161, 152 },
+    [green] = { 13, 153, 0 },
+};
+
+term_style::term_style() {
+    fg_red = predefined_colors[black][0] / 255.0;
+    fg_green = predefined_colors[black][1] / 255.0;
+    fg_blue = predefined_colors[black][2] / 255.0;
+    bg_red = predefined_colors[white][0] / 255.0;
+    bg_green = predefined_colors[white][1] / 255.0;
+    bg_blue = predefined_colors[white][2] / 255.0;
+}
+
 static std::vector<std::string> SplitString(const std::string &str, const std::string &delimiter) {
     std::vector<std::string> result;
     size_t start = 0;
@@ -594,105 +643,105 @@ void terminal_context::HandleCSI(uint8_t current) {
                     // TODO
                 } else if (param == 30) {
                     // black foreground
-                    current_style.fg_red = 0.0;
-                    current_style.fg_green = 0.0;
-                    current_style.fg_blue = 0.0;
+                    current_style.fg_red = predefined_colors[black][0] / 255.0;
+                    current_style.fg_green = predefined_colors[black][1] / 255.0;
+                    current_style.fg_blue = predefined_colors[black][2] / 255.0;
                 } else if (param == 31) {
                     // red foreground
-                    current_style.fg_red = 1.0;
-                    current_style.fg_green = 0.0;
-                    current_style.fg_blue = 0.0;
+                    current_style.fg_red = predefined_colors[red][0] / 255.0;
+                    current_style.fg_green = predefined_colors[red][1] / 255.0;
+                    current_style.fg_blue = predefined_colors[red][2] / 255.0;
                 } else if (param == 32) {
                     // green foreground
-                    current_style.fg_red = 0.0;
-                    current_style.fg_green = 1.0;
-                    current_style.fg_blue = 0.0;
+                    current_style.fg_red = predefined_colors[green][0] / 255.0;
+                    current_style.fg_green = predefined_colors[green][1] / 255.0;
+                    current_style.fg_blue = predefined_colors[green][2] / 255.0;
                 } else if (param == 33) {
                     // yellow foreground
-                    current_style.fg_red = 1.0;
-                    current_style.fg_green = 1.0;
-                    current_style.fg_blue = 0.0;
+                    current_style.fg_red = predefined_colors[yellow][0] / 255.0;
+                    current_style.fg_green = predefined_colors[yellow][1] / 255.0;
+                    current_style.fg_blue = predefined_colors[yellow][2] / 255.0;
                 } else if (param == 34) {
                     // blue foreground
-                    current_style.fg_red = 0.0;
-                    current_style.fg_green = 0.0;
-                    current_style.fg_blue = 1.0;
+                    current_style.fg_red = predefined_colors[blue][0] / 255.0;
+                    current_style.fg_green = predefined_colors[blue][1] / 255.0;
+                    current_style.fg_blue = predefined_colors[blue][2] / 255.0;
                 } else if (param == 35) {
                     // magenta foreground
-                    current_style.fg_red = 1.0;
-                    current_style.fg_green = 0.0;
-                    current_style.fg_blue = 1.0;
+                    current_style.fg_red = predefined_colors[magenta][0] / 255.0;
+                    current_style.fg_green = predefined_colors[magenta][1] / 255.0;
+                    current_style.fg_blue = predefined_colors[magenta][2] / 255.0;
                 } else if (param == 36) {
                     // cyan foreground
-                    current_style.fg_red = 0.0;
-                    current_style.fg_green = 1.0;
-                    current_style.fg_blue = 1.0;
+                    current_style.fg_red = predefined_colors[cyan][0] / 255.0;
+                    current_style.fg_green = predefined_colors[cyan][1] / 255.0;
+                    current_style.fg_blue = predefined_colors[cyan][2] / 255.0;
                 } else if (param == 37) {
                     // white foreground
-                    current_style.fg_red = 1.0;
-                    current_style.fg_green = 1.0;
-                    current_style.fg_blue = 1.0;
+                    current_style.fg_red = predefined_colors[white][0] / 255.0;
+                    current_style.fg_green = predefined_colors[white][1] / 255.0;
+                    current_style.fg_blue = predefined_colors[white][2] / 255.0;
                 } else if (param == 38) {
                     // foreground color: extended color, CSI 38 : ... m
                     // TODO
                 } else if (param == 39) {
                     // default foreground
-                    current_style.fg_red = 0.0;
-                    current_style.fg_green = 0.0;
-                    current_style.fg_blue = 0.0;
+                    current_style.fg_red = predefined_colors[black][0] / 255.0;
+                    current_style.fg_green = predefined_colors[black][1] / 255.0;
+                    current_style.fg_blue = predefined_colors[black][2] / 255.0;
                 } else if (param == 40) {
                     // black background
-                    current_style.bg_red = 0.0;
-                    current_style.bg_green = 0.0;
-                    current_style.bg_blue = 0.0;
+                    current_style.bg_red = predefined_colors[black][0] / 255.0;
+                    current_style.bg_green = predefined_colors[black][1] / 255.0;
+                    current_style.bg_blue = predefined_colors[black][2] / 255.0;
                 } else if (param == 41) {
-                    // black background
-                    current_style.bg_red = 1.0;
-                    current_style.bg_green = 0.0;
-                    current_style.bg_blue = 0.0;
+                    // red background
+                    current_style.bg_red = predefined_colors[red][0] / 255.0;
+                    current_style.bg_green = predefined_colors[red][1] / 255.0;
+                    current_style.bg_blue = predefined_colors[red][2] / 255.0;
                 } else if (param == 42) {
                     // green background
-                    current_style.bg_red = 0.0;
-                    current_style.bg_green = 1.0;
-                    current_style.bg_blue = 0.0;
+                    current_style.bg_red = predefined_colors[green][0] / 255.0;
+                    current_style.bg_green = predefined_colors[green][1] / 255.0;
+                    current_style.bg_blue = predefined_colors[green][2] / 255.0;
                 } else if (param == 43) {
                     // yellow background
-                    current_style.bg_red = 1.0;
-                    current_style.bg_green = 1.0;
-                    current_style.bg_blue = 0.0;
+                    current_style.bg_red = predefined_colors[yellow][0] / 255.0;
+                    current_style.bg_green = predefined_colors[yellow][1] / 255.0;
+                    current_style.bg_blue = predefined_colors[yellow][2] / 255.0;
                 } else if (param == 44) {
                     // blue background
-                    current_style.bg_red = 0.0;
-                    current_style.bg_green = 0.0;
-                    current_style.bg_blue = 1.0;
+                    current_style.bg_red = predefined_colors[blue][0] / 255.0;
+                    current_style.bg_green = predefined_colors[blue][1] / 255.0;
+                    current_style.bg_blue = predefined_colors[blue][2] / 255.0;
                 } else if (param == 45) {
                     // magenta background
-                    current_style.bg_red = 1.0;
-                    current_style.bg_green = 0.0;
-                    current_style.bg_blue = 1.0;
+                    current_style.bg_red = predefined_colors[magenta][0] / 255.0;
+                    current_style.bg_green = predefined_colors[magenta][1] / 255.0;
+                    current_style.bg_blue = predefined_colors[magenta][2] / 255.0;
                 } else if (param == 46) {
                     // cyan background
-                    current_style.bg_red = 0.0;
-                    current_style.bg_green = 1.0;
-                    current_style.bg_blue = 1.0;
+                    current_style.bg_red = predefined_colors[cyan][0] / 255.0;
+                    current_style.bg_green = predefined_colors[cyan][1] / 255.0;
+                    current_style.bg_blue = predefined_colors[cyan][2] / 255.0;
                 } else if (param == 47) {
                     // white background
-                    current_style.bg_red = 1.0;
-                    current_style.bg_green = 1.0;
-                    current_style.bg_blue = 1.0;
+                    current_style.bg_red = predefined_colors[white][0] / 255.0;
+                    current_style.bg_green = predefined_colors[white][1] / 255.0;
+                    current_style.bg_blue = predefined_colors[white][2] / 255.0;
                 } else if (param == 48) {
                     // background color: extended color, CSI 48 : ... m
                     // TODO
                 } else if (param == 49) {
                     // default background
-                    current_style.bg_red = 1.0;
-                    current_style.bg_green = 1.0;
-                    current_style.bg_blue = 1.0;
+                    current_style.bg_red = predefined_colors[white][0] / 255.0;
+                    current_style.bg_green = predefined_colors[white][1] / 255.0;
+                    current_style.bg_blue = predefined_colors[white][2] / 255.0;
                 } else if (param == 90) {
                     // bright black foreground
-                    current_style.fg_red = 0.5;
-                    current_style.fg_green = 0.5;
-                    current_style.fg_blue = 0.5;
+                    current_style.fg_red = predefined_colors[brblack][0] / 255.0;
+                    current_style.fg_green = predefined_colors[brblack][1] / 255.0;
+                    current_style.fg_blue = predefined_colors[brblack][2] / 255.0;
                 } else {
                     OH_LOG_WARN(LOG_APP, "Unknown CSI Pm m: %{public}s from %{public}s %{public}c",
                                 part.c_str(), escape_buffer.c_str(), current);
@@ -1373,8 +1422,8 @@ static void Draw() {
     gettimeofday(&tv, nullptr);
     uint64_t current_msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
 
-    // clear buffer
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    // clear buffer with background color
+    glClearColor(1.0f, predefined_colors[white][0] / 255.0, predefined_colors[white][1] / 255.0, predefined_colors[white][2] / 255.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // update surface size
