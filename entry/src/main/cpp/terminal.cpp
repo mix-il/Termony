@@ -844,6 +844,7 @@ unknown:
     }
 }
 
+static void Fork();
 static void *TerminalWorker(void *) {
     pthread_setname_np(pthread_self(), "terminal worker");
 
@@ -1166,6 +1167,33 @@ static void *TerminalWorker(void *) {
                     }
                 }
                 pthread_mutex_unlock(&lock);
+            } else if (r < 0 && errno == EIO) {
+                // handle child exit
+                OH_LOG_INFO(LOG_APP, "Program exited: %{public}ld %{public}d", r, errno);
+                // relaunch
+                pthread_mutex_lock(&lock);
+                close(fd);
+                fd = -1;
+
+                // print message in a separate line
+                if (col > 0) {
+                    row += 1;
+                    DropFirstRowIfOverflow();
+                    col = 0;
+                }
+
+                std::string message = "[program exited, restarting]";
+                for (char ch : message) {
+                    InsertUtf8(ch);
+                }
+
+                row += 1;
+                DropFirstRowIfOverflow();
+                col = 0;
+
+                Fork();
+                pthread_mutex_unlock(&lock);
+                break;
             }
         }
 
@@ -1179,17 +1207,12 @@ static void *TerminalWorker(void *) {
             WriteFull((uint8_t *)resp.c_str(), resp.size());
         }
     }
+    return NULL;
 }
 
-void Start() {
-    if (fd != -1) {
-        return;
-    }
-
-    // setup terminal, default to 80x24
-    ResizeTo(80, 24);
-
-    // fork & create pty
+// fork & create pty
+// assume lock is held
+static void Fork() {
     struct winsize ws = {};
     ws.ws_col = term_col;
     ws.ws_row = term_row;
@@ -1218,6 +1241,20 @@ void Start() {
 
     pthread_t terminal_thread;
     pthread_create(&terminal_thread, NULL, TerminalWorker, NULL);
+}
+
+void Start() {
+    pthread_mutex_lock(&lock);
+    if (fd != -1) {
+        return;
+    }
+
+    // setup terminal, default to 80x24
+    ResizeTo(80, 24);
+
+    Fork();
+
+    pthread_mutex_unlock(&lock);
 }
 
 void SendData(uint8_t *data, size_t length) {
