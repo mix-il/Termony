@@ -412,6 +412,12 @@ void TestAlacritty(std::string name) {
 
 TEST_CASE( "Alacritty test", "" ) {
     // TODO: pass more tests
+    TestAlacritty("clear_underline");
+    TestAlacritty("colored_reset");
+    TestAlacritty("delete_chars_reset");
+    // TestAlacritty("delete_lines");
+    TestAlacritty("erase_chars_reset");
+    // TestAlacritty("erase_in_line");
     TestAlacritty("sgr");
     TestAlacritty("underline");
 }

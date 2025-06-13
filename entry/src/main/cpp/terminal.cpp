@@ -346,6 +346,7 @@ void terminal_context::HandleCSI(uint8_t current) {
             } else if (escape_buffer == "1") {
                 // CSI 1 K
                 // erase to left
+                printf("Erase left in row %d\n", row);
                 for (int i = 0; i <= col; i++) {
                     terminal[row][i] = term_char();
                 }
