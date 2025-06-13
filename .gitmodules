@@ -1,3 +1,6 @@
 [submodule "entry/src/main/cpp/freetype"]
 	path = entry/src/main/cpp/freetype
 	url = https://github.com/freetype/freetype.git
+[submodule "entry/src/main/cpp/alacritty"]
+	path = entry/src/main/cpp/alacritty
+	url = https://github.com/alacritty/alacritty.git

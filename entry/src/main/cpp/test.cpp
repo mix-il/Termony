@@ -2,6 +2,10 @@
 // g++ test.cpp terminal.cpp -I/usr/include/freetype2 -DSTANDALONE -DTESTING -o test -lCatch2Main -lCatch2 -lfreetype -lGLESv2 -lglfw
 #include "terminal.h"
 #include <catch2/catch_test_macros.hpp>
+#include <cstdio>
+#include <fstream>
+#include <nlohmann/json.hpp>
+using json = nlohmann::json;
 
 TEST_CASE( "Columns change with input", "" ) {
     terminal_context ctx;
@@ -334,4 +338,80 @@ TEST_CASE( "Tab Clear", "" ) {
     ctx.Parse('\x09');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 79 );
+}
+
+void TestAlacritty(std::string name) {
+    terminal_context ctx;
+    std::string ref = "alacritty/alacritty_terminal/tests/ref";
+
+    std::ifstream size_f(ref + "/" + name + "/size.json");
+    json size_json = json::parse(size_f);
+
+    ctx.ResizeTo(size_json["screen_lines"].template get<int>(), size_json["columns"].template get<int>());
+
+    FILE *fp = fopen((ref + "/" + name + "/alacritty.recording").c_str(), "rb");
+    int ch;
+    while ((ch = fgetc(fp)) != EOF) {
+        ctx.Parse(ch);
+    }
+
+    // compare result
+    std::ifstream grid_f(ref + "/" + name + "/grid.json");
+    json grid_json = json::parse(grid_f);
+
+    for (int i = 0;i < ctx.term_row;i++) {
+        for (int j = 0;j < ctx.term_col;j++) {
+            // order is inverted!
+            json expected_json = grid_json["raw"]["inner"][ctx.term_row - i - 1]["inner"][j];
+            std::string expected_str = expected_json["c"].template get<std::string>();
+            REQUIRE (expected_str.size() == 1 );
+
+            // TODO: validate style
+            if (ctx.terminal[i][j].ch != expected_str[0]) {
+                // print diff
+                fprintf(stderr, "Diff:\n");
+                for (int ii = 0;ii < ctx.term_row;ii++) {
+                    bool equal = true;
+                    for (int jj = 0;jj < ctx.term_col;jj++) {
+                        json expected_json = grid_json["raw"]["inner"][ctx.term_row - ii - 1]["inner"][jj];
+                        std::string expected_str = expected_json["c"].template get<std::string>();
+                        REQUIRE (expected_str.size() == 1 );
+                        if (ctx.terminal[ii][jj].ch != expected_str[0]) {
+                            equal = false;
+                        }
+                    }
+
+                    if (equal) {
+                        fprintf(stderr, "%02d=", ii);
+                        for (int jj = 0;jj < ctx.term_col;jj++) {
+                            fprintf(stderr, "%c", ctx.terminal[ii][jj].ch);
+                        }
+                        fprintf(stderr, "\n");
+                    } else {
+                        fprintf(stderr, "%02d-", i);
+                        for (int jj = 0;jj < ctx.term_col;jj++) {
+                            fprintf(stderr, "%c", ctx.terminal[ii][jj].ch);
+                        }
+                        fprintf(stderr, "\n");
+
+                        fprintf(stderr, "%02d+", i);
+                        for (int jj = 0;jj < ctx.term_col;jj++) {
+                            json expected = grid_json["raw"]["inner"][ctx.term_row - ii - 1]["inner"][jj];
+                            std::string c = expected["c"].template get<std::string>();
+                            REQUIRE( c.size() == 1 );
+                            fprintf(stderr, "%c", c[0]);
+                        }
+                        fprintf(stderr, "\n");
+                    }
+                }
+            }
+            REQUIRE( ctx.terminal[i][j].ch == expected_str[0] );
+        }
+    }
+}
+
+TEST_CASE( "Alacritty test", "" ) {
+    // TODO: pass more tests
+    TestAlacritty("sgr");
+    TestAlacritty("underline");
 }

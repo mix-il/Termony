@@ -1790,11 +1790,6 @@ void CharCallback(GLFWwindow* window, uint32_t codepoint) {
     SendData((uint8_t *)&codepoint, 1);
 }
 
-void ResizeWidth(int new_width) {
-    int current_width, current_height;
-    glfwGetWindowSize(window, &current_width, &current_height);
-    glfwSetWindowSize(window, new_width, current_height);
-}
 
 void Copy(std::string base64) {
     // TODO
@@ -1808,9 +1803,20 @@ std::string GetPaste() {
     // TODO
     return "";
 }
-#endif
 
-#if defined(STANDALONE) && !defined(TESTING)
+#ifdef TESTING
+
+void ResizeWidth(int new_width) {
+    // Do nothing
+}
+
+#else
+void ResizeWidth(int new_width) {
+    int current_width, current_height;
+    glfwGetWindowSize(window, &current_width, &current_height);
+    glfwSetWindowSize(window, new_width, current_height);
+}
+
 int main() {
     // Init GLFW
     glfwInit();
@@ -1838,4 +1844,5 @@ int main() {
         glfwPollEvents();
     }
 }
+#endif
 #endif
