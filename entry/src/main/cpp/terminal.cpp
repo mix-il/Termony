@@ -1361,7 +1361,7 @@ static void LoadFont() {
             assert(FT_Load_Char(face, c, FT_LOAD_RENDER) == 0);
 
             OH_LOG_INFO(LOG_APP,
-                        "Weight: %{public}d Char: %{public}c(%{public}d) Glyph: %{public}d %{public}d Left: "
+                        "Weight: %{public}d Char: %{public}d(0x%{public}x) Glyph: %{public}d %{public}d Left: "
                         "%{public}d "
                         "Top: %{public}d "
                         "Advance: %{public}ld",
