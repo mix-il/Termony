@@ -82,11 +82,11 @@
     "hnpPackages": [
       {
         "package": "base.hnp",
-        "type": "public"
+        "type": "private"
       },
       {
-        "package": "base.hnp",
-        "type": "private"
+        "package": "base-public.hnp",
+        "type": "public"
       }
     ]
   }

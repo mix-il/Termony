@@ -12,6 +12,6 @@ export PATH=$TOOL_HOME/tools/node/bin:$PATH
 hvigorw assembleHap
 # add hnp, and sign manually
 pushd entry
-zip -r ../entry/build/default/outputs/default/entry-default-unsigned.hap hnp
+zip -1 -r ../entry/build/default/outputs/default/entry-default-unsigned.hap hnp
 popd
 python3 sign.py ./entry/build/default/outputs/default/entry-default-unsigned.hap ./entry/build/default/outputs/default/entry-default-signed.hap
