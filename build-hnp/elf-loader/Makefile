@@ -9,4 +9,4 @@ all: download/elf
 
 download/elf:
 	mkdir -p download
-	cd download && rm -rf vkpeak && git clone https://github.com/MikhailProg/elf
+	cd download && rm -rf elf && git clone https://github.com/MikhailProg/elf
