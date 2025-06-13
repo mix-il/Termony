@@ -418,9 +418,11 @@ void TestAlacritty(std::string name) {
 // TODO: pass more tests
 TEST_ALACRITTY("clear_underline");
 TEST_ALACRITTY("colored_reset");
+TEST_ALACRITTY("decaln_reset");
 TEST_ALACRITTY("delete_chars_reset");
 TEST_ALACRITTY("delete_lines");
 TEST_ALACRITTY("erase_chars_reset");
 TEST_ALACRITTY("erase_in_line");
+TEST_ALACRITTY("hyperlinks");
 TEST_ALACRITTY("sgr");
 TEST_ALACRITTY("underline");

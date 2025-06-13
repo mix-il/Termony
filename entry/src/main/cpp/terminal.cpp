@@ -880,7 +880,7 @@ void terminal_context::Parse(uint8_t input) {
                 WriteFull(send_buffer, sizeof(send_buffer));
             }
             escape_state = state_idle;
-        } else if (input >= ' ' && input < 127) {
+        } else if ((input >= ' ' && input < 127) || input == '\x1b') {
             // printable character
             escape_buffer += input;
         } else {
