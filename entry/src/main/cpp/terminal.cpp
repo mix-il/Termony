@@ -563,6 +563,9 @@ void terminal_context::HandleCSI(uint8_t current) {
                 } else if (param == 1) {
                     // set bold, CSI 1 m
                     current_style.weight = font_weight::bold;
+                } else if (param == 2) {
+                    // set faint, CSI 2 m
+                    // TODO
                 } else if (param == 4) {
                     // set underline, CSI 4 m
                     // TODO
@@ -574,9 +577,21 @@ void terminal_context::HandleCSI(uint8_t current) {
                     std::swap(current_style.fg_red, current_style.bg_red);
                     std::swap(current_style.fg_green, current_style.bg_green);
                     std::swap(current_style.fg_blue, current_style.bg_blue);
+                } else if (param == 9) {
+                    // set strikethrough, CSI 9 m
+                    // TODO
                 } else if (param == 10) {
-                    // reset to primary font
+                    // reset to primary font, CSI 10 m
                     current_style = term_style();
+                } else if (param == 21) {
+                    // set doubly underlined, CSI 21 m
+                    // TODO
+                } else if (param == 24) {
+                    // set not underlined, CSI 24 m
+                    // TODO
+                } else if (param == 27) {
+                    // positive (not inverse), CSI 27 m
+                    // TODO
                 } else if (param == 30) {
                     // black foreground
                     current_style.fg_red = 0.0;
@@ -617,6 +632,9 @@ void terminal_context::HandleCSI(uint8_t current) {
                     current_style.fg_red = 1.0;
                     current_style.fg_green = 1.0;
                     current_style.fg_blue = 1.0;
+                } else if (param == 38) {
+                    // foreground color: extended color, CSI 38 : ... m
+                    // TODO
                 } else if (param == 39) {
                     // default foreground
                     current_style.fg_red = 0.0;
@@ -662,6 +680,9 @@ void terminal_context::HandleCSI(uint8_t current) {
                     current_style.bg_red = 1.0;
                     current_style.bg_green = 1.0;
                     current_style.bg_blue = 1.0;
+                } else if (param == 48) {
+                    // background color: extended color, CSI 48 : ... m
+                    // TODO
                 } else if (param == 49) {
                     // default background
                     current_style.bg_red = 1.0;
@@ -673,8 +694,8 @@ void terminal_context::HandleCSI(uint8_t current) {
                     current_style.fg_green = 0.5;
                     current_style.fg_blue = 0.5;
                 } else {
-                    OH_LOG_WARN(LOG_APP, "Unknown CSI Pm m: %{public}s %{public}c",
-                                escape_buffer.c_str(), current);
+                    OH_LOG_WARN(LOG_APP, "Unknown CSI Pm m: %{public}s from %{public}s %{public}c",
+                                part.c_str(), escape_buffer.c_str(), current);
                 }
             }
         } else if (current == 'm' && escape_buffer.size() > 0 && escape_buffer[0] == '>') {
