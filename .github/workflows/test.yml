@@ -20,4 +20,4 @@ jobs:
     - name: compile test
       run: cd entry/src/main/cpp && g++ -O2 -fsanitize=address test.cpp terminal.cpp -I/usr/include/freetype2 -DSTANDALONE -DTESTING -o test -lCatch2Main -lCatch2 -lfreetype -lGLESv2 -lglfw
     - name: run test
-      run: ./entry/src/main/cpp/test
+      run: cd entry/src/main/cpp && ./test
