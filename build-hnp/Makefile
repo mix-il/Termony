@@ -42,7 +42,7 @@ all: copy
 copy: base.hnp
 	rm -f ../entry/hnp/arm64-v8a/*.hnp
 	cp $^ ../entry/hnp/arm64-v8a
-	cp $^ ../entry/hnp/arm64-v8a/base-public.hnp
+	cp base-public.hnp ../entry/hnp/arm64-v8a
 
 base.hnp: $(STAMP) utils/pbcopy utils/pbpaste
 	# reduce size
@@ -61,6 +61,7 @@ base.hnp: $(STAMP) utils/pbcopy utils/pbpaste
 	cp $(TOOL_HOME)/sdk/default/openharmony/native/llvm/lib/clang/15.0.4/lib/aarch64-linux-ohos/clang_rt.crtend.o sysroot/aarch64-unknown-linux-musl/lib/crtend.o
 	cp $(TOOL_HOME)/sdk/default/openharmony/native/llvm/lib/clang/15.0.4/lib/aarch64-linux-ohos/libclang_rt.builtins.a sysroot/aarch64-unknown-linux-musl/lib/libgcc.a
 	$(TOOL_HOME)/sdk/default/openharmony/toolchains/hnpcli pack -i sysroot -n base -v 1.0
+	$(TOOL_HOME)/sdk/default/openharmony/toolchains/hnpcli pack -i sysroot -n base-public -v 1.0
 
 %/.stamp: %/Makefile
 	make -C $(patsubst %/.stamp,%,$@)

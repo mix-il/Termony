@@ -61,16 +61,16 @@ Pro tip: you can use these utilities in the builtin Terminal app under `/data/se
 Although some paths might get wrong due to prefix set to `/data/app/base.org/base_1.0` (thanks to @duskmoon314). You can override them like:
 
 ```shell
-LD_LIBRARY_PATH=/data/service/hnp/base.org/base_1.0/lib TERMINFO=/data/service/hnp/base.org/base_1.0/share/terminfo fish
+LD_LIBRARY_PATH=/data/service/hnp/base-public.org/base-public_1.0/lib TERMINFO=/data/service/hnp/base-public.org/base-public_1.0/share/terminfo fish
 ```
 
 You can persist them to `~/.bashrc`, and run bash before executing other commands from Termony:
 
 ```shell
-if [ -d "/data/service/hnp/base.org/base_1.0" ]; then
-  export LD_LIBRARY_PATH=/data/service/hnp/base.org/base_1.0/lib
-  export TERMINFO=/data/service/hnp/base.org/base_1.0/share/terminfo
-  export VIM=/data/service/hnp/base.org/base_1.0/share/vim
+if [ -d "/data/service/hnp/base-public.org/base-public_1.0" ]; then
+  export LD_LIBRARY_PATH=/data/service/hnp/base-public.org/base-public_1.0/lib
+  export TERMINFO=/data/service/hnp/base-public.org/base-public_1.0/share/terminfo
+  export VIM=/data/service/hnp/base-public.org/base-public_1.0/share/vim
   export TMUX_TMPDIR=/data/storage/el2/base/cache
 fi
 ```
