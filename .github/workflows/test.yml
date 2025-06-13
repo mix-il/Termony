@@ -1,0 +1,19 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: install dependencies
+      run: sudo apt update && sudo apt install -y libglfw3-dev libcatch2-dev libfreetype-dev libgles-dev
+    - name: compile
+      run: cd entry/src/main/cpp && g++ test.cpp terminal.cpp -I/usr/include/freetype2 -DSTANDALONE -DTESTING -o test -lCatch2Main -lCatch2 -lfreetype -lGLESv2 -lglfw
+    - name: test
+      run: ./entry/src/main/cpp/test
