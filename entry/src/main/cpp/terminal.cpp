@@ -698,9 +698,9 @@ void terminal_context::HandleCSI(uint8_t current) {
             int count = read_int_or_default(1);
             for (int i = term_col - 1; i >= col; i--) {
                 if (i - col < count) {
-                    terminal[row][col].ch = ' ';
+                    terminal[row][i].ch = ' ';
                 } else {
-                    terminal[row][col] = terminal[row][col - count];
+                    terminal[row][i] = terminal[row][i - count];
                 }
             }
         } else {
