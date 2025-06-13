@@ -417,7 +417,7 @@ TEST_CASE( "Alacritty test", "" ) {
     TestAlacritty("delete_chars_reset");
     // TestAlacritty("delete_lines");
     TestAlacritty("erase_chars_reset");
-    // TestAlacritty("erase_in_line");
+    TestAlacritty("erase_in_line");
     TestAlacritty("sgr");
     TestAlacritty("underline");
 }

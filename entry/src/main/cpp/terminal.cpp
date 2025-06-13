@@ -148,19 +148,27 @@ void terminal_context::DropFirstRowIfOverflow() {
 
 void terminal_context::InsertUtf8(uint32_t codepoint) {
     assert(row >= 0 && row < term_row);
-    assert(col >= 0 && col < term_col);
-    terminal[row][col].ch = codepoint;
-    terminal[row][col].style = current_style;
-    col++;
+    assert(col >= 0 && col <= term_col);
     if (col == term_col) {
+        // special handling if cursor is on the right edge
         if (autowrap) {
             // wrap to next line
             col = 0;
             row++;
             DropFirstRowIfOverflow();
+
+            terminal[row][col].ch = codepoint;
+            terminal[row][col].style = current_style;
+            col++;
         } else {
-            col = term_col - 1;
+            // override last column
+            terminal[row][term_col - 1].ch = codepoint;
+            terminal[row][term_col - 1].style = current_style;
         }
+    } else {
+        terminal[row][col].ch = codepoint;
+        terminal[row][col].style = current_style;
+        col++;
     }
 }
 
@@ -346,8 +354,7 @@ void terminal_context::HandleCSI(uint8_t current) {
             } else if (escape_buffer == "1") {
                 // CSI 1 K
                 // erase to left
-                printf("Erase left in row %d\n", row);
-                for (int i = 0; i <= col; i++) {
+                for (int i = 0; i <= col && i < term_col; i++) {
                     terminal[row][i] = term_char();
                 }
             } else if (escape_buffer == "2") {
