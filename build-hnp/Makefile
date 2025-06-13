@@ -60,7 +60,10 @@ base.hnp: $(STAMP) utils/pbcopy utils/pbpaste
 	cp $(TOOL_HOME)/sdk/default/openharmony/native/llvm/lib/clang/15.0.4/lib/aarch64-linux-ohos/clang_rt.crtbegin.o sysroot/aarch64-unknown-linux-musl/lib/crtbegin.o
 	cp $(TOOL_HOME)/sdk/default/openharmony/native/llvm/lib/clang/15.0.4/lib/aarch64-linux-ohos/clang_rt.crtend.o sysroot/aarch64-unknown-linux-musl/lib/crtend.o
 	cp $(TOOL_HOME)/sdk/default/openharmony/native/llvm/lib/clang/15.0.4/lib/aarch64-linux-ohos/libclang_rt.builtins.a sysroot/aarch64-unknown-linux-musl/lib/libgcc.a
-	$(TOOL_HOME)/sdk/default/openharmony/toolchains/hnpcli pack -i sysroot -n base -v 1.0
+	# $(TOOL_HOME)/sdk/default/openharmony/toolchains/hnpcli pack -i sysroot -n base -v 1.0
+	cp hnp.json sysroot
+	rm -f base.hnp
+	zip -r base.hnp sysroot
 
 %/.stamp: %/Makefile
 	make -C $(patsubst %/.stamp,%,$@)
