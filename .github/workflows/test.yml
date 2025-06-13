@@ -11,6 +11,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        submodules: recursive
     - name: install dependencies
       run: sudo apt update && sudo apt install -y libglfw3-dev catch2 libfreetype-dev libgles-dev nlohmann-json3-dev
     - name: compile terminal
