@@ -12,7 +12,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: install dependencies
-      run: sudo apt update && sudo apt install -y libglfw3-dev catch2 libfreetype-dev libgles-dev
+      run: sudo apt update && sudo apt install -y libglfw3-dev catch2 libfreetype-dev libgles-dev nlohmann-json3-dev
     - name: compile terminal
       run: cd entry/src/main/cpp && g++ terminal.cpp -I/usr/include/freetype2 -DSTANDALONE -lfreetype -lGLESv2 -lglfw -o terminal
     - name: compile test
