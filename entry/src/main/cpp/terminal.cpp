@@ -822,51 +822,51 @@ void *terminal_context::TerminalWorker(void * data) {
 
 void terminal_context::Parse(uint8_t input) {
     if (escape_state == state_esc) {
-        if (input == '[') {
+        if (input == '[' && escape_buffer == "") {
             // ESC [ = CSI
             escape_state = state_csi;
-        } else if (input == ']') {
+        } else if (input == ']' && escape_buffer == "") {
             // ESC ] = OSC
             escape_state = state_osc;
-        } else if (input == '=') {
+        } else if (input == '=' && escape_buffer == "") {
             // ESC =, enter alternate keypad mode
             // TODO
             escape_state = state_idle;
-        } else if (input == '>') {
+        } else if (input == '>' && escape_buffer == "") {
             // ESC >, exit alternate keypad mode
             // TODO
             escape_state = state_idle;
-        } else if (input == 'A') {
+        } else if (input == 'A' && escape_buffer == "") {
             // ESC A, cursor up
             row --;
             ClampCursor();
             escape_state = state_idle;
-        } else if (input == 'B') {
+        } else if (input == 'B' && escape_buffer == "") {
             // ESC B, cursor down
             row ++;
             ClampCursor();
             escape_state = state_idle;
-        } else if (input == 'C') {
+        } else if (input == 'C' && escape_buffer == "") {
             // ESC C, cursor right
             col ++;
             ClampCursor();
             escape_state = state_idle;
-        } else if (input == 'D') {
+        } else if (input == 'D' && escape_buffer == "") {
             // ESC D, cursor left
             col --;
             ClampCursor();
             escape_state = state_idle;
-        } else if (input == 'E') {
+        } else if (input == 'E' && escape_buffer == "") {
             // ESC E, goto to the beginning of next row
             row ++;
             col = 0;
             ClampCursor();
             escape_state = state_idle;
-        } else if (input == 'H') {
+        } else if (input == 'H' && escape_buffer == "") {
             // ESC H, place tab stop at the current position
             tab_stops[col] = true;
             escape_state = state_idle;
-        } else if (input == 'M') {
+        } else if (input == 'M' && escape_buffer == "") {
             // ESC M, move cursor one line up, scrolls down if at the top margin
             if (row == scroll_top) {
                 // shift rows down
@@ -879,7 +879,7 @@ void terminal_context::Parse(uint8_t input) {
                 ClampCursor();
             }
             escape_state = state_idle;
-        } else if (input == 'P') {
+        } else if (input == 'P' && escape_buffer == "") {
             // ESC P = DCS
             escape_state = state_dcs;
         } else if (input == '8' && escape_buffer == "#") {
@@ -891,13 +891,13 @@ void terminal_context::Parse(uint8_t input) {
                 }
             }
             escape_state = state_idle;
-        } else if (input == '7') {
+        } else if (input == '7' && escape_buffer == "") {
             // ESC 7, save cursor
             save_row = row;
             save_col = col;
             save_style = current_style;
             escape_state = state_idle;
-        } else if (input == '8') {
+        } else if (input == '8' && escape_buffer == "") {
             // ESC 8, restore cursor
             row = save_row;
             col = save_col;
