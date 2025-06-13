@@ -17,6 +17,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <vector>
+#include <array>
 #include <pthread.h>
 
 #include <ft2build.h>
