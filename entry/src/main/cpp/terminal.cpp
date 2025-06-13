@@ -57,6 +57,11 @@ void CustomPrintf(const char *fmt, ...) {
 // https://espterm.github.io/docs/VT100%20escape%20codes.html
 // https://ecma-international.org/wp-content/uploads/ECMA-48_5th_edition_june_1991.pdf
 // https://xtermjs.org/docs/api/vtfeatures/
+// terminology:
+// C: a single character
+// Ps: a single and optional numeric parameter
+// Pm: list of Ps, separated by ;
+// Pt: text parameter of printable characters
 
 static std::vector<std::string> SplitString(const std::string &str, const std::string &delimiter) {
     std::vector<std::string> result;

@@ -257,3 +257,81 @@ TEST_CASE( "Erase in Display", "" ) {
     REQUIRE( ctx.terminal[0][0].ch == 'a' );
     REQUIRE( ctx.terminal[0][1].ch == ' ' );
 }
+
+TEST_CASE( "Save Cursor", "" ) {
+    terminal_context ctx;
+
+    ctx.ResizeTo(24, 80);
+    REQUIRE( ctx.row == 0 );
+    REQUIRE( ctx.col == 0 );
+
+    // a|
+    ctx.Parse('a');
+    REQUIRE( ctx.row == 0 );
+    REQUIRE( ctx.col == 1 );
+    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+
+    // a|
+    ctx.Parse('\x1b');
+    ctx.Parse('7');
+    REQUIRE( ctx.row == 0 );
+    REQUIRE( ctx.col == 1 );
+    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+
+    // a
+    ctx.Parse('\x08');
+    REQUIRE( ctx.row == 0 );
+    REQUIRE( ctx.col == 0 );
+
+    // a|
+    ctx.Parse('\x1b');
+    ctx.Parse('8');
+    REQUIRE( ctx.row == 0 );
+    REQUIRE( ctx.col == 1 );
+    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+
+    // ab|
+    ctx.Parse('b');
+    REQUIRE( ctx.row == 0 );
+    REQUIRE( ctx.col == 2 );
+    REQUIRE( ctx.terminal[0][1].ch == 'b' );
+}
+
+TEST_CASE( "Tab Clear", "" ) {
+    terminal_context ctx;
+
+    ctx.ResizeTo(24, 80);
+    REQUIRE( ctx.row == 0 );
+    REQUIRE( ctx.col == 0 );
+
+    // a|
+    ctx.Parse('a');
+    REQUIRE( ctx.row == 0 );
+    REQUIRE( ctx.col == 1 );
+    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+
+    // a       |
+    ctx.Parse('\x09');
+    REQUIRE( ctx.row == 0 );
+    REQUIRE( ctx.col == 8 );
+    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+
+    // a       b|
+    ctx.Parse('b');
+    REQUIRE( ctx.row == 0 );
+    REQUIRE( ctx.col == 9 );
+    REQUIRE( ctx.terminal[0][8].ch == 'b' );
+
+    // a       b|
+    ctx.Parse('\x1b');
+    ctx.Parse('[');
+    ctx.Parse('3');
+    ctx.Parse('g');
+    REQUIRE( ctx.row == 0 );
+    REQUIRE( ctx.col == 9 );
+
+    // got to last column
+    ctx.Parse('\x09');
+    REQUIRE( ctx.row == 0 );
+    REQUIRE( ctx.col == 79 );
+}
