@@ -427,3 +427,4 @@ TEST_ALACRITTY("hyperlinks");
 TEST_ALACRITTY("insert_blank_reset");
 TEST_ALACRITTY("sgr");
 TEST_ALACRITTY("underline");
+TEST_ALACRITTY("vttest_scroll");
