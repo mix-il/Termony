@@ -463,3 +463,4 @@ TEST_ALACRITTY("underline");
 // TEST_ALACRITTY("vim_large_window_scroll");
 TEST_ALACRITTY("vim_simple_edit");
 // TEST_ALACRITTY("vttest_cursor_movement_1");
+TEST_ALACRITTY("vttest_insert");

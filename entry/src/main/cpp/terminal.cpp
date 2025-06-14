@@ -527,6 +527,18 @@ void terminal_context::HandleCSI(uint8_t current) {
             } else {
                 goto unknown;
             }
+        } else if (current == 'h' && escape_buffer.size() > 0 && escape_buffer[0] != '?') {
+            // CSI Pm h, Set Mode, SM
+            std::vector<std::string> parts = SplitString(escape_buffer, ";");
+            for (auto part : parts) {
+                if (part == "4") {
+                    // CSI 4 h, Insert Mode (IRM)
+                    insert_mode = true;
+                } else {
+                    OH_LOG_WARN(LOG_APP, "Unknown CSI Pm h: %{public}s %{public}c",
+                                escape_buffer.c_str(), current);
+                }
+            }
         } else if (current == 'h' && escape_buffer.size() > 0 && escape_buffer[0] == '?') {
             // CSI ? Pm h, DEC Private Mode Set (DECSET)
             std::vector<std::string> parts = SplitString(escape_buffer.substr(1), ";");
@@ -567,6 +579,18 @@ void terminal_context::HandleCSI(uint8_t current) {
                     // TODO
                 } else {
                     OH_LOG_WARN(LOG_APP, "Unknown CSI ? Pm h: %{public}s %{public}c",
+                                escape_buffer.c_str(), current);
+                }
+            }
+        } else if (current == 'l' && escape_buffer.size() > 0 && escape_buffer[0] != '?') {
+            // CSI Pm l, Reset Mode, RM
+            std::vector<std::string> parts = SplitString(escape_buffer, ";");
+            for (auto part : parts) {
+                if (part == "4") {
+                    // CSI 4 l, Replace Mode (IRM)
+                    insert_mode = false;
+                } else {
+                    OH_LOG_WARN(LOG_APP, "Unknown CSI Pm h: %{public}s %{public}c",
                                 escape_buffer.c_str(), current);
                 }
             }
@@ -992,6 +1016,12 @@ void terminal_context::Parse(uint8_t input) {
         if (utf8_state == state_initial) {
             if (input >= ' ' && input <= 0x7f) {
                 // printable
+                if (insert_mode) {
+                    // move characters rightward
+                    for (int i = term_col - 1;i > col;i--) {
+                        terminal[row][i] = terminal[row][i - 1];
+                    }
+                }
                 InsertUtf8(input);
             } else if (input >= 0xc2 && input <= 0xdf) {
                 // 2-byte utf8
