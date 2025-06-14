@@ -16,6 +16,7 @@ Also compile and run C/C++ programs on HarmonyOS Computer:
 
 Bundled packages:
 
+- aria2
 - bash
 - binutils
 - busybox
@@ -26,8 +27,9 @@ Bundled packages:
 - expat
 - fastfetch
 - fish
-- git
 - gcc
+- gdb
+- git
 - gmp
 - htop
 - kbd

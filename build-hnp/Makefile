@@ -37,7 +37,8 @@ PKGS=bash \
 	zstd \
 	expat \
 	git \
-	aria2
+	aria2 \
+	gdb
 STAMP=$(patsubst %,%/.stamp,$(PKGS))
 
 all: copy
