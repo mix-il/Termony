@@ -764,24 +764,36 @@ void terminal_context::HandleCSI(uint8_t current) {
         } else if (current == 'r') {
             // CSI Ps ; Ps r, Set Scrolling Region [top;bottom]
             std::vector<std::string> parts = SplitString(escape_buffer, ";");
+            int new_top = 1;
+            int new_bottom = term_row;
             if (parts.size() == 2) {
-                int new_top = 1;
-                int new_bottom = term_row;
+                // CSI Ps ; Ps r
                 sscanf(parts[0].c_str(), "%d", &new_top);
                 sscanf(parts[1].c_str(), "%d", &new_bottom);
                 // convert to 1-based
                 new_top --;
                 new_bottom --;
-                if (new_bottom > new_top) {
-                    scroll_top = new_top;
-                    scroll_bottom = new_bottom;
-
-                    // move cursor to new home position
-                    row = scroll_top;
-                    col = 0;
-                }
+            } else if (escape_buffer == "") {
+                // CSI r
+                new_top = 0;
+                new_bottom = term_row - 1;
+            } else if (parts.size() == 1) {
+                // CSI Ps r
+                sscanf(parts[0].c_str(), "%d", &new_top);
+                // convert to 1-based
+                new_top --;
+                new_bottom = term_row - 1;
             } else {
                 goto unknown;
+            }
+
+            if (new_bottom > new_top) {
+                scroll_top = new_top;
+                scroll_bottom = new_bottom;
+
+                // move cursor to new home position
+                row = scroll_top;
+                col = 0;
             }
         } else if (current == '@' &&
                 ((escape_buffer.size() > 0 && escape_buffer[escape_buffer.size() - 1] >= '0' &&

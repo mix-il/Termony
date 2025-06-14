@@ -366,6 +366,11 @@ void TestAlacritty(std::string name) {
             std::string expected_str = expected_json["c"].template get<std::string>();
             REQUIRE (expected_str.size() == 1 );
 
+            // alacritty stores vanilla \t instead of SP
+            if (expected_str[0] == '\t') {
+                expected_str[0] = ' ';
+            }
+
             // TODO: validate style
             if (ctx.terminal[i][j].ch != expected_str[0]) {
                 // print diff
@@ -376,6 +381,12 @@ void TestAlacritty(std::string name) {
                         json expected_json = grid_json["raw"]["inner"][ctx.term_row - ii - 1]["inner"][jj];
                         std::string expected_str = expected_json["c"].template get<std::string>();
                         REQUIRE (expected_str.size() == 1 );
+
+                        // alacritty stores vanilla \t instead of SP
+                        if (expected_str[0] == '\t') {
+                            expected_str[0] = ' ';
+                        }
+
                         if (ctx.terminal[ii][jj].ch != expected_str[0]) {
                             equal = false;
                         }
@@ -440,7 +451,7 @@ TEST_ALACRITTY("newline_with_cursor_beyond_scroll_region");
 TEST_ALACRITTY("row_reset");
 // TEST_ALACRITTY("saved_cursor");
 // TEST_ALACRITTY("saved_cursor_alt");
-// TEST_ALACRITTY("scroll_in_region_up_preserves_history");
+TEST_ALACRITTY("scroll_in_region_up_preserves_history");
 TEST_ALACRITTY("scroll_up_reset");
 TEST_ALACRITTY("sgr");
 TEST_ALACRITTY("underline");
