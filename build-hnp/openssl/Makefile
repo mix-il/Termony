@@ -8,7 +8,7 @@ all: download/openssl-3.5.0.tar.gz
 	cd temp/openssl-3.5.0 && make install_sw DESTDIR=$(shell pwd)/build
 	mkdir -p ../sysroot
 	$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-strip build/data/app/base.org/base_1.0/lib/*.so
-	rm -f ./build/data/app/base.org/base_1.0/*.a
+	rm -f ./build/data/app/base.org/base_1.0/lib/*.a
 	cp -rv ./build/data/app/base.org/base_1.0/. ../sysroot | tee file.lst
 
 download/openssl-3.5.0.tar.gz:
