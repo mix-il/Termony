@@ -1,0 +1,9 @@
+#!/bin/bash
+# patch libtool file under the specified directory
+# usage: patch-libtool DIR
+FILE=$1/libtool
+echo "Patching $FILE"
+# fix libtool compat with clang, see https://github.com/libexpat/libexpat/issues/312
+sed -i.bak "s/^archive_cmds=\".*\"/archive_cmds='\$CC -shared \$pic_flag \$libobjs \$deplibs \$compiler_flags \$wl-soname \$wl\$soname -o \$lib'/" $FILE
+# do not patch build_libtool_libs or build_old_libs
+
