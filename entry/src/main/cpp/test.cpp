@@ -427,39 +427,27 @@ void TestAlacritty(std::string name) {
     }
 
 // TODO: pass more tests
+// TODO: alternate screen
 // TEST_ALACRITTY("alt_reset");
 TEST_ALACRITTY("clear_underline");
 TEST_ALACRITTY("colored_reset");
-// TEST_ALACRITTY("colored_underline");
-// TEST_ALACRITTY("csi_rep");
 TEST_ALACRITTY("decaln_reset");
 // TEST_ALACRITTY("deccolm_reset");
 TEST_ALACRITTY("delete_chars_reset");
 TEST_ALACRITTY("delete_lines");
 TEST_ALACRITTY("erase_chars_reset");
 TEST_ALACRITTY("erase_in_line");
-// TEST_ALACRITTY("fish_cc");
-// TEST_ALACRITTY("grid_reset");
-// TEST_ALACRITTY("history");
 TEST_ALACRITTY("hyperlinks");
-// TEST_ALACRITTY("indexed_256_colors");
 TEST_ALACRITTY("insert_blank_reset");
-// TEST_ALACRITTY("issue_855");
-// TEST_ALACRITTY("ll");
 TEST_ALACRITTY("newline_with_cursor_beyond_scroll_region");
-// TEST_ALACRITTY("region_scroll_down");
 TEST_ALACRITTY("row_reset");
-// TEST_ALACRITTY("saved_cursor");
-// TEST_ALACRITTY("saved_cursor_alt");
 TEST_ALACRITTY("scroll_in_region_up_preserves_history");
 TEST_ALACRITTY("scroll_up_reset");
 TEST_ALACRITTY("selective_erasure");
 TEST_ALACRITTY("sgr");
-// TEST_ALACRITTY("tab_rendering");
 TEST_ALACRITTY("tmux_git_log");
 TEST_ALACRITTY("tmux_htop");
 TEST_ALACRITTY("underline");
-// TEST_ALACRITTY("vim_24bitcolors_bce");
 // TEST_ALACRITTY("vim_large_window_scroll");
 TEST_ALACRITTY("vim_simple_edit");
 // TEST_ALACRITTY("vttest_cursor_movement_1");
@@ -468,6 +456,21 @@ TEST_ALACRITTY("vttest_origin_mode_1");
 TEST_ALACRITTY("vttest_origin_mode_2");
 TEST_ALACRITTY("vttest_scroll");
 TEST_ALACRITTY("vttest_tab_clear_set");
+
+// TODO: multibyte character
+// TEST_ALACRITTY("colored_underline");
+// TEST_ALACRITTY("csi_rep");
+// TEST_ALACRITTY("fish_cc");
+// TEST_ALACRITTY("grid_reset");
+// TEST_ALACRITTY("history");
+// TEST_ALACRITTY("indexed_256_coIors");
+// TEST_ALACRITTY("issue_855");
+// TEST_ALACRITTY("ll");
+// TEST_ALACRITTY("region_scroll_down");
+// TEST_ALACRITTY("saved_cursor");
+// TEST_ALACRITTY("saved_cursor_alt");
+// TEST_ALACRITTY("tab_rendering");
+// TEST_ALACRITTY("vim_24bitcolors_bce");
 // TEST_ALACRITTY("wrapline_alt_toggle");
 // TEST_ALACRITTY("zerowidth");
 // TEST_ALACRITTY("zsh_tab_completion");
