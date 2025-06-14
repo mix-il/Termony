@@ -10,9 +10,9 @@ all: download/gcc-15.1.0.tar.xz
 	cd temp/gcc-15.1.0/build && cat ../../../0001-fix-gcc.diff | patch -Np1
 	cd temp/gcc-15.1.0/build && make all-gcc -j $(shell nproc)
 	cd temp/gcc-15.1.0/build && make install-gcc DESTDIR=$(shell pwd)/build
-	$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-strip build/usr/local/bin/*
+	$(OHOS_SDK_HOME)/native/llvm/bin/llvm-strip build/usr/local/bin/*
 	rm -f build/usr/local/libexec/gcc/aarch64-unknown-linux-musl/15.1.0/*.la
-	find build/usr/local/libexec/gcc/aarch64-unknown-linux-musl/15.1.0/ -maxdepth 1 -type f | xargs $(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-strip
+	find build/usr/local/libexec/gcc/aarch64-unknown-linux-musl/15.1.0/ -maxdepth 1 -type f | xargs $(OHOS_SDK_HOME)/native/llvm/bin/llvm-strip
 	mkdir -p ../sysroot
 	cp -rfv build/usr/local/. ../sysroot | tee file.lst
 

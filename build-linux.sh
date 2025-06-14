@@ -17,6 +17,7 @@ fi
 export ARKUIX_VERSION=5.0.1.110
 export PROJ_BASE_HOME=$(dirname $(readlink -f "$0"))
 export DEVECO_SDK_HOME=$TOOL_HOME/sdk
+export OHOS_SDK_HOME=$TOOL_HOME/sdk/default/openharmony
 export PATH=$TOOL_HOME/bin:$PATH
 export PATH=$TOOL_HOME/tool/node/bin:$PATH
 

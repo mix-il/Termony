@@ -3,7 +3,7 @@ all: download/libevent-2.1.12-stable.tar.gz
 	mkdir -p temp build
 	cd temp && tar xvf ../download/libevent-2.1.12-stable.tar.gz
 	cd temp/libevent-2.1.12-stable && mkdir build
-	cd temp/libevent-2.1.12-stable/build && ../configure --disable-static --enable-shared --disable-openssl --host aarch64-unknown-linux-musl CC=$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/aarch64-unknown-linux-ohos-clang LD=$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/ld.lld AR=$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-ar RANLIB=$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-ranlib STRIP=$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-strip
+	cd temp/libevent-2.1.12-stable/build && ../configure --disable-static --enable-shared --disable-openssl --host aarch64-unknown-linux-musl CC=$(OHOS_SDK_HOME)/native/llvm/bin/aarch64-unknown-linux-ohos-clang LD=$(OHOS_SDK_HOME)/native/llvm/bin/ld.lld AR=$(OHOS_SDK_HOME)/native/llvm/bin/llvm-ar RANLIB=$(OHOS_SDK_HOME)/native/llvm/bin/llvm-ranlib STRIP=$(OHOS_SDK_HOME)/native/llvm/bin/llvm-strip
 	cd temp/libevent-2.1.12-stable/build && make -j $(shell nproc) && make install DESTDIR=$(shell pwd)/build
 	mkdir -p ../sysroot
 	rm -v build/usr/local/lib/*.la
