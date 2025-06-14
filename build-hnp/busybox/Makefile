@@ -1,3 +1,5 @@
+include ../utils/Makefrag
+
 all: download/busybox-1.37.0.tar.bz2
 	rm -rf temp
 	mkdir -p temp

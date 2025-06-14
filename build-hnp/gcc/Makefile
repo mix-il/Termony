@@ -1,9 +1,11 @@
+include ../utils/Makefrag
+
 all: download/gcc-15.1.0.tar.xz
 	rm -rf temp build
 	mkdir -p temp build
 	cd temp && tar xvf ../download/gcc-15.1.0.tar.xz
 	cd temp/gcc-15.1.0 && mkdir build
-	cd temp/gcc-15.1.0/build && ../configure --host aarch64-unknown-linux-musl CC=$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/aarch64-unknown-linux-ohos-clang CXX=$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/aarch64-unknown-linux-ohos-clang++ AR=$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-ar RANLIB=$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-ranlib STRIP=$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-strip CXXFLAGS="-I$(shell pwd)/../sysroot/include" CFLAGS="-I$(shell pwd)/../sysroot/include" LDFLAGS="-L$(shell pwd)/../sysroot/lib" --enable-host-shared
+	cd temp/gcc-15.1.0/build && ../configure --host aarch64-unknown-linux-musl --enable-host-shared
 	cd temp/gcc-15.1.0/build && make all-gcc -j $(shell nproc) -k || true
 	cd temp/gcc-15.1.0/build && cat ../../../0001-fix-gcc.diff | patch -Np1
 	cd temp/gcc-15.1.0/build && make all-gcc -j $(shell nproc)
