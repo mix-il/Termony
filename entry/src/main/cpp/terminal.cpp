@@ -193,6 +193,8 @@ void terminal_context::DropFirstRowIfOverflow() {
         while (history.size() > MAX_HISTORY_LINES) {
             history.pop_front();
         }
+    } else if (row >= term_row) {
+        row = term_row - 1;
     }
 }
 

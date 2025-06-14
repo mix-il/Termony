@@ -416,14 +416,31 @@ void TestAlacritty(std::string name) {
     }
 
 // TODO: pass more tests
+// TEST_ALACRITTY("alt_reset");
 TEST_ALACRITTY("clear_underline");
 TEST_ALACRITTY("colored_reset");
+// TEST_ALACRITTY("colored_underline");
+// TEST_ALACRITTY("csi_rep");
 TEST_ALACRITTY("decaln_reset");
+// TEST_ALACRITTY("deccolm_reset");
 TEST_ALACRITTY("delete_chars_reset");
 TEST_ALACRITTY("delete_lines");
 TEST_ALACRITTY("erase_chars_reset");
 TEST_ALACRITTY("erase_in_line");
+// TEST_ALACRITTY("fish_cc");
+// TEST_ALACRITTY("grid_reset");
+// TEST_ALACRITTY("history");
 TEST_ALACRITTY("hyperlinks");
+// TEST_ALACRITTY("indexed_256_colors");
 TEST_ALACRITTY("insert_blank_reset");
+// TEST_ALACRITTY("issue_855");
+// TEST_ALACRITTY("ll");
+TEST_ALACRITTY("newline_with_cursor_beyond_scroll_region");
+// TEST_ALACRITTY("region_scroll_down");
+TEST_ALACRITTY("row_reset");
+// TEST_ALACRITTY("saved_cursor");
+// TEST_ALACRITTY("saved_cursor_alt");
+// TEST_ALACRITTY("scroll_in_region_up_preserves_history");
+TEST_ALACRITTY("scroll_up_reset");
 TEST_ALACRITTY("sgr");
 TEST_ALACRITTY("underline");
