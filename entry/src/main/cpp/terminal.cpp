@@ -326,11 +326,11 @@ void terminal_context::HandleCSI(uint8_t current) {
             }
         } else if (current == 'C') {
             // CSI Ps C, CUF, move cursor right # columns
-            col += read_int_or_default(1);
+            col += std::max(read_int_or_default(1), 1);
             ClampCursor();
         } else if (current == 'D') {
             // CSI Ps D, CUB, move cursor left # columns
-            col -= read_int_or_default(1);
+            col -= std::max(read_int_or_default(1), 1);
             ClampCursor();
         } else if (current == 'E') {
             // CSI Ps E, CNL, move cursor to the beginning of next line, down # lines
