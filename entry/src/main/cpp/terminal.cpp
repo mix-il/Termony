@@ -890,9 +890,9 @@ void terminal_context::Parse(uint8_t input) {
             ClampCursor();
             escape_state = state_idle;
         } else if (input == 'D' && escape_buffer == "") {
-            // ESC D, cursor left
-            col --;
-            ClampCursor();
+            // ESC D, IND, cursor down and scroll
+            row += 1;
+            DropFirstRowIfOverflow();
             escape_state = state_idle;
         } else if (input == 'E' && escape_buffer == "") {
             // ESC E, goto to the beginning of next row
