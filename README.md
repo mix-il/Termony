@@ -55,6 +55,7 @@ Bundled packages:
 - vim
 - vkpeak
 - xxhash
+- xz
 - yyjson
 - zstd
 
