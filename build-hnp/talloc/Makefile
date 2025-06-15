@@ -28,7 +28,6 @@ Checking for HAVE_INCOHERENT_MMAP: OK" >> aarch64-unknown-linux-musl.txt && \
     STRIP=$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-strip \
     CFLAGS="--sysroot=$(TOOL_HOME)/sdk/default/openharmony/native/sysroot -O2 -g -pipe -fstack-protector-strong -fno-omit-frame-pointer -I$(shell pwd)/../sysroot/include -D_FORTIFY_SOURCE=2" \
     LDFLAGS="--sysroot=$(TOOL_HOME)/sdk/default/openharmony/native/sysroot -L$(TOOL_HOME)/sdk/default/openharmony/native/sysroot/usr/lib" \
-	PATH="$(shell env)/build_helpers:$$PATH" \
 	./configure  --prefix=/data/app/base.org/base_1.0 \
 	--cross-compile --host aarch64-unknown-linux-musl --cross-answers=aarch64-unknown-linux-musl.txt \
 	--disable-python
