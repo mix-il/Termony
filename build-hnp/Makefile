@@ -5,6 +5,9 @@ PKGS=bash \
 	lz4 \
 	make \
 	ncurses \
+	samba \
+    talloc \
+    proot \
 	openssl \
 	strace \
 	tar \
