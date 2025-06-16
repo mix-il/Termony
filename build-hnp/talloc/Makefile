@@ -30,7 +30,8 @@ Checking for HAVE_INCOHERENT_MMAP: OK" >> aarch64-unknown-linux-musl.txt && \
     LDFLAGS="--sysroot=$(TOOL_HOME)/sdk/default/openharmony/native/sysroot -L$(TOOL_HOME)/sdk/default/openharmony/native/sysroot/usr/lib" \
 	./configure  --prefix=/data/app/base.org/base_1.0 \
 	--cross-compile --host aarch64-unknown-linux-musl --cross-answers=aarch64-unknown-linux-musl.txt \
-	--disable-python
+	--disable-python \
+	--check-c-compiler=clang
 	cd temp/talloc-2.4.3 && make -j$(shell nproc) && make install DESTDIR=$(shell pwd)/build
 	mkdir -p ../sysroot
 	cp -rfv build/data/app/base.org/base_1.0/. ../sysroot | tee file.lst
