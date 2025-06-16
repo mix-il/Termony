@@ -1,3 +1,5 @@
+include ../utils/Makefrag
+
 all: download/talloc-2.4.3.tar.gz
 	rm -rf temp build
 	mkdir -p temp build
@@ -21,11 +23,6 @@ Checking for C99 vsnprintf: OK\n\
 Checking for HAVE_SHARED_MMAP: OK\n\
 Checking for HAVE_MREMAP: OK\n\
 Checking for HAVE_INCOHERENT_MMAP: OK" >> aarch64-unknown-linux-musl.txt && \
-    CC=$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/aarch64-unknown-linux-ohos-clang \
-    LD=$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/ld.lld \
-    AR=$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-ar \
-    RANLIB=$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-ranlib \
-    STRIP=$(TOOL_HOME)/sdk/default/openharmony/native/llvm/bin/llvm-strip \
     CFLAGS="--sysroot=$(TOOL_HOME)/sdk/default/openharmony/native/sysroot -O2 -g -pipe -fstack-protector-strong -fno-omit-frame-pointer -I$(shell pwd)/../sysroot/include -D_FORTIFY_SOURCE=2" \
     LDFLAGS="--sysroot=$(TOOL_HOME)/sdk/default/openharmony/native/sysroot -L$(TOOL_HOME)/sdk/default/openharmony/native/sysroot/usr/lib" \
 	./configure  --prefix=/data/app/base.org/base_1.0 \
