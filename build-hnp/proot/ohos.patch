@@ -1,0 +1,68 @@
+diff --git a/src/GNUmakefile b/src/GNUmakefile
+index 92a4935..8b1355b 100644
+--- a/src/GNUmakefile
++++ b/src/GNUmakefile
+@@ -13,6 +13,7 @@ LD       = $(CC)
+ STRIP    ?= $(CROSS_COMPILE)strip
+ OBJCOPY  ?= $(CROSS_COMPILE)objcopy
+ OBJDUMP  ?= $(CROSS_COMPILE)objdump
++READELF  ?= $(CROSS_COMPILE)readelf
+ 
+ CPPFLAGS += -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -I. -I$(VPATH)
+ CFLAGS   += -Wall -Wextra -O2
+@@ -235,7 +236,7 @@ $(eval $(call build_loader,-m32))
+ endif
+ 
+ loader/loader-info.c: loader/loader
+-	readelf -s $< | awk -f loader/loader-info.awk > $@
++	$(READELF) -s $< | awk -f loader/loader-info.awk > $@
+ 
+ ######################################################################
+ # Dependencies
+diff --git a/src/extension/sysvipc/sysvipc_msg.c b/src/extension/sysvipc/sysvipc_msg.c
+index 1fc290a..fd913b4 100644
+--- a/src/extension/sysvipc/sysvipc_msg.c
++++ b/src/extension/sysvipc/sysvipc_msg.c
+@@ -175,11 +175,17 @@ static int sysvipc_do_msgrcv(Tracee *tracee, struct SysVIpcConfig *config, size_
+ 		return -EINVAL;
+ 	}
+ 
++#ifdef MSG_COPY
+ 	if ((config->msgrcv_msgflg & ~(IPC_NOWAIT | MSG_NOERROR | MSG_COPY | MSG_EXCEPT)) != 0) {
+ 		return -EINVAL;
+ 	}
++#endif
+ 
++#ifdef MSG_COPY
+ 	bool copy = (config->msgrcv_msgflg & MSG_COPY) != 0;
++#else
++	bool copy = false;
++#endif
+ 	if (copy) {
+ 		if ((config->msgrcv_msgflg & IPC_NOWAIT) == 0) {
+ 			return -EINVAL;
+diff --git a/src/path/temp.c b/src/path/temp.c
+index 8d8aa63..e726ec2 100644
+--- a/src/path/temp.c
++++ b/src/path/temp.c
+@@ -172,7 +172,7 @@ static int remove_temp_directory2(const char *path)
+ 	int status;
+ 	char *cwd;
+ 
+-#ifdef __ANDROID__
++#if defined(__ANDROID__) || defined(__OHOS__)
+ 	cwd = malloc(PATH_MAX);
+ 	getcwd(cwd, PATH_MAX);
+ #else
+diff --git a/src/tracee/statx.h b/src/tracee/statx.h
+index d06dfae..f7dd286 100644
+--- a/src/tracee/statx.h
++++ b/src/tracee/statx.h
+@@ -5,6 +5,7 @@
+ #include "sys/vfs.h"
+ #include "path/path.h"
+ #include "extension/extension.h"
++#include <linux/stat.h>
+ 
+ /*
+  * This structure is passed to extensions

@@ -11,7 +11,6 @@ PKGS=bash \
     pcre2 \
     libarchive \
     proot \
-    samba \
 	strace \
 	tar \
 	tree \
