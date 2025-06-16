@@ -69,6 +69,8 @@ base.hnp: $(STAMP) utils/pbcopy utils/pbpaste
 	cp $(OHOS_SDK_HOME)/native/llvm/lib/clang/15.0.4/lib/aarch64-linux-ohos/clang_rt.crtbegin.o sysroot/aarch64-unknown-linux-musl/lib/crtbegin.o
 	cp $(OHOS_SDK_HOME)/native/llvm/lib/clang/15.0.4/lib/aarch64-linux-ohos/clang_rt.crtend.o sysroot/aarch64-unknown-linux-musl/lib/crtend.o
 	cp $(OHOS_SDK_HOME)/native/llvm/lib/clang/15.0.4/lib/aarch64-linux-ohos/libclang_rt.builtins.a sysroot/aarch64-unknown-linux-musl/lib/libgcc.a
+	$(OHOS_SDK_HOME)/native/llvm/bin/llvm-ar cr sysroot/aarch64-unknown-linux-musl/lib/libgcc_eh.a
+	$(OHOS_SDK_HOME)/native/llvm/bin/llvm-ranlib sysroot/aarch64-unknown-linux-musl/lib/libgcc_eh.a
 	# $(OHOS_SDK_HOME)/toolchains/hnpcli pack -i sysroot -n base -v 1.0
 	cp hnp.json sysroot
 	rm -f base.hnp
