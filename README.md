@@ -45,6 +45,7 @@ Bundled packages:
 - openssh
 - openssl
 - pcre2
+- python
 - readline
 - sl
 - strace

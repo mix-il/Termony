@@ -1,5 +1,8 @@
 include ../utils/Makefrag
 
+# required by mkbuiltin cross-build process when using gcc 13+
+export CFLAGS_FOR_BUILD := -std=gnu17
+
 all: download/bash-5.2.37.tar.gz
 	rm -rf temp build
 	mkdir -p temp build

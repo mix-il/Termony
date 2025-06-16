@@ -10,6 +10,8 @@ all: download/gdb-16.3.tar.xz
 	cd temp/gdb-16.3/build && make install DESTDIR=$(shell pwd)/build
 	mkdir -p ../sysroot
 	rm -v build/usr/local/lib/*.la
+	$(OHOS_SDK_HOME)/native/llvm/bin/llvm-strip build/usr/local/bin/gdb
+	$(OHOS_SDK_HOME)/native/llvm/bin/llvm-strip build/usr/local/bin/gdbserver
 	cp -rfv build/usr/local/. ../sysroot | tee file.lst
 
 download/gdb-16.3.tar.xz:

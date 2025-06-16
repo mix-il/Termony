@@ -550,6 +550,9 @@ void terminal_context::HandleCSI(uint8_t current) {
                     // CSI ? 3 h, Enable 132 Column mode, DECCOLM
                     ResizeTo(term_row, 132);
                     ResizeWidth(132 * font_width);
+                } else if (part == "4") {
+                    // CSI ? 4 h, Smooth (Slow) Scroll (DECSCLM)
+                    // TODO
                 } else if (part == "5") {
                     // CSI ? 5 h, Reverse Video (DECSCNM)
                     reverse_video = true;
@@ -565,6 +568,9 @@ void terminal_context::HandleCSI(uint8_t current) {
                 } else if (part == "25") {
                     // CSI ? 25 h, DECTCEM, make cursor visible
                     show_cursor = true;
+                } else if (part == "40") {
+                    // CSI ? 40 h, Allow 80 -> 132 mode, xterm
+                    // TODO
                 } else if (part == "1000") {
                     // CSI ? 1000 h, Send Mouse X & Y on button press and release
                     // TODO
@@ -598,10 +604,16 @@ void terminal_context::HandleCSI(uint8_t current) {
             // CSI ? Pm l, DEC Private Mode Reset (DECRST)
             std::vector<std::string> parts = SplitString(escape_buffer.substr(1), ";");
             for (auto part : parts) {
-                if (part == "3") {
+                if (part == "1") {
+                    // CSI ? 1 l, Normal Cursor Keys (DECCKM)
+                    // TODO
+                } else if (part == "3") {
                     // CSI ? 3 l, 80 Column Mode (DECCOLM)
                     ResizeTo(term_row, 80);
                     ResizeWidth(80 * font_width);
+                } else if (part == "4") {
+                    // CSI ? 4 l, Jump (Fast) Scroll (DECSCLM)
+                    // TODO
                 } else if (part == "5") {
                     // CSI ? 5 l, Normal Video (DECSCNM)
                     reverse_video = false;
@@ -611,12 +623,18 @@ void terminal_context::HandleCSI(uint8_t current) {
                 } else if (part == "7") {
                     // CSI ? 7 l, Reset autowrap
                     autowrap = false;
+                } else if (part == "8") {
+                    // CSI ? 8 l, No Auto-Repeat Keys (DECARM)
+                    // TODO
                 } else if (part == "12") {
                     // CSI ? 12 l, Stop blinking cursor
                     // TODO
                 } else if (part == "25") {
                     // CSI ? 25 l, Hide cursor (DECTCEM)
                     show_cursor = true;
+                } else if (part == "45") {
+                    // CSI ? 40 l, Disable Graphic Print Color Syntax (DECGPCS)
+                    // TODO
                 } else if (part == "2004") {
                     // CSI ? 2004 l, reset bracketed paste mode
                     // TODO
@@ -798,6 +816,7 @@ void terminal_context::HandleCSI(uint8_t current) {
                 new_top --;
                 new_bottom --;
             } else if (escape_buffer == "") {
+                // full size of window
                 // CSI r
                 new_top = 0;
                 new_bottom = term_row - 1;
