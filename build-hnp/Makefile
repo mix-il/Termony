@@ -5,12 +5,12 @@ PKGS=bash \
 	lz4 \
 	make \
 	ncurses \
-    talloc \
-    openssl \
-    zstd \
-    pcre2 \
-    libarchive \
-    proot \
+	talloc \
+	openssl \
+	zstd \
+	pcre2 \
+	libarchive \
+	proot \
 	strace \
 	tar \
 	tree \
