@@ -23,8 +23,8 @@ Checking for C99 vsnprintf: OK\n\
 Checking for HAVE_SHARED_MMAP: OK\n\
 Checking for HAVE_MREMAP: OK\n\
 Checking for HAVE_INCOHERENT_MMAP: OK" >> aarch64-unknown-linux-musl.txt && \
-    CFLAGS="--sysroot=$(TOOL_HOME)/sdk/default/openharmony/native/sysroot -O2 -g -pipe -fstack-protector-strong -fno-omit-frame-pointer -I$(shell pwd)/../sysroot/include -D_FORTIFY_SOURCE=2" \
-    LDFLAGS="--sysroot=$(TOOL_HOME)/sdk/default/openharmony/native/sysroot -L$(TOOL_HOME)/sdk/default/openharmony/native/sysroot/usr/lib" \
+    CFLAGS="--sysroot=$(OHOS_SDK_HOME)/native/sysroot -O2 -g -pipe -fstack-protector-strong -fno-omit-frame-pointer -I$(shell pwd)/../sysroot/include -D_FORTIFY_SOURCE=2" \
+    LDFLAGS="--sysroot=$(OHOS_SDK_HOME)/native/sysroot -L$(OHOS_SDK_HOME)/native/sysroot/usr/lib" \
 	./configure  --prefix=/data/app/base.org/base_1.0 \
 	--cross-compile --host aarch64-unknown-linux-musl --cross-answers=aarch64-unknown-linux-musl.txt \
 	--disable-python \
