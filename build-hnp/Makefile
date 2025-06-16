@@ -5,7 +5,12 @@ PKGS=bash \
 	lz4 \
 	make \
 	ncurses \
+	talloc \
 	openssl \
+	zstd \
+	pcre2 \
+	libarchive \
+	proot \
 	strace \
 	tar \
 	tree \
@@ -27,14 +32,12 @@ PKGS=bash \
 	stream \
 	libevent \
 	tmux \
-	pcre2 \
 	fish \
 	elf-loader \
 	gmp \
 	mpfr \
 	mpc \
 	gcc \
-	zstd \
 	expat \
 	git \
 	aria2 \
