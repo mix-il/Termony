@@ -11,6 +11,7 @@ export LD := $(OHOS_SDK_HOME)/native/llvm/bin/ld.lld
 export AR := $(OHOS_SDK_HOME)/native/llvm/bin/llvm-ar
 export RANLIB := $(OHOS_SDK_HOME)/native/llvm/bin/llvm-ranlib
 export OBJCOPY := $(OHOS_SDK_HOME)/native/llvm/bin/llvm-objcopy
+export OBJDUMP := $(OHOS_SDK_HOME)/native/llvm/bin/llvm-objdump
 export READELF := $(OHOS_SDK_HOME)/native/llvm/bin/llvm-readelf
 export STRIP := $(OHOS_SDK_HOME)/native/llvm/bin/llvm-strip
 export CFLAGS := -I$(shell pwd)/../sysroot/include -Wno-int-conversion
