@@ -19,6 +19,7 @@ all: download/proot
 	PKG_CONFIG_PATH=../../../../sysroot/lib/pkgconfig \
 	CC=$(CC) \
 	CFLAGS="--sysroot=$(TOOL_HOME)/sdk/default/openharmony/native/sysroot -O2 -g -pipe -fstack-protector-strong -fno-omit-frame-pointer -D_FORTIFY_SOURCE=2 $(CFLAGS)" \
+	CPPFLAGS="-D__OHOS__" \
 	LDFLAGS="--sysroot=$(TOOL_HOME)/sdk/default/openharmony/native/sysroot -L$(TOOL_HOME)/sdk/default/openharmony/native/sysroot/usr/lib $(LDFLAGS)" \
 	OBJCOPY=$(OBJCOPY) \
 	READELF=$(READELF) \
@@ -30,6 +31,8 @@ all: download/proot
 
 download/proot:
 	mkdir -p download
+	cp queue.h ../sysroot/include
 	cd download && \
 	rm -rf proot && git clone https://github.com/termux/proot.git --recursive && \
-	cd proot && git checkout 60485d2646c1e09105099772da4a20deda8d020d && git apply ../../ohos.patch
+	cd proot && git checkout 60485d2646c1e09105099772da4a20deda8d020d && \
+	git apply ../../ohos.patch

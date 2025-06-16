@@ -19,6 +19,23 @@ index 92a4935..8b1355b 100644
  
  ######################################################################
  # Dependencies
+diff --git a/src/cli/cli.c b/src/cli/cli.c
+index bbc6400..832b54c 100644
+--- a/src/cli/cli.c
++++ b/src/cli/cli.c
+@@ -47,6 +47,12 @@
+ #include <extension/extension.h>
+ #include <extension/sysvipc/sysvipc.h>
+ 
++#ifdef __OHOS__
++#include "queue.h"    /* CIRCLEQ_*, */ // which is not present in ohos header
++#else
++#include <sys/queue.h> /* CIRCLEQ_*, */
++#endif
++
+ #include "build.h"
+ 
+ /**
 diff --git a/src/extension/sysvipc/sysvipc_msg.c b/src/extension/sysvipc/sysvipc_msg.c
 index 1fc290a..fd913b4 100644
 --- a/src/extension/sysvipc/sysvipc_msg.c
@@ -41,6 +58,37 @@ index 1fc290a..fd913b4 100644
  	if (copy) {
  		if ((config->msgrcv_msgflg & IPC_NOWAIT) == 0) {
  			return -EINVAL;
+diff --git a/src/path/binding.c b/src/path/binding.c
+index c0e2f84..57a9c30 100644
+--- a/src/path/binding.c
++++ b/src/path/binding.c
+@@ -27,7 +27,11 @@
+ #include <assert.h>   /* assert(3), */
+ #include <limits.h>   /* PATH_MAX, */
+ #include <errno.h>    /* E* */
++#ifdef __OHOS__
++#include "queue.h"    /* CIRCLEQ_*, */ // which is not present in ohos header
++#else
+ #include <sys/queue.h> /* CIRCLEQ_*, */
++#endif
+ #include <talloc.h>   /* talloc_*, */
+ 
+ #include "path/binding.h"
+diff --git a/src/path/binding.h b/src/path/binding.h
+index b7f8d46..c18abb2 100644
+--- a/src/path/binding.h
++++ b/src/path/binding.h
+@@ -26,6 +26,10 @@
+ #include <limits.h> /* PATH_MAX, */
+ #include <stdbool.h>
+ 
++#ifdef __OHOS__
++#include <queue.h>  /* CIRCLEQ_*,  */ // not present in ohos header
++#endif
++
+ #include "tracee/tracee.h"
+ #include "path.h"
+ 
 diff --git a/src/path/temp.c b/src/path/temp.c
 index 8d8aa63..e726ec2 100644
 --- a/src/path/temp.c
@@ -66,3 +114,34 @@ index d06dfae..f7dd286 100644
  
  /*
   * This structure is passed to extensions
+diff --git a/src/tracee/tracee.c b/src/tracee/tracee.c
+index a7082e3..9286d3f 100644
+--- a/src/tracee/tracee.c
++++ b/src/tracee/tracee.c
+@@ -26,7 +26,9 @@
+ #include <assert.h>     /* assert(3), */
+ #include <string.h>     /* bzero(3), */
+ #include <stdbool.h>    /* bool, true, false, */
+-#include <sys/queue.h>  /* LIST_*,  */
++#ifndef __OHOS__
++#include <sys/queue.h>  /* LIST_*,  */ // will interfere with added queue.h
++#endif
+ #include <talloc.h>     /* talloc_*, */
+ #include <signal.h>     /* kill(2), SIGKILL, */
+ #include <sys/ptrace.h> /* ptrace(2), PTRACE_*, */
+diff --git a/src/tracee/tracee.h b/src/tracee/tracee.h
+index 3dcbc7b..4291b3f 100644
+--- a/src/tracee/tracee.h
++++ b/src/tracee/tracee.h
+@@ -26,7 +26,11 @@
+ #include <sys/types.h> /* pid_t, size_t, */
+ #include <sys/user.h>  /* struct user*, */
+ #include <stdbool.h>   /* bool,  */
++#ifdef __OHOS__
++#include <queue.h>     /* CIRCLEQ_*, */ // which is not present in ohos header
++#else
+ #include <sys/queue.h> /* LIST_*, */
++#endif
+ #include <sys/ptrace.h>/* enum __ptrace_request */
+ #include <talloc.h>    /* talloc_*, */
+ #include <stdint.h>    /* *int*_t, */
