@@ -4,7 +4,7 @@ all: download/samba-4.22.2.tar.gz
 	cd temp && tar xvf ../download/samba-4.22.2.tar.gz
 	cd temp/samba-4.22.2 && mkdir build
 	cd temp/samba-4.22.2 && \
-	echo "Checking uname sysname type: aarch64\n\
+	echo -e "Checking uname sysname type: aarch64\n\
 Checking uname machine type: aarch64-unknown-linux-musl\n\
 Checking uname release type: release\n\
 Checking uname version type: 5.2\n\

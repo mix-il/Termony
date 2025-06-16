@@ -6,7 +6,7 @@ all: download/talloc-2.4.3.tar.gz
 	cd temp && tar xvf ../download/talloc-2.4.3.tar.gz
 	cd temp/talloc-2.4.3 && mkdir build
 	cd temp/talloc-2.4.3 && \
-	echo "Checking uname sysname type: aarch64\n\
+	echo -e "Checking uname sysname type: aarch64\n\
 Checking uname machine type: aarch64-unknown-linux-musl\n\
 Checking uname release type: release\n\
 Checking uname version type: 5.2\n\
