@@ -15,6 +15,7 @@ all: download/libarchive-3.8.1.tar.gz
 	-DCMAKE_PREFIX_PATH=../../sysroot \
 	-DCMAKE_INCLUDE_PATH=../../sysroot/include \
 	-DOPENSSL_INCLUDE_DIR=../../sysroot/include \
+	-DOPENSSL_SSL_LIBRARY=../../sysroot/lib/libssl.so \
 	-DOPENSSL_CRYPTO_LIBRARY=../../sysroot/lib/libcrypto.so \
 	-DLZ4_LIBRARY=../../sysroot/lib/liblz4.so \
 	-DZSTD_LIBRARY=../../sysroot/lib/libzstd.so
