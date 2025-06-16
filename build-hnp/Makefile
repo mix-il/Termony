@@ -39,7 +39,8 @@ PKGS=bash \
 	git \
 	aria2 \
 	xz \
-	gdb
+	gdb \
+	python
 STAMP=$(patsubst %,%/.stamp,$(PKGS))
 
 all: copy
@@ -76,6 +77,7 @@ base.hnp: $(STAMP) utils/pbcopy utils/pbpaste
 
 rebuild-%:
 	make -C $(patsubst rebuild-%,%,$@)
+	touch $@
 
 clean:
 	rm -f $(STAMP)
