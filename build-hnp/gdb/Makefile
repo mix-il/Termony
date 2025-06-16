@@ -11,7 +11,7 @@ all: download/gdb-16.3.tar.xz
 	mkdir -p ../sysroot
 	rm -v build/usr/local/lib/*.la
 	$(OHOS_SDK_HOME)/native/llvm/bin/llvm-strip build/usr/local/bin/gdb
-	$(OHOS_SDK_HOME)/native/llvm/bin/llvm-strip build/usr/local/bin/gdb-server
+	$(OHOS_SDK_HOME)/native/llvm/bin/llvm-strip build/usr/local/bin/gdbserver
 	cp -rfv build/usr/local/. ../sysroot | tee file.lst
 
 download/gdb-16.3.tar.xz:

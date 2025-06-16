@@ -74,6 +74,9 @@ base.hnp: $(STAMP) utils/pbcopy utils/pbpaste
 	make -C $(patsubst %/.stamp,%,$@)
 	touch $@
 
+rebuild-%:
+	make -C $(patsubst rebuild-%,%,$@)
+
 clean:
 	rm -f $(STAMP)
 	rm -rf sysroot
