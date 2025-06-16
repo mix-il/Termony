@@ -12,6 +12,7 @@ all: download/libarchive-3.8.1.tar.gz
 	-DENABLE_LIBB2=OFF \
 	-DENABLE_LZMA=OFF \
 	-DENABLE_EXPAT=OFF \
+	-DENABLE_LIBXML2=OFF \
 	-DOPENSSL_USE_STATIC_LIBS=OFF \
 	-DCMAKE_PREFIX_PATH=../../sysroot \
 	-DCMAKE_INCLUDE_PATH=../../sysroot/include \
