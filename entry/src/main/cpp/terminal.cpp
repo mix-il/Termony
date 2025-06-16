@@ -193,6 +193,8 @@ void terminal_context::DropFirstRowIfOverflow() {
         while (history.size() > MAX_HISTORY_LINES) {
             history.pop_front();
         }
+    } else if (row >= term_row) {
+        row = term_row - 1;
     }
 }
 
@@ -326,11 +328,11 @@ void terminal_context::HandleCSI(uint8_t current) {
             }
         } else if (current == 'C') {
             // CSI Ps C, CUF, move cursor right # columns
-            col += read_int_or_default(1);
+            col += std::max(read_int_or_default(1), 1);
             ClampCursor();
         } else if (current == 'D') {
             // CSI Ps D, CUB, move cursor left # columns
-            col -= read_int_or_default(1);
+            col -= std::max(read_int_or_default(1), 1);
             ClampCursor();
         } else if (current == 'E') {
             // CSI Ps E, CNL, move cursor to the beginning of next line, down # lines
@@ -525,6 +527,18 @@ void terminal_context::HandleCSI(uint8_t current) {
             } else {
                 goto unknown;
             }
+        } else if (current == 'h' && escape_buffer.size() > 0 && escape_buffer[0] != '?') {
+            // CSI Pm h, Set Mode, SM
+            std::vector<std::string> parts = SplitString(escape_buffer, ";");
+            for (auto part : parts) {
+                if (part == "4") {
+                    // CSI 4 h, Insert Mode (IRM)
+                    insert_mode = true;
+                } else {
+                    OH_LOG_WARN(LOG_APP, "Unknown CSI Pm h: %{public}s %{public}c",
+                                escape_buffer.c_str(), current);
+                }
+            }
         } else if (current == 'h' && escape_buffer.size() > 0 && escape_buffer[0] == '?') {
             // CSI ? Pm h, DEC Private Mode Set (DECSET)
             std::vector<std::string> parts = SplitString(escape_buffer.substr(1), ";");
@@ -571,6 +585,18 @@ void terminal_context::HandleCSI(uint8_t current) {
                     // TODO
                 } else {
                     OH_LOG_WARN(LOG_APP, "Unknown CSI ? Pm h: %{public}s %{public}c",
+                                escape_buffer.c_str(), current);
+                }
+            }
+        } else if (current == 'l' && escape_buffer.size() > 0 && escape_buffer[0] != '?') {
+            // CSI Pm l, Reset Mode, RM
+            std::vector<std::string> parts = SplitString(escape_buffer, ";");
+            for (auto part : parts) {
+                if (part == "4") {
+                    // CSI 4 l, Replace Mode (IRM)
+                    insert_mode = false;
+                } else {
+                    OH_LOG_WARN(LOG_APP, "Unknown CSI Pm h: %{public}s %{public}c",
                                 escape_buffer.c_str(), current);
                 }
             }
@@ -783,6 +809,7 @@ void terminal_context::HandleCSI(uint8_t current) {
             int new_top = 1;
             int new_bottom = term_row;
             if (parts.size() == 2) {
+                // CSI Ps ; Ps r
                 sscanf(parts[0].c_str(), "%d", &new_top);
                 sscanf(parts[1].c_str(), "%d", &new_bottom);
                 // convert to 1-based
@@ -790,7 +817,14 @@ void terminal_context::HandleCSI(uint8_t current) {
                 new_bottom --;
             } else if (escape_buffer == "") {
                 // full size of window
+                // CSI r
                 new_top = 0;
+                new_bottom = term_row - 1;
+            } else if (parts.size() == 1) {
+                // CSI Ps r
+                sscanf(parts[0].c_str(), "%d", &new_top);
+                // convert to 1-based
+                new_top --;
                 new_bottom = term_row - 1;
             } else {
                 goto unknown;
@@ -875,9 +909,9 @@ void terminal_context::Parse(uint8_t input) {
             ClampCursor();
             escape_state = state_idle;
         } else if (input == 'D' && escape_buffer == "") {
-            // ESC D, cursor left
-            col --;
-            ClampCursor();
+            // ESC D, IND, cursor down and scroll
+            row += 1;
+            DropFirstRowIfOverflow();
             escape_state = state_idle;
         } else if (input == 'E' && escape_buffer == "") {
             // ESC E, goto to the beginning of next row
@@ -1001,6 +1035,12 @@ void terminal_context::Parse(uint8_t input) {
         if (utf8_state == state_initial) {
             if (input >= ' ' && input <= 0x7f) {
                 // printable
+                if (insert_mode) {
+                    // move characters rightward
+                    for (int i = term_col - 1;i > col;i--) {
+                        terminal[row][i] = terminal[row][i - 1];
+                    }
+                }
                 InsertUtf8(input);
             } else if (input >= 0xc2 && input <= 0xdf) {
                 // 2-byte utf8

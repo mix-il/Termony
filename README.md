@@ -98,7 +98,7 @@ Terminal features:
 6. Run `./create-hnp.sh` to create hnp packages
 7. Run `./build-macos.sh`
 8. Run `./push.sh ./entry/build/default/outputs/default/entry-default-signed.hap`
-9. Input command in the text input of the application, press enter
+9. Try Termony on you HarmonyOS Computer
 
 ## Usage (if you are a Linux user):
 
@@ -107,9 +107,9 @@ Terminal features:
 3. Setup code signing in DevEco-Studio, ignore warnings if any
 4. Setup DevEco Command Line Tools, and make sure `$TOOL_HOME` env var is a correct directory to SDK
 5. Run `./build-linux.sh -b` to create hnp packages
-6. Run `./build-linux.sh -s` to signing
-7. Run `./build-linux.sh -p`
-8. Input command in the text input of the application, press enter
+6. Run `./build-linux.sh -s` to sign the hap file
+7. Run `./build-linux.sh -p` to push and install Termony on your device
+8. Try Termony on you HarmonyOS Computer
 
 ## How does it work
 

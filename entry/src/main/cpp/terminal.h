@@ -91,6 +91,8 @@ struct terminal_context {
     bool reverse_video = false;
     // DECOM, Origin Mode
     bool origin_mode = false;
+    // IRM, Insert Mode
+    bool insert_mode = false;
 
     // tab handling
     int tab_size = 8;
