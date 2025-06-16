@@ -24,6 +24,7 @@ all: download/libarchive-3.8.1.tar.gz
 	cd temp/libarchive-3.8.1/build-ohos && make -j $(shell nproc)
 	cd temp/libarchive-3.8.1/build-ohos && make install DESTDIR=$(shell pwd)/build
 	mkdir -p ../sysroot
+	rm -v build/usr/local/lib/libarchive.a
 	cp -rv build/usr/local/. ../sysroot/ | tee file.lst
 
 download/libarchive-3.8.1.tar.gz:
