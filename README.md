@@ -33,6 +33,7 @@ Bundled packages:
 - gmp
 - htop
 - kbd
+- libarchive
 - libevent
 - libidn2
 - libunistring
@@ -45,11 +46,13 @@ Bundled packages:
 - openssh
 - openssl
 - pcre2
+- proot
 - python
 - readline
 - sl
 - strace
 - stream
+- talloc
 - tar
 - tmux
 - tree
