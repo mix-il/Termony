@@ -99,7 +99,7 @@ struct Index {
             let plainText: string = record.plainText;
 
             let textEncoder = util.TextEncoder.create('utf-8');
-            let encodeResult = textEncoder.encode(plainText); 
+            let encodeResult = textEncoder.encodeInto(plainText);
 
             let base64 = new util.Base64Helper();
             let encoded = base64.encodeToStringSync(encodeResult);
@@ -135,7 +135,7 @@ struct Index {
             hilog.info(DOMAIN, 'testTag', 'Got pasteboard record: %{public}s', JSON.stringify(record));
             let plainText: string = record.plainText;
             let textEncoder = util.TextEncoder.create('utf-8');
-            let encodeResult = textEncoder.encode(plainText); 
+            let encodeResult = textEncoder.encodeInto(plainText);
             testNapi.send(encodeResult.buffer);
           }
         })
@@ -189,7 +189,7 @@ struct Index {
           testNapi.send(buffer);
         } else if (event.unicode !== 0) {
           let textEncoder = util.TextEncoder.create('utf-8');
-          let encodeResult = textEncoder.encode(String.fromCharCode(event.unicode as number)); 
+          let encodeResult = textEncoder.encodeInto(String.fromCharCode(event.unicode as number));
           testNapi.send(encodeResult.buffer);
         } else {
           if (event.keyText === "KEYCODE_CTRL_LEFT") {
