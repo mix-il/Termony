@@ -9,7 +9,8 @@ all: download/aria2-1.37.0.tar.gz
 	cd temp/aria2-1.37.0 && make -j $(shell nproc) && make install DESTDIR=$(shell pwd)/build
 	rm -v build/data/app/base.org/base_1.0/lib/*.la
 	mkdir -p ../sysroot
-	#$(OHOS_SDK_HOME)/native/llvm/bin/llvm-strip build/data/app/base.org/base_1.0/bin/*
+	$(OHOS_SDK_HOME)/native/llvm/bin/llvm-strip build/data/app/base.org/base_1.0/bin/*
+	$(OHOS_SDK_HOME)/native/llvm/bin/llvm-strip build/data/app/base.org/base_1.0/lib/*.so*
 	cp -rfv build/data/app/base.org/base_1.0/. ../sysroot | tee file.lst
 
 download/aria2-1.37.0.tar.gz:

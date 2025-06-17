@@ -18,8 +18,9 @@ all: download/Python-3.13.5.tar.xz
 	cd temp/Python-3.13.5/build && make -j $(shell nproc)
 	cd temp/Python-3.13.5/build && make install DESTDIR=$(shell pwd)/build
 	$(OHOS_SDK_HOME)/native/llvm/bin/llvm-strip build/usr/local/bin/python3.13
-	$(OHOS_SDK_HOME)/native/llvm/bin/llvm-strip build/usr/local/lib/*.so
+	$(OHOS_SDK_HOME)/native/llvm/bin/llvm-strip build/usr/local/lib/*.so*
 	$(OHOS_SDK_HOME)/native/llvm/bin/llvm-strip build/usr/local/lib/python3.13/config-3.13/libpython3.13.a
+	$(OHOS_SDK_HOME)/native/llvm/bin/llvm-strip build/usr/local/lib/python3.13/lib-dynload/*.so
 	mkdir -p ../sysroot
 	cp -rfv build/usr/local/. ../sysroot | tee file.lst
 
