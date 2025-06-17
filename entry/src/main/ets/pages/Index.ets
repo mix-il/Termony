@@ -64,7 +64,7 @@ struct Index {
       let res: string | undefined = testNapi.checkCopy();
       if (res !== undefined) {
         hilog.info(DOMAIN, 'testTag', 'Copy to pasteboard in ArkTS: %{public}s', res);
-        let base64 = new util.Base64();
+        let base64 = new util.Base64Helper();
         let data = base64.decodeSync(res);
         let textDecoder = util.TextDecoder.create('utf-8');
         let result = textDecoder.decode(data);
@@ -101,7 +101,7 @@ struct Index {
             let textEncoder = util.TextEncoder.create('utf-8');
             let encodeResult = textEncoder.encode(plainText); 
 
-            let base64 = new util.Base64();
+            let base64 = new util.Base64Helper();
             let encoded = base64.encodeToStringSync(encodeResult);
             testNapi.pushPaste(encoded);
           }
