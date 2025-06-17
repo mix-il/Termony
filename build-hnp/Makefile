@@ -82,7 +82,7 @@ base.hnp: $(STAMP) utils/pbcopy utils/pbpaste
 
 rebuild-%:
 	make -C $(patsubst rebuild-%,%,$@)
-	touch $@
+	touch $(patsubst rebuild-%,%/.stamp,$@)
 
 clean:
 	rm -f $(STAMP)
