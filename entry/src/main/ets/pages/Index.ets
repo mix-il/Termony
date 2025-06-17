@@ -67,7 +67,7 @@ struct Index {
         let base64 = new util.Base64Helper();
         let data = base64.decodeSync(res);
         let textDecoder = util.TextDecoder.create('utf-8');
-        let result = textDecoder.decode(data);
+        let result = textDecoder.decodeToString(data);
         hilog.info(DOMAIN, 'testTag', 'Copy to pasteboard in ArkTS decoded: %{public}s', result);
         let pasteData: pasteboard.PasteData = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, result);
         let systemPasteboard: pasteboard.SystemPasteboard = pasteboard.getSystemPasteboard();
