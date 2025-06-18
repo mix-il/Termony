@@ -83,7 +83,7 @@ index b7f8d46..c18abb2 100644
  #include <stdbool.h>
  
 +#ifdef __OHOS__
-+#include <queue.h>  /* CIRCLEQ_*,  */ // not present in ohos header
++#include "queue.h"  /* CIRCLEQ_*,  */ // not present in ohos header
 +#endif
 +
  #include "tracee/tracee.h"
