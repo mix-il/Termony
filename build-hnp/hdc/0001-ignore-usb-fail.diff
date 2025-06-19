@@ -1,0 +1,39 @@
+diff --git a/src/host/server.cpp b/src/host/server.cpp
+index dcae3a6..93ec51f 100644
+--- a/src/host/server.cpp
++++ b/src/host/server.cpp
+@@ -91,20 +91,20 @@ bool HdcServer::Initial(const char *listenString)
+         WRITE_LOG(LOG_FATAL, "clsServerForClient Initial failed");
+         return false;
+     }
+-    clsUSBClt->InitLogging(ctxUSB);
++    //clsUSBClt->InitLogging(ctxUSB);
+     clsTCPClt = new HdcHostTCP(true, this);
+-    clsUSBClt = new HdcHostUSB(true, this, ctxUSB);
++    /*clsUSBClt = new HdcHostUSB(true, this, ctxUSB);
+     if (clsUSBClt->Initial() != RET_SUCCESS) {
+         WRITE_LOG(LOG_FATAL, "clsUSBClt Initial failed");
+         return false;
+-    }
+-    if (!clsServerForClient || !clsTCPClt || !clsUSBClt) {
++    }*/
++    if (!clsServerForClient /*|| !clsTCPClt || !clsUSBClt*/) {
+         WRITE_LOG(LOG_FATAL, "Class init failed");
+         return false;
+     }
+ 
+ #ifdef HDC_SUPPORT_UART
+-    clsUARTClt = new HdcHostUART(*this);
++    /*clsUARTClt = new HdcHostUART(*this);
+     if (!clsUARTClt) {
+         WRITE_LOG(LOG_FATAL, "Class init failed");
+         return false;
+@@ -112,7 +112,7 @@ bool HdcServer::Initial(const char *listenString)
+     if (clsUARTClt->Initial() != RET_SUCCESS) {
+         WRITE_LOG(LOG_FATAL, "clsUARTClt Class init failed.");
+         return false;
+-    }
++    }*/
+ #endif
+     return true;
+ }
