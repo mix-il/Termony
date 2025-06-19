@@ -43,7 +43,9 @@ PKGS=bash \
 	aria2 \
 	xz \
 	gdb \
-	python
+	python \
+	libusb \
+	hdc
 STAMP=$(patsubst %,%/.stamp,$(PKGS))
 
 all: copy
