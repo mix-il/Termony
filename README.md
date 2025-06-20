@@ -116,6 +116,18 @@ Terminal features:
 7. Run `./build-linux.sh -p` to push and install Termony on your device
 8. Try Termony on you HarmonyOS Computer
 
+## Usage (if you are a Windows user):
+
+1. Connect your MateBook Pro to a Windows machine, and do the following steps
+2. Install WSL (Ubuntu recomended), and build hap with following steps, like Linux
+3. Clone this repo recursively, and cd into this repo
+4. Setup code signing in DevEco-Studio, ignore warnings if any
+5. Setup DevEco Command Line Tools in WSL, and make sure `$TOOL_HOME` env var is a correct directory to SDK
+6. In WSL, run `./build-linux.sh -b` to create hnp packages
+7. In WSL, run `./build-linux.sh -s` to sign the hap file
+8. In Windows terminal, use `hdc` on Windows to send and install hap file, like `hdc_push` in `build-linux.sh`
+9. Try Termony on you HarmonyOS Computer
+
 ## How does it work
 
 By examining CodeArts IDE, we found that it utilizes HNP packages for native programs. You need to package `.hnp` files into the `.hap`, and add them to `module.json5` like:
