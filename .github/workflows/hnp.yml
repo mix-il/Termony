@@ -1,4 +1,4 @@
-name: hnp-build
+name: Build HNP
 
 on:
   push:
