@@ -8,8 +8,8 @@ all: download/hdc.zip download/securec.zip CMakeLists.txt
 	cp CMakeLists.txt temp
 	#cd temp/hdc && git init . && git add --all && git commit -m "init" # help to update 0001-ignore-usb-fail.diff with git diff
 	cd temp/hdc && cat ../../0001-ignore-usb-fail.diff | patch -Np1
-	cd build && cmake ../temp -DCMAKE_TOOLCHAIN_FILE=${TOOL_HOME}/sdk/default/openharmony/native/build/cmake/ohos.toolchain.cmake -DOHOS_ARCH=arm64-v8a
-	cd build && make -j$(nproc)
+	cd build && cmake ../temp -DCMAKE_TOOLCHAIN_FILE=$(TOOL_HOME)/sdk/default/openharmony/native/build/cmake/ohos.toolchain.cmake -DOHOS_ARCH=arm64-v8a
+	cd build && make -j $(shell nproc)
 	mkdir -p ../sysroot/bin
 	cp build/hdc ../sysroot/bin/
 
