@@ -31,6 +31,7 @@ Bundled packages:
 - gdb
 - git
 - gmp
+- hdc
 - htop
 - kbd
 - libarchive
