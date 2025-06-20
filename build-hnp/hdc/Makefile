@@ -1,6 +1,6 @@
 include ../utils/Makefrag
 
-all: download/hdc.zip download/securec.zip download/libusb.zip CMakeLists.txt
+all: download/hdc.zip download/securec.zip CMakeLists.txt
 	rm -rf temp build
 	mkdir -p temp build
 	cd temp && unzip ../download/hdc.zip && mv developtools_hdc-OpenHarmony-v5.0.1-Release hdc
