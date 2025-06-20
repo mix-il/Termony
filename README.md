@@ -97,7 +97,7 @@ Terminal features:
 1. Connect your MateBook Pro to Mac, and do the following steps on Mac
 2. Clone this repo recursively, and cd into this repo
 3. Setup code signing in DevEco-Studio, ignore warnings if any
-4. Install `wget`, `coreutils`, `make`, `gsed`, `gettext` and `ncurses` from Homebrew or Nix
+4. Install `wget`, `coreutils`, `make`, `gsed`, `gettext`, `automake`, `cmake` and `ncurses` from Homebrew or Nix
 5. (M-series User) `export PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:/opt/homebrew/opt/gnu-sed/libexec/gnubin:/opt/homebrew/opt/make/libexec/gnubin:$PATH"`
 6. Run `./create-hnp.sh` to create hnp packages
 7. Run `./build-macos.sh`
