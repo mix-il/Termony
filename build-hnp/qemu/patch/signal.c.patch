@@ -1,0 +1,18 @@
+--- a/linux-user/signal.c	2025-05-29 06:05:46.000000000 +0800
++++ b/linux-user/signal.c	2025-06-23 00:46:33.438846576 +0800
+@@ -217,7 +217,6 @@
+ 
+         switch (how) {
+         case SIG_BLOCK:
+-            sigorset(&ts->signal_mask, &ts->signal_mask, set);
+             break;
+         case SIG_UNBLOCK:
+             for (i = 1; i <= NSIG; ++i) {
+@@ -1324,7 +1323,6 @@
+         /* block signals in the handler */
+         blocked_set = ts->in_sigsuspend ?
+             &ts->sigsuspend_mask : &ts->signal_mask;
+-        sigorset(&ts->signal_mask, blocked_set, &set);
+         ts->in_sigsuspend = 0;
+ 
+         /* if the CPU is in VM86 mode, we restore the 32 bit values */

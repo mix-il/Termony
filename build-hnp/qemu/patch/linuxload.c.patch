@@ -1,0 +1,12 @@
+--- a/linux-user/linuxload.c	2025-05-29 06:05:46.000000000 +0800
++++ b/linux-user/linuxload.c	2025-06-23 00:46:33.454846576 +0800
+@@ -47,9 +47,6 @@
+     if (!S_ISREG(mode)) {   /* Must be regular file */
+         return -EACCES;
+     }
+-    if (!(mode & 0111)) {   /* Must have at least one execute bit set */
+-        return -EACCES;
+-    }
+ 
+     bprm->e_uid = geteuid();
+     bprm->e_gid = getegid();
