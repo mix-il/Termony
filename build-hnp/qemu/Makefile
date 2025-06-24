@@ -5,6 +5,7 @@ all: download/qemu-5.0
 	mkdir -p temp build/bin
 	cd temp && cp -vr ../download/qemu-5.0 qemu-5.0
 	cd temp/qemu-5.0 && git apply ../../0001_qemu_5_0.patch
+	cd temp/qemu-5.0 && git apply ../../0002_qemu_5_0.patch
 	cd temp/qemu-5.0 && \
 	PKG_CONFIG=$(shell which pkg-config) \
 	PKG_CONFIG_PATH= \
