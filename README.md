@@ -24,7 +24,6 @@ Bundled packages:
 - coremark
 - curl
 - [elf-loader](https://github.com/MikhailProg/elf) (you can run executable without executable permission! e.g. `cp /data/app/bin/bash ~/ && loader ~/bash`)
-- qemu-aarch64
 - expat
 - fastfetch
 - fish
