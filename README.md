@@ -37,6 +37,7 @@ Bundled packages:
 - kbd
 - libarchive
 - libevent
+- libglib
 - libidn2
 - libunistring
 - lz4
@@ -50,6 +51,7 @@ Bundled packages:
 - pcre2
 - proot
 - python
+- qemu (you can run executable without executable permission! e.g. `cp /data/app/bin/bash ~/ && qemu-aarch64 ~/bash`)
 - readline
 - sl
 - strace
