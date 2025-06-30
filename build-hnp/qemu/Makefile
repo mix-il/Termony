@@ -17,9 +17,10 @@ all: download/qemu-5.0
 	cd temp/qemu-5.0 && make -j $(shell nproc)
 	cp temp/qemu-5.0/aarch64-linux-user/qemu-aarch64 ./build/bin/
 	cp temp/qemu-5.0/x86_64-linux-user/qemu-x86_64 ./build/bin/
+	$(OHOS_SDK_HOME)/native/llvm/bin/llvm-strip ./build/bin/*
 	mkdir -p ../sysroot
 	cp -rv ./build/. ../sysroot | tee file.lst
 
 download/qemu-5.0:
 	mkdir -p download
-	cd download && git clone -b stable-5.0 --recursive --depth=1 https://github.com/qemu/qemu qemu-5.0
+	cd download && git clone -b stable-5.0 --depth=1 https://github.com/qemu/qemu qemu-5.0
