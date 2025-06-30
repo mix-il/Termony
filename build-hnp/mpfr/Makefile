@@ -5,11 +5,11 @@ all: download/mpfr-4.2.2.tar.xz
 	mkdir -p temp build
 	cd temp && tar xvf ../download/mpfr-4.2.2.tar.xz
 	cd temp/mpfr-4.2.2 && mkdir build
-	cd temp/mpfr-4.2.2/build && ../configure --disable-static --enable-shared --host aarch64-unknown-linux-musl
+	cd temp/mpfr-4.2.2/build && ../configure --prefix=/data/app/base.org/base_1.0 --disable-static --enable-shared --host aarch64-unknown-linux-musl
 	cd temp/mpfr-4.2.2/build && make -j $(shell nproc) && make install DESTDIR=$(shell pwd)/build
 	mkdir -p ../sysroot
-	rm -v build/usr/local/lib/*.la
-	cp -rfv build/usr/local/. ../sysroot | tee file.lst
+	rm -v build/data/app/base.org/base_1.0/lib/*.la
+	cp -rfv build/data/app/base.org/base_1.0/. ../sysroot | tee file.lst
 
 download/mpfr-4.2.2.tar.xz:
 	mkdir -p download

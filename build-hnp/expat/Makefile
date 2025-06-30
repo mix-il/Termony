@@ -5,12 +5,12 @@ all: download/expat-2.7.1.tar.xz
 	mkdir -p temp build
 	cd temp && tar xvf ../download/expat-2.7.1.tar.xz
 	cd temp/expat-2.7.1 && mkdir build
-	cd temp/expat-2.7.1/build && ../configure --disable-static --enable-shared --without-zstd --host aarch64-unknown-linux-musl
+	cd temp/expat-2.7.1/build && ../configure --prefix=/data/app/base.org/base_1.0 --disable-static --enable-shared --without-zstd --host aarch64-unknown-linux-musl
 	cd temp/expat-2.7.1/build && make -j $(shell nproc)
 	cd temp/expat-2.7.1/build && make install DESTDIR=$(shell pwd)/build
 	mkdir -p ../sysroot
-	rm -v build/usr/local/lib/*.la
-	cp -rfv build/usr/local/. ../sysroot | tee file.lst
+	rm -v build/data/app/base.org/base_1.0/lib/*.la
+	cp -rfv build/data/app/base.org/base_1.0/. ../sysroot | tee file.lst
 
 download/expat-2.7.1.tar.xz:
 	mkdir -p download
