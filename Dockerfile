@@ -4,7 +4,7 @@ FROM ubuntu:24.04
 RUN apt-get update && \
     apt install -y build-essential cmake curl wget unzip python3 libncurses-dev \
 		git flex bison bash make autoconf libcurl4-openssl-dev tcl \
-		gettext zip pigz
+		gettext zip pigz meson
 
 ENV OHOS_SDK_RELEASE_VERSION=5.1.0
 
