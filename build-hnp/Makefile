@@ -46,6 +46,7 @@ PKGS=bash \
 	python \
 	libusb \
 	hdc \
+	zlib \
 	libglib \
 	qemu
 STAMP=$(patsubst %,%/.stamp,$(PKGS))
