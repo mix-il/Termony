@@ -37,5 +37,5 @@ all: download/$(SOURCE_FILE)
 
 download/$(SOURCE_FILE):
 	mkdir -p download
-	cd download && wget $(SOURCE_URL)
+	cd download && wget --retry-connrefused --read-timeout=20 --timeout=15 $(SOURCE_URL)
 endef
