@@ -1,13 +1,8 @@
-all: download/readline-8.2.tar.gz
-	rm -rf temp build
-	mkdir -p temp build/bin
-	cd temp && tar xvf ../download/readline-8.2.tar.gz
-	cd temp/readline-8.2 && PKG_CONFIG=/usr/bin/false ./configure --prefix=/data/app/base.org/base_1.0 --host aarch64-unknown-linux-musl CC=$(OHOS_SDK_HOME)/native/llvm/bin/aarch64-unknown-linux-ohos-clang AR=$(OHOS_SDK_HOME)/native/llvm/bin/llvm-ar RANLIB=$(OHOS_SDK_HOME)/native/llvm/bin/llvm-ranlib STRIP=$(OHOS_SDK_HOME)/native/llvm/bin/llvm-strip CPPFLAGS="-I$(shell pwd)/../sysroot/include -D_FORTIFY_SOURCE=2" LDFLAGS="-L$(shell pwd)/../sysroot/lib"
-	cd temp/readline-8.2 && make -j $(shell nproc) && make install DESTDIR=$(shell pwd)/build
-	mkdir -p ../sysroot
-	rm -f ./build/data/app/base.org/base_1.0/lib/*.a
-	cp -rfv build/data/app/base.org/base_1.0/. ../sysroot | tee file.lst
+include ../utils/Makefrag
 
-download/readline-8.2.tar.gz:
-	mkdir -p download
-	cd download && wget https://mirrors.tuna.tsinghua.edu.cn/gnu/readline/readline-8.2.tar.gz
+SOURCE_URL = https://ftpmirror.gnu.org/gnu/readline/readline-8.2.tar.gz
+SOURCE_FILE = readline-8.2.tar.gz
+SOURCE_DIR = readline-8.2
+CONFIG_ARGS = --prefix=$(PREFIX) --disable-static --enable-shared --host aarch64-unknown-linux-musl
+
+$(eval $(call define_autotools_package))
