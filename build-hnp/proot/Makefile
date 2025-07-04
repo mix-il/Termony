@@ -3,6 +3,7 @@ include ../utils/Makefrag
 all: download/proot
 	rm -rf temp build
 	mkdir -p temp build/bin
+	cp queue.h ../sysroot/include
 	cd temp && cp -r ../download/proot proot
 	mkdir -p temp/proot/build
 	cd temp/proot/build && \
@@ -31,7 +32,6 @@ all: download/proot
 
 download/proot:
 	mkdir -p download
-	cp queue.h ../sysroot/include
 	cd download && \
 	rm -rf proot && git clone https://github.com/termux/proot.git --recursive && \
 	cd proot && git checkout 60485d2646c1e09105099772da4a20deda8d020d && \
