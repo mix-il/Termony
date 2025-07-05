@@ -3,7 +3,7 @@ include ../utils/Makefrag
 all: download/qemu-5.0
 	rm -rf temp build
 	mkdir -p temp build/bin
-	cd temp && cp -vr ../download/qemu-5.0 qemu-5.0
+	cd download/qemu-5.0 && git worktree add $(shell pwd)/temp/qemu-5.0 HEAD
 	cd temp/qemu-5.0 && git apply ../../0001_port_to_ohos.patch
 	cd temp/qemu-5.0 && git apply ../../0002_fix_madvise.patch
 	cd temp/qemu-5.0 && git apply ../../0003_support_x86_64.patch
