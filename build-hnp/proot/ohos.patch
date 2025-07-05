@@ -36,6 +36,22 @@ index bbc6400..832b54c 100644
  #include "build.h"
  
  /**
+diff --git a/src/execve/enter.c b/src/execve/enter.c
+index c562d14..814fc96 100644
+--- a/src/execve/enter.c
++++ b/src/execve/enter.c
+@@ -144,9 +144,11 @@ int translate_and_check_exec(Tracee *tracee, char host_path[PATH_MAX], const cha
+ 	if (status < 0)
+ 		return -ENOENT;
+ 
++#ifndef __OHOS__
+ 	status = access(host_path, X_OK);
+ 	if (status < 0)
+ 		return -EACCES;
++#endif
+ 
+ 	status = lstat(host_path, &statl);
+ 	if (status < 0)
 diff --git a/src/extension/sysvipc/sysvipc_msg.c b/src/extension/sysvipc/sysvipc_msg.c
 index 1fc290a..fd913b4 100644
 --- a/src/extension/sysvipc/sysvipc_msg.c
@@ -75,7 +91,7 @@ index c0e2f84..57a9c30 100644
  
  #include "path/binding.h"
 diff --git a/src/path/binding.h b/src/path/binding.h
-index b7f8d46..c18abb2 100644
+index b7f8d46..99c6e7e 100644
 --- a/src/path/binding.h
 +++ b/src/path/binding.h
 @@ -26,6 +26,10 @@
@@ -88,6 +104,23 @@ index b7f8d46..c18abb2 100644
 +
  #include "tracee/tracee.h"
  #include "path.h"
+ 
+diff --git a/src/path/path.c b/src/path/path.c
+index d5c9ec6..04e4a3f 100644
+--- a/src/path/path.c
++++ b/src/path/path.c
+@@ -137,10 +137,12 @@ int which(Tracee *tracee, const char *paths, char host_path[PATH_MAX], const cha
+ 			return -EACCES;
+ 		}
+ 
++#ifndef __OHOS__
+ 		if (is_explicit && (statr.st_mode & S_IXUSR) == 0) {
+ 			note(tracee, ERROR, USER, "'%s' is not executable", command);
+ 			return -EACCES;
+ 		}
++#endif
+ 
+ 		found = true;
  
 diff --git a/src/path/temp.c b/src/path/temp.c
 index 8d8aa63..e726ec2 100644
@@ -102,6 +135,23 @@ index 8d8aa63..e726ec2 100644
  	cwd = malloc(PATH_MAX);
  	getcwd(cwd, PATH_MAX);
  #else
+diff --git a/src/tracee/event.c b/src/tracee/event.c
+index 756aa7e..158badd 100644
+--- a/src/tracee/event.c
++++ b/src/tracee/event.c
+@@ -80,10 +80,12 @@ int launch_process(Tracee *tracee, char *const argv[])
+ 		/* Declare myself as ptraceable before executing the
+ 		 * requested program. */
+ 		status = ptrace(PTRACE_TRACEME, 0, NULL, NULL);
++#ifndef __OHOS__
+ 		if (status < 0) {
+ 			note(tracee, ERROR, SYSTEM, "ptrace(TRACEME)");
+ 			return -errno;
+ 		}
++#endif
+ 
+ 		/* Synchronize with the tracer's event loop.  Without
+ 		 * this trick the tracer only sees the "return" from
 diff --git a/src/tracee/statx.h b/src/tracee/statx.h
 index d06dfae..f7dd286 100644
 --- a/src/tracee/statx.h
