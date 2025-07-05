@@ -47,6 +47,7 @@ PKGS=bash \
 	libusb \
 	hdc \
 	zlib \
+	gettext \
 	libglib \
 	qemu \
 	qemu-vroot

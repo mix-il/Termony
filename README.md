@@ -29,6 +29,7 @@ Bundled packages:
 - fish
 - gcc
 - gdb
+- gettext
 - git
 - gmp
 - hdc
