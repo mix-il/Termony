@@ -8,6 +8,7 @@ all: download/qemu-5.0
 	cd temp/qemu-5.0 && git apply ../../0002_fix_madvise.patch
 	cd temp/qemu-5.0 && git apply ../../0003_support_x86_64.patch
 	cd temp/qemu-5.0 && git apply ../../0004_disable_mmap_PROT_EXEC.patch
+	cd temp/qemu-5.0 && git apply ../../0005_simulate_proot_execve.patch
 	cd temp/qemu-5.0 && \
 	PKG_CONFIG=$(shell which pkg-config) \
 	PKG_CONFIG_PATH= \
