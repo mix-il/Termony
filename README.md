@@ -51,6 +51,7 @@ Bundled packages:
 - proot
 - python
 - qemu (you can run executable without executable permission! e.g. `cp /data/app/bin/bash ~/ && qemu-aarch64 ~/bash`)
+- qemu-vroot (qemu patched to mimic proot behavior)
 - readline
 - sl
 - strace

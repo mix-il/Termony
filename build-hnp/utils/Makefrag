@@ -19,13 +19,13 @@ export CXXFLAGS := -I$(shell pwd)/../sysroot/include -O2
 export LDFLAGS := -L$(shell pwd)/../sysroot/lib
 export PREFIX := /data/app/base.org/base_1.0
 
-define define_autotools_package
+define define_package_common
 all: download/$(SOURCE_FILE)
 	rm -rf temp build
 	mkdir -p temp build
 	cd temp && tar xvf ../download/$(SOURCE_FILE)
-	cd temp/$(SOURCE_DIR) && mkdir build
-	cd temp/$(SOURCE_DIR)/build && ../configure $(CONFIG_ARGS)
+	mkdir -p temp/$(SOURCE_DIR)/build
+	make configure
 	cd temp/$(SOURCE_DIR)/build && make -j $(shell nproc)
 	cd temp/$(SOURCE_DIR)/build && make install DESTDIR=$(shell pwd)/build
 	mkdir -p ../sysroot
@@ -38,4 +38,18 @@ all: download/$(SOURCE_FILE)
 download/$(SOURCE_FILE):
 	mkdir -p download
 	cd download && wget --retry-connrefused --read-timeout=20 --timeout=15 $(SOURCE_URL)
+endef
+
+define define_autotools_package
+$(eval $(call define_package_common))
+
+configure:
+	cd temp/$(SOURCE_DIR)/build && ../configure $(CONFIG_ARGS)
+endef
+
+define define_cmake_package
+$(eval $(call define_package_common))
+
+configure:
+	cd temp/$(SOURCE_DIR)/build && cmake .. $(CMAKE_ARGS)
 endef
