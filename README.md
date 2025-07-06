@@ -31,6 +31,7 @@ Bundled packages:
 - gdb
 - gettext
 - git
+- glib
 - gmp
 - hdc
 - htop
@@ -38,7 +39,6 @@ Bundled packages:
 - libarchive
 - libevent
 - libffi
-- libglib
 - libidn2
 - libunistring
 - lz4

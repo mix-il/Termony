@@ -49,7 +49,7 @@ PKGS=bash \
 	hdc \
 	gettext \
 	libffi \
-	libglib \
+	glib \
 	qemu \
 	qemu-vroot
 STAMP=$(patsubst %,%/.stamp,$(PKGS))
