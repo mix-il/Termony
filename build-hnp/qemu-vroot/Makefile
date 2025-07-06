@@ -4,11 +4,12 @@ all: download/qemu-5.0
 	rm -rf temp build
 	mkdir -p temp build/bin
 	cd download/qemu-5.0 && git worktree add -f $(shell pwd)/temp/qemu-5.0 HEAD
-	cd temp/qemu-5.0 && git apply ../../0001_port_to_ohos.patch
-	cd temp/qemu-5.0 && git apply ../../0002_fix_madvise.patch
-	cd temp/qemu-5.0 && git apply ../../0003_support_x86_64.patch
-	cd temp/qemu-5.0 && git apply ../../0004_disable_mmap_PROT_EXEC.patch
-	cd temp/qemu-5.0 && git apply ../../0005_simulate_proot_execve.patch
+	cd temp/qemu-5.0 && git apply ../../0001-Initial-porting-to-OHOS.patch
+	cd temp/qemu-5.0 && git apply ../../0002-Handle-target-madvise.patch
+	cd temp/qemu-5.0 && git apply ../../0003-Drop-missing-syscall-for-x86_64-on-OHOS.patch
+	cd temp/qemu-5.0 && git apply ../../0004-Drop-PROT_EXEC-for-mmap-on-OHOS.patch
+	cd temp/qemu-5.0 && git apply ../../0005-Simulate-proot-for-execve-syscall-on-OHOS.patch
+	cd temp/qemu-5.0 && git apply ../../0006-Disable-setuid-setgid-on-OHOS.patch
 	cd temp/qemu-5.0 && \
 	PKG_CONFIG=$(shell which pkg-config) \
 	PKG_CONFIG_PATH= \
