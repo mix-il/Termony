@@ -9,6 +9,7 @@ PKGS=bash \
 	openssl \
 	zstd \
 	pcre2 \
+	zlib \
 	libarchive \
 	proot \
 	strace \
@@ -46,7 +47,6 @@ PKGS=bash \
 	python \
 	libusb \
 	hdc \
-	zlib \
 	gettext \
 	libffi \
 	libglib \
