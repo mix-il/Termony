@@ -1,7 +1,7 @@
 From acc9ae6bf271caee6b0f92f4fbe1d0838aa3e11f Mon Sep 17 00:00:00 2001
 From: hackeris <hackeris@qq.com>
 Date: Sun, 6 Jul 2025 01:39:48 +0800
-Subject: [PATCH 2/6] Handle target madvise
+Subject: [PATCH 2/7] Handle target madvise
 
 ---
  accel/tcg/translate-all.c |  8 +++++--

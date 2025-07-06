@@ -1,7 +1,7 @@
 From bdc5ec193a7366d5ba3a1afeb7fe5a9c847bf117 Mon Sep 17 00:00:00 2001
 From: hackeris <hackeris@qq.com>
 Date: Sun, 6 Jul 2025 01:40:32 +0800
-Subject: [PATCH 4/6] Drop PROT_EXEC for mmap on OHOS
+Subject: [PATCH 4/7] Drop PROT_EXEC for mmap on OHOS
 
 ---
  linux-user/syscall.c | 5 ++++-

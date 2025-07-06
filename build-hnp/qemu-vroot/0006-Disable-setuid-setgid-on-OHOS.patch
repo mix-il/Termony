@@ -1,7 +1,7 @@
 From 2220086be06de6da0089059dce2e8f2bfe2747ea Mon Sep 17 00:00:00 2001
 From: Jiajie Chen <c@jia.je>
 Date: Sun, 6 Jul 2025 09:24:03 +0800
-Subject: [PATCH 6/6] Disable setuid/setgid on OHOS
+Subject: [PATCH 6/7] Disable setuid/setgid on OHOS
 
 ---
  linux-user/syscall.c | 8 ++++++--

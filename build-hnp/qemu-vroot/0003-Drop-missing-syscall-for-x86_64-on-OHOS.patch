@@ -1,7 +1,7 @@
 From b82c99bb20cd05d894ff211cea8d057d85bd8672 Mon Sep 17 00:00:00 2001
 From: hackeris <hackeris@qq.com>
 Date: Sun, 6 Jul 2025 01:40:06 +0800
-Subject: [PATCH 3/6] Drop missing syscall for x86_64 on OHOS
+Subject: [PATCH 3/7] Drop missing syscall for x86_64 on OHOS
 
 ---
  linux-user/x86_64/syscall_64.tbl | 7 -------

@@ -1,7 +1,7 @@
 From bb4ec5afac1b27b534bf0bf2010bc4cbdeda461f Mon Sep 17 00:00:00 2001
 From: hackeris <hackeris@qq.com>
 Date: Sun, 6 Jul 2025 01:36:32 +0800
-Subject: [PATCH 1/6] Initial porting to OHOS
+Subject: [PATCH 1/7] Initial porting to OHOS
 
 ---
  accel/tcg/translate-all.c         |  3 ++-

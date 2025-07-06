@@ -10,6 +10,7 @@ all: download/qemu-5.0
 	cd temp/qemu-5.0 && git apply ../../0004-Drop-PROT_EXEC-for-mmap-on-OHOS.patch
 	cd temp/qemu-5.0 && git apply ../../0005-Simulate-proot-for-execve-syscall-on-OHOS.patch
 	cd temp/qemu-5.0 && git apply ../../0006-Disable-setuid-setgid-on-OHOS.patch
+	cd temp/qemu-5.0 && git apply ../../0007-Find-qemu-abs-path-from-proc-self-exe-instead.patch
 	cd temp/qemu-5.0 && \
 	PKG_CONFIG=$(shell which pkg-config) \
 	PKG_CONFIG_PATH= \
