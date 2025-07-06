@@ -37,6 +37,7 @@ Bundled packages:
 - kbd
 - libarchive
 - libevent
+- libffi
 - libglib
 - libidn2
 - libunistring
