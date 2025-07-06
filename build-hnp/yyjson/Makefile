@@ -1,13 +1,8 @@
-all: download/0.11.1.tar.gz
-	rm -rf temp build
-	mkdir -p temp build
-	cd temp && tar xvf ../download/0.11.1.tar.gz
-	cd temp/yyjson-0.11.1 && mkdir build
-	cd temp/yyjson-0.11.1/build && PKG_CONFIG=/usr/bin/false cmake ../ -DCMAKE_INSTALL_PREFIX=/data/app/base.org/base_1.0 -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DBUILD_SHARED_LIBS=ON -DCMAKE_C_COMPILER=$(OHOS_SDK_HOME)/native/llvm/bin/aarch64-unknown-linux-ohos-clang -DCMAKE_BUILD_TYPE=RelWithDebInfo 
-	cd temp/yyjson-0.11.1/build && make -j $(shell nproc) && make install DESTDIR=$(shell pwd)/build
-	mkdir -p ../sysroot
-	cp -rfv build/data/app/base.org/base_1.0/. ../sysroot | tee file.lst
+include ../utils/Makefrag
 
-download/0.11.1.tar.gz:
-	mkdir -p download
-	cd download && wget https://github.com/ibireme/yyjson/archive/refs/tags/0.11.1.tar.gz
+SOURCE_URL = https://github.com/ibireme/yyjson/archive/refs/tags/0.11.1.tar.gz
+SOURCE_FILE = 0.11.1.tar.gz
+SOURCE_DIR = yyjson-0.11.1
+CMAKE_ARGS = -DCMAKE_INSTALL_PREFIX=$(PREFIX) -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+$(eval $(call define_cmake_package))
