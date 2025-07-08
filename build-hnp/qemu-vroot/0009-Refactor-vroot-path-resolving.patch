@@ -1,0 +1,220 @@
+From c715af544b507586f2b7150834283050133bf24e Mon Sep 17 00:00:00 2001
+From: hackeris <hackeris@qq.com>
+Date: Tue, 8 Jul 2025 01:11:15 +0800
+Subject: [PATCH 09/10] Refactor vroot path resolving
+
+---
+ .gitignore           |  2 ++
+ include/qemu/path.h  |  2 +-
+ linux-user/execve.c  | 23 ++++++++++++++++++++---
+ linux-user/execve.h  |  5 ++++-
+ linux-user/syscall.c | 20 +++++++++-----------
+ util/path.c          | 31 +++++++++++++++++++------------
+ 6 files changed, 55 insertions(+), 28 deletions(-)
+
+diff --git a/.gitignore b/.gitignore
+index 0c5af83..b4469d8 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -161,3 +161,5 @@ trace-dtrace-root.dtrace
+ trace-ust-all.h
+ trace-ust-all.c
+ /target/arm/decode-sve.inc.c
++
++build
+\ No newline at end of file
+diff --git a/include/qemu/path.h b/include/qemu/path.h
+index 00a6f39..370465f 100644
+--- a/include/qemu/path.h
++++ b/include/qemu/path.h
+@@ -3,6 +3,6 @@
+ 
+ void init_paths(const char *prefix);
+ const char *path(const char *pathname);
+-char* resolve_path(const char* path_env, const char* name, char* out);
++char* resolve_with_path_env(const char* path_env, const char* name, char* out);
+ 
+ #endif
+diff --git a/linux-user/execve.c b/linux-user/execve.c
+index 349267b..d28614d 100644
+--- a/linux-user/execve.c
++++ b/linux-user/execve.c
+@@ -6,9 +6,10 @@
+ #include <unistd.h>
+ #include <linux/limits.h>
+ 
+-char qemu_abs_path[PATH_MAX];
++static char qemu_abs_path[PATH_MAX];
+ 
+-const char **argv_prefix;
++static const char **argv_prefix;
++static int n_argv_prefix;
+ 
+ void setup_for_execve(const char **argv, int optind) {
+     ssize_t ret = readlink("/proc/self/exe", qemu_abs_path, PATH_MAX - 1);
+@@ -21,12 +22,28 @@ void setup_for_execve(const char **argv, int optind) {
+         argv_prefix[i] = argv[i];
+     }
+     argv_prefix[optind] = NULL;
++    n_argv_prefix = optind;
+ }
+ 
+ const char *get_qemu_abs_path(void) {
+     return qemu_abs_path;
+ }
+ 
+-const char **get_qemu_argv_prefix(void) {
++const char **get_qemu_argv_prefix(int *pn_argv_prefix) {
++    if (pn_argv_prefix != NULL) {
++        *pn_argv_prefix = n_argv_prefix;
++    }
+     return argv_prefix;
+ }
++
++const char *find_path_env_value(const char **envp) {
++    const char **pathenv = envp;
++    while (*pathenv != NULL && strstr(*pathenv, "PATH=") != *pathenv) {
++        pathenv += 1;
++    }
++    if (*pathenv != NULL) {
++        return *pathenv + 5;
++    } else {
++        return NULL;
++    }
++}
+diff --git a/linux-user/execve.h b/linux-user/execve.h
+index 83f35b1..a9c1169 100644
+--- a/linux-user/execve.h
++++ b/linux-user/execve.h
+@@ -4,6 +4,9 @@
+ void setup_for_execve(const char** argv, int optind);
+ 
+ const char* get_qemu_abs_path(void);
+-const char** get_qemu_argv_prefix();
++const char** get_qemu_argv_prefix(int* n_prefix);
++
++//  find value of PATH env variable in envp
++const char *find_path_env_value(const char **envp);
+ 
+ #endif
+diff --git a/linux-user/syscall.c b/linux-user/syscall.c
+index f52e9cd..85c85fa 100644
+--- a/linux-user/syscall.c
++++ b/linux-user/syscall.c
+@@ -6097,29 +6097,27 @@ static int do_execve(char *p, const char **argp, const char **envp) {
+     while (argp[argc] != NULL) { argc++; }
+ 
+     const char* qemu = get_qemu_abs_path();
+-    const char** argv_prefix = get_qemu_argv_prefix();
+ 
+     int n_prefix = 0;
+-    while (argv_prefix[n_prefix] != NULL) { n_prefix += 1; }
++    const char** argv_prefix = get_qemu_argv_prefix(&n_prefix);
+ 
+     const char **new_argv = g_new0(char *, n_prefix + argc + 1);
+     memcpy(new_argv, argv_prefix, n_prefix * sizeof(char*));
+     memcpy(&new_argv[n_prefix], argp, (argc + 1) * sizeof(char *));
+ 
+-    if (new_argv[n_prefix][0] != '/') {
+-        const char **pathenv = envp;
+-        while (*pathenv != NULL && strstr(*pathenv, "PATH=") != *pathenv) {
+-            pathenv += 1;
+-        }
++    int idx_guest_program = n_prefix;
++    if (new_argv[idx_guest_program][0] != '/') {
++
++        const char* path_value = find_path_env_value(envp);
+ 
+-        if (pathenv != NULL) {
++        if (path_value != NULL) {
+             char prog[PATH_MAX] = {0};
+-            if (resolve_path((*pathenv) + 5, new_argv[n_prefix], prog)) {
+-                new_argv[n_prefix] = path(prog);
++            if (resolve_with_path_env(path_value, new_argv[idx_guest_program], prog)) {
++                new_argv[idx_guest_program] = path(prog);
+             }
+         }
+     } else {
+-        new_argv[n_prefix] = path(new_argv[n_prefix]);
++        new_argv[idx_guest_program] = path(new_argv[idx_guest_program]);
+     }
+ 
+     int ret = safe_execve(qemu, new_argv, envp);
+diff --git a/util/path.c b/util/path.c
+index 2c1971f..811478a 100644
+--- a/util/path.c
++++ b/util/path.c
+@@ -13,6 +13,7 @@
+ static const char *base;
+ static GHashTable *hash;
+ static QemuMutex lock;
++static QemuMutex strtok_lock;
+ 
+ void init_paths(const char *prefix)
+ {
+@@ -30,6 +31,7 @@ void init_paths(const char *prefix)
+ 
+     hash = g_hash_table_new(g_str_hash, g_str_equal);
+     qemu_mutex_init(&lock);
++    qemu_mutex_init(&strtok_lock);
+ }
+ 
+ /* Look for path in emulation dir, otherwise return name. */
+@@ -76,37 +78,42 @@ const char *path(const char *name)
+     return ret;
+ }
+ 
+-char *resolve_path(const char *path_env, const char *name, char *out) {
++char *resolve_with_path_env(const char *path_env, const char *name, char *out) {
+ 
+     if (!path_env || !name || !out) return NULL;
+ 
+     char *path_copy = strdup(path_env);
+     if (!path_copy) return NULL;
+ 
++    if (name[0] == '/') {
++        if (access(path(name), F_OK) == 0) {
++            strncpy(out, name, PATH_MAX);
++            return out;
++        }
++    }
++
++    char *ret = NULL;
++
++    qemu_mutex_lock(&strtok_lock);
++
+     char *dir = strtok(path_copy, ":");
+     char full_path[PATH_MAX];
+ 
+     while (dir) {
+-        if (name[0] == '/') {
+-            if (access(path(name), F_OK) == 0) {
+-                strncpy(out, name, PATH_MAX);
+-                free(path_copy);
+-                return out;
+-            }
+-            break;
+-        }
+ 
+         snprintf(full_path, sizeof(full_path), "%s/%s", dir, name);
+ 
+         if (access(path(full_path), F_OK) == 0) {
+             strncpy(out, full_path, PATH_MAX);
+-            free(path_copy);
+-            return out;
++            ret = out;
++            break;
+         }
+ 
+         dir = strtok(NULL, ":");
+     }
+ 
++    qemu_mutex_unlock(&strtok_lock);
++
+     free(path_copy);
+-    return NULL;
++    return ret;
+ }
+-- 
+2.49.0.windows.1
+

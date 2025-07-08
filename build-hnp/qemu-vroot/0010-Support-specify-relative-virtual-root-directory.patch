@@ -1,0 +1,74 @@
+From ec9f0af9d36e9afb91661a005e2411c01f6a5e0a Mon Sep 17 00:00:00 2001
+From: hackeris <hackeris@qq.com>
+Date: Wed, 9 Jul 2025 00:13:18 +0800
+Subject: [PATCH 10/10] Support specify relative virtual root directory
+
+---
+ include/qemu/path.h |  1 +
+ linux-user/execve.c | 10 ++++++++++
+ util/path.c         | 14 ++++++++++++++
+ 3 files changed, 25 insertions(+)
+
+diff --git a/include/qemu/path.h b/include/qemu/path.h
+index 370465f..4f6d7f1 100644
+--- a/include/qemu/path.h
++++ b/include/qemu/path.h
+@@ -4,5 +4,6 @@
+ void init_paths(const char *prefix);
+ const char *path(const char *pathname);
+ char* resolve_with_path_env(const char* path_env, const char* name, char* out);
++char* resolve_abs_with_cwd(const char* path, char* out);
+ 
+ #endif
+diff --git a/linux-user/execve.c b/linux-user/execve.c
+index d28614d..efc3b71 100644
+--- a/linux-user/execve.c
++++ b/linux-user/execve.c
+@@ -1,4 +1,5 @@
+ #include "execve.h"
++#include "qemu/path.h"
+ 
+ #include <stdlib.h>
+ #include <string.h>
+@@ -23,6 +24,15 @@ void setup_for_execve(const char **argv, int optind) {
+     }
+     argv_prefix[optind] = NULL;
+     n_argv_prefix = optind;
++
++    char** ld_prefix = argv_prefix;
++    while (*ld_prefix != NULL && strcmp(*ld_prefix, "-L") != 0) {
++        ld_prefix ++;
++    }
++    if (*ld_prefix != NULL && ld_prefix[1] != NULL) {
++        char* abs_ld_prefix = calloc(PATH_MAX, sizeof(char));
++        ld_prefix[1] = resolve_abs_with_cwd(ld_prefix[1], abs_ld_prefix);
++    }
+ }
+ 
+ const char *get_qemu_abs_path(void) {
+diff --git a/util/path.c b/util/path.c
+index 811478a..76ab896 100644
+--- a/util/path.c
++++ b/util/path.c
+@@ -117,3 +117,17 @@ char *resolve_with_path_env(const char *path_env, const char *name, char *out) {
+     free(path_copy);
+     return ret;
+ }
++
++char* resolve_abs_with_cwd(const char* path, char* out) {
++    if (path[0] != '/') {
++        char *cwd = g_get_current_dir();
++        char *abs_base = g_build_filename(cwd, path, NULL);
++        strcpy(out, abs_base);
++        g_free(cwd);
++        g_free(abs_base);
++        return out;
++    } else {
++        strcpy(out, path);
++        return out;
++    }
++}
+\ No newline at end of file
+-- 
+2.49.0.windows.1
+
