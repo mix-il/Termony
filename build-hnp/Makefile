@@ -1,4 +1,5 @@
-PKGS=bash \
+PKGS=gettext \
+	bash \
 	binutils \
 	busybox \
 	coremark \
@@ -47,7 +48,6 @@ PKGS=bash \
 	python \
 	libusb \
 	hdc \
-	gettext \
 	libffi \
 	glib \
 	qemu \
