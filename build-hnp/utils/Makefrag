@@ -19,6 +19,9 @@ export CXXFLAGS := -I$(shell pwd)/../sysroot/include -O2
 export LDFLAGS := -L$(shell pwd)/../sysroot/lib
 export PREFIX := /data/app/base.org/base_1.0
 
+# default GNU mirror, allow to override
+GNU_MIRROR ?= https://ftpmirror.gnu.org
+
 BUILD_DIR = build
 
 define define_package_common
