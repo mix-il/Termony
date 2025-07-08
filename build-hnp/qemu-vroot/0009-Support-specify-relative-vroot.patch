@@ -1,0 +1,74 @@
+Subject: [PATCH] Support specify relative virtual root directory
+---
+Index: include/qemu/path.h
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/include/qemu/path.h b/include/qemu/path.h
+--- a/include/qemu/path.h	(revision c715af544b507586f2b7150834283050133bf24e)
++++ b/include/qemu/path.h	(revision ec9f0af9d36e9afb91661a005e2411c01f6a5e0a)
+@@ -4,5 +4,6 @@
+ void init_paths(const char *prefix);
+ const char *path(const char *pathname);
+ char* resolve_with_path_env(const char* path_env, const char* name, char* out);
++char* resolve_abs_with_cwd(const char* path, char* out);
+
+ #endif
+Index: linux-user/execve.c
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/linux-user/execve.c b/linux-user/execve.c
+--- a/linux-user/execve.c	(revision c715af544b507586f2b7150834283050133bf24e)
++++ b/linux-user/execve.c	(revision ec9f0af9d36e9afb91661a005e2411c01f6a5e0a)
+@@ -1,4 +1,5 @@
+ #include "execve.h"
++#include "qemu/path.h"
+
+ #include <stdlib.h>
+ #include <string.h>
+@@ -23,6 +24,15 @@
+     }
+     argv_prefix[optind] = NULL;
+     n_argv_prefix = optind;
++
++    char** ld_prefix = argv_prefix;
++    while (*ld_prefix != NULL && strcmp(*ld_prefix, "-L") != 0) {
++        ld_prefix ++;
++    }
++    if (*ld_prefix != NULL && ld_prefix[1] != NULL) {
++        char* abs_ld_prefix = calloc(PATH_MAX, sizeof(char));
++        ld_prefix[1] = resolve_abs_with_cwd(ld_prefix[1], abs_ld_prefix);
++    }
+ }
+
+ const char *get_qemu_abs_path(void) {
+Index: util/path.c
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/util/path.c b/util/path.c
+--- a/util/path.c	(revision c715af544b507586f2b7150834283050133bf24e)
++++ b/util/path.c	(revision ec9f0af9d36e9afb91661a005e2411c01f6a5e0a)
+@@ -117,3 +117,17 @@
+     free(path_copy);
+     return ret;
+ }
++
++char* resolve_abs_with_cwd(const char* path, char* out) {
++    if (path[0] != '/') {
++        char *cwd = g_get_current_dir();
++        char *abs_base = g_build_filename(cwd, path, NULL);
++        strcpy(out, abs_base);
++        g_free(cwd);
++        g_free(abs_base);
++        return out;
++    } else {
++        strcpy(out, path);
++        return out;
++    }
++}
+\ No newline at end of file
