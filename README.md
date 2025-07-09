@@ -115,7 +115,8 @@ cp usr/lib/libz.so.1.3.1 usr/lib/libz.so.1
 ```
 - Run `qemu-vroot-aarch64` to load busybox shell with root-filesystem and environment variables
 ```
-qemu-vroot-aarch64 -E LD_LIBRARY_PATH=/lib:/usr/lib -E PATH=/bin:/usr/bin:/sbin -L /storage/Users/currentUser/alpine_rootfs /storage/Users/currentUser/alpine_rootfs/bin/sh
+cd /storage/Users/currentUser/alpine_rootfs
+qemu-vroot-aarch64 -E LD_LIBRARY_PATH=/lib:/usr/lib -E PATH=/bin:/usr/bin:/sbin -L ./ ./bin/sh
 ```
 - cd to `/` and run `busybox ls`, the root have changed!
 ```
