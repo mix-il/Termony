@@ -113,12 +113,12 @@ cp bin/busybox bin/sh
 cp lib/ld-musl-aarch64.so.1  lib/libc.musl-aarch64.so.1
 cp usr/lib/libz.so.1.3.1 usr/lib/libz.so.1
 ```
-- Run `qemu-vroot-aarch64` to load busybox shell with root-filesystem and environment variables
+- Run `qemu-vroot-aarch64` to load busybox shell with root-filesystem and environment variables (for root-filesystem on x86_64, use `qemu-vroot-x86_64`)
 ```
 cd /storage/Users/currentUser/alpine_rootfs
 qemu-vroot-aarch64 -E LD_LIBRARY_PATH=/lib:/usr/lib -E PATH=/bin:/usr/bin:/sbin -L ./ ./bin/sh
 ```
-- cd to `/` and run `busybox ls`, the root have changed!
+- cd to `/` and run `busybox ls`, the root has changed!
 ```
 cd /
 busybox ls
