@@ -1,0 +1,41 @@
+From 346222136ac8adff40b8987842933d0d4c962feb Mon Sep 17 00:00:00 2001
+From: hackeris <hackeris@qq.com>
+Date: Thu, 10 Jul 2025 01:05:36 +0800
+Subject: [PATCH 12/12] Disable umount2 proc filesystem
+
+---
+ linux-user/syscall.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/linux-user/syscall.c b/linux-user/syscall.c
+index af27339..f762e2b 100644
+--- a/linux-user/syscall.c
++++ b/linux-user/syscall.c
+@@ -6138,6 +6138,15 @@ static int do_mount(const char *source, const char *target,
+     return mount(source, target, filesystemtype, mountflags, data);
+ }
+ 
++static int do_umount2(const char *target, int flags) {
++
++    if (strstr(target, "/proc") != NULL) {
++        return -EPERM;
++    }
++
++    return umount2(target, flags);
++}
++
+ /* warning : doesn't handle linux specific flags... */
+ static int target_to_host_fcntl_cmd(int cmd)
+ {
+@@ -8321,7 +8330,7 @@ static abi_long do_syscall1(void *cpu_env, int num, abi_long arg1,
+     case TARGET_NR_umount2:
+         if (!(p = lock_user_string(arg1)))
+             return -TARGET_EFAULT;
+-        ret = get_errno(umount2(p, arg2));
++        ret = get_errno(do_umount2(p, arg2));
+         unlock_user(p, arg1, 0);
+         return ret;
+ #endif
+-- 
+2.49.0.windows.1
+
