@@ -106,17 +106,10 @@ For example, you can run into a alpine root-filesystem by following steps:
 
 - Download alpine minimal root filesystem from https://alpinelinux.org/downloads/ (aarch64 or x64)
 - Extract downloaded rootfs tar.gz file, for example, to `/storage/Users/currentUser/alpine_rootfs`
-- Fix some missing soft links by copying
-```shell
-cd alpine_rootfs
-cp bin/busybox bin/sh
-cp lib/ld-musl-aarch64.so.1  lib/libc.musl-aarch64.so.1
-cp usr/lib/libz.so.1.3.1 usr/lib/libz.so.1
-```
 - Run `qemu-vroot-aarch64` to load busybox shell with root-filesystem and environment variables (for root-filesystem on x86_64, use `qemu-vroot-x86_64`)
 ```shell
 cd /storage/Users/currentUser/alpine_rootfs
-qemu-vroot-aarch64 -E LD_LIBRARY_PATH=/lib:/usr/lib -E PATH=/bin:/usr/bin:/sbin -L ./ ./bin/sh
+qemu-vroot-aarch64 -E LD_LIBRARY_PATH=/lib:/usr/lib -E PATH=/bin:/usr/bin:/sbin -L ./ ./bin/busybox sh
 ```
 - cd to `/` and run `busybox ls`, the root has changed!
 ```shell
