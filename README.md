@@ -98,6 +98,32 @@ Terminal features:
 - Paste via context menu (right-click to activate)
 - Copy/paste in command line via pbcopy/pbpaste using OSC52 escape sequence
 
+### Run in a new root file-system (Early experimental)
+
+`qemu-vroot-aarch64` is a user mode qemu modified to to mimic proot behavior. It allows user to run linux binary(even for another CPU architecture) and switch to a new root-filesystem like chroot or proot.
+
+For example, you can run into a alpine root-filesystem by following steps:
+
+- Download alpine minimal root filesystem from https://alpinelinux.org/downloads/ (aarch64 or x64)
+- Extract downloaded rootfs tar.gz file, for example, to `/storage/Users/currentUser/alpine_rootfs`
+- Fix some missing soft links by copying
+```
+cd alpine_rootfs
+cp bin/busybox bin/sh
+cp lib/ld-musl-aarch64.so.1  lib/libc.musl-aarch64.so.1
+cp usr/lib/libz.so.1.3.1 usr/lib/libz.so.1
+```
+- Run `qemu-vroot-aarch64` to load busybox shell with root-filesystem and environment variables
+```
+qemu-vroot-aarch64 -E LD_LIBRARY_PATH=/lib:/usr/lib -E PATH=/bin:/usr/bin:/sbin -L /storage/Users/currentUser/alpine_rootfs /storage/Users/currentUser/alpine_rootfs/bin/sh
+```
+- cd to `/` and run `busybox ls`, the root have changed!
+```
+cd /
+busybox ls
+bin    dev    etc    home   lib    media  mnt    opt    proc   root   run    sbin   srv    sys    tmp    usr    var
+```
+
 ## Usage (if you are a Mac user):
 
 1. Connect your MateBook Pro to Mac, and do the following steps on Mac
