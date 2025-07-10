@@ -13,6 +13,8 @@ all: download/qemu-5.0
 	cd temp/qemu-5.0 && git apply ../../0007-Find-qemu-abs-path-from-proc-self-exe-instead.patch
 	cd temp/qemu-5.0 && git apply ../../0009-Refactor-vroot-path-resolving.patch
 	cd temp/qemu-5.0 && git apply ../../0010-Support-specify-relative-virtual-root-directory.patch
+	cd temp/qemu-5.0 && git apply ../../0011-Disable-mount-proc-filesystem.patch
+	cd temp/qemu-5.0 && git apply ../../0012-Disable-umount2-proc-filesystem.patch
 	cd temp/qemu-5.0 && \
 	PKG_CONFIG=$(shell which pkg-config) \
 	PKG_CONFIG_PATH= \
