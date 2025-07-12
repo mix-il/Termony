@@ -16,6 +16,7 @@ all: download/qemu-5.0
 	cd temp/qemu-5.0 && git apply ../../0011-Disable-mount-proc-filesystem.patch
 	cd temp/qemu-5.0 && git apply ../../0012-Disable-umount2-proc-filesystem.patch
 	cd temp/qemu-5.0 && git apply ../../0013-Complete-path-relocation.patch
+	cd temp/qemu-5.0 && git apply ../../0014-Support-shebang-in-execve-syscall.patch
 	cd temp/qemu-5.0 && \
 	PKG_CONFIG=$(shell which pkg-config) \
 	PKG_CONFIG_PATH= \
