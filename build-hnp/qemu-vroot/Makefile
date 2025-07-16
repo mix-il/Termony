@@ -18,6 +18,10 @@ all: download/qemu-5.0
 	cd temp/qemu-5.0 && git apply ../../0013-Complete-path-relocation.patch
 	cd temp/qemu-5.0 && git apply ../../0014-Support-shebang-in-execve-syscall.patch
 	cd temp/qemu-5.0 && git apply ../../0015-Support-symlinks-in-path-relocation.patch
+	cd temp/qemu-5.0 && git apply ../../0016-Fix-path-relocation-for-NR_renameat.patch
+	cd temp/qemu-5.0 && git apply ../../0017-Fix-path-relocation-for-NR_readlinkat.patch
+	cd temp/qemu-5.0 && git apply ../../0018-Fix-chdir-and-reuse-host-proc-fs.patch
+	cd temp/qemu-5.0 && git apply ../../0019-Refactor-path-relocation.patch
 	cd temp/qemu-5.0 && \
 	PKG_CONFIG=$(shell which pkg-config) \
 	PKG_CONFIG_PATH= \
