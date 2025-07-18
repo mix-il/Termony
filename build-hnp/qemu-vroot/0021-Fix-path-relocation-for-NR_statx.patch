@@ -1,0 +1,40 @@
+From 2523b2d1671b2bf77397577aa01b683539c3135c Mon Sep 17 00:00:00 2001
+From: hackeris <hackeris@qq.com>
+Date: Fri, 18 Jul 2025 00:39:02 +0800
+Subject: [PATCH 21/21] Fix path relocation for NR_statx
+
+---
+ linux-user/syscall.c | 3 ++-
+ util/path.c          | 2 +-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/linux-user/syscall.c b/linux-user/syscall.c
+index 79aa9c7..366c639 100644
+--- a/linux-user/syscall.c
++++ b/linux-user/syscall.c
+@@ -10938,7 +10938,8 @@ static abi_long do_syscall1(void *cpu_env, int num, abi_long arg1,
+                 struct target_statx host_stx;
+                 int mask = arg4;
+ 
+-                ret = get_errno(sys_statx(dirfd, p, flags, mask, &host_stx));
++                char reloc[PATH_MAX];
++                ret = get_errno(sys_statx(dirfd, relocate_path_at(dirfd, p, reloc, true), flags, mask, &host_stx));
+                 if (!is_error(ret)) {
+                     if (host_to_target_statx(&host_stx, arg5) != 0) {
+                         unlock_user(p, arg2, 0);
+diff --git a/util/path.c b/util/path.c
+index b67209f..7191a83 100644
+--- a/util/path.c
++++ b/util/path.c
+@@ -111,7 +111,7 @@ static size_t slash_len(const char *s)
+ 	return s-s0;
+ }
+ 
+-char *__strchrnul(const char *s, int c)
++static char *__strchrnul(const char *s, int c)
+ {
+ 	c = (unsigned char)c;
+ 	if (!c) return (char *)s + strlen(s);
+-- 
+2.49.0.windows.1
+
