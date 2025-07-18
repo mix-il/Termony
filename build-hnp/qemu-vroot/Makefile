@@ -26,6 +26,7 @@ all: download/qemu-5.0
 	cd temp/qemu-5.0 && git apply ../../0021-Fix-path-relocation-for-NR_statx.patch
 	cd temp/qemu-5.0 && git apply ../../0022-Replace-renameat-on-symlink-by-symlinkat-and-unlinka.patch
 	cd temp/qemu-5.0 && git apply ../../0023-Fix-flags-about-symlink-for-NR_statx.patch
+	cd temp/qemu-5.0 && git apply ../../0024-Complete-tcg_qemu_tb_exec-for-unimplemented-TCGOpcod.patch
 	cd temp/qemu-5.0 && \
 	PKG_CONFIG=$(shell which pkg-config) \
 	PKG_CONFIG_PATH= \
