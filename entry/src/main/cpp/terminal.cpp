@@ -929,10 +929,11 @@ void terminal_context::HandleCSI(uint8_t current) {
                     // set underline, CSI 4 m
                     // TODO
                 } else if (param == 5 || param == 6) {
-                    // set blink, CSI 5 m
+                    // set slowly blink, CSI 5 m
+                    // set rapidly blink, CSI 6 m
                     current_style.blink = true;
                 } else if (param == 7) {
-                    // inverse
+                    // inverse, flip foreground and background color, CSI 7 m
                     std::swap(current_style.fg_red, current_style.bg_red);
                     std::swap(current_style.fg_green, current_style.bg_green);
                     std::swap(current_style.fg_blue, current_style.bg_blue);
@@ -952,10 +953,10 @@ void terminal_context::HandleCSI(uint8_t current) {
                     // set not underlined, CSI 24 m
                     // TODO
                 } else if (param == 25) {
-                    // set steady, CSI 25 m
+                    // set steady (not blinking), CSI 25 m
                     current_style.blink = false;
                 } else if (param == 27) {
-                    // positive (not inverse), CSI 27 m
+                    // set positive (not inverse), CSI 27 m
                     std::swap(current_style.fg_red, current_style.bg_red);
                     std::swap(current_style.fg_green, current_style.bg_green);
                     std::swap(current_style.fg_blue, current_style.bg_blue);
@@ -1001,10 +1002,11 @@ void terminal_context::HandleCSI(uint8_t current) {
                     current_style.fg_blue = predefined_colors[white][2] / 255.0;
                 } else if (param == 38 || param == 48) {
                     // foreground color: extended color, CSI 38 : ... m
-                    // background color: extended color, CSI 38 : ... m
+                    // background color: extended color, CSI 48 : ... m
                     if (i + 1 < parts.size()) {
                         int color_type = std::stoi(parts[++i]);
                         if (color_type == 5 && i + 1 < parts.size()) { // 256-color mode
+                            // specified color index
                             int color_index = std::stoi(parts[++i]);
                             uint32_t color = TrueColorFrom(color_index);
                             if (param == 38) {
@@ -1016,8 +1018,8 @@ void terminal_context::HandleCSI(uint8_t current) {
                                 current_style.bg_green = ((color >> 8) & 0xff) / 255.0;
                                 current_style.bg_blue = ((color >> 0) & 0xff) / 255.0;
                             }
-                        }
-                        else if (color_type == 2 && i + 3 < parts.size()) { // RGB mode
+                        } else if (color_type == 2 && i + 3 < parts.size()) { // RGB mode
+                            // specified rgb
                             int r = std::stoi(parts[++i]);
                             int g = std::stoi(parts[++i]);
                             int b = std::stoi(parts[++i]);
