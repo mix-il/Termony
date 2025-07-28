@@ -29,7 +29,11 @@ all: download/qemu-5.0
 	cd temp/qemu-5.0 && git apply ../../0024-Complete-tcg_qemu_tb_exec-for-unimplemented-TCGOpcod.patch
 	cd temp/qemu-5.0 && git apply ../../0025-Fix-target-madvise.patch
 	cd temp/qemu-5.0 && git apply ../../0026-Fallback-to-copy-when-NR_linkat-failed.patch
-	cd temp/qemu-5.0 && git apply ../../0027-Disable-setfsuid-setfsgid-on-OHOS.patch
+	cd temp/qemu-5.0 && git apply ../../0028-Reuse-dev-null-of-host.patch
+	cd temp/qemu-5.0 && git apply ../../0029-Fix-NOFOLLOW-flags-for-NR_statx.patch
+	cd temp/qemu-5.0 && git apply ../../0030-Reuse-passwd-file-of-host.patch
+	cd temp/qemu-5.0 && git apply ../../0031-Restore-path-from-syscall-to-users.patch
+	cd temp/qemu-5.0 && git apply ../../0032-Reuse-sys-of-host.patch
 	cd temp/qemu-5.0 && \
 	PKG_CONFIG=$(shell which pkg-config) \
 	PKG_CONFIG_PATH= \

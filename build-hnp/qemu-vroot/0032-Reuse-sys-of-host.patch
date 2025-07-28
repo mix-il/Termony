@@ -1,0 +1,37 @@
+From 944a610620671f561aa3551657b2a525681f9183 Mon Sep 17 00:00:00 2001
+From: hackeris <hackeris@qq.com>
+Date: Sat, 26 Jul 2025 16:53:08 +0800
+Subject: [PATCH 32/32] Reuse sys of host
+
+---
+ util/path.c | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/util/path.c b/util/path.c
+index 00b8171..36e2b70 100644
+--- a/util/path.c
++++ b/util/path.c
+@@ -40,12 +40,14 @@ void init_paths(const char *prefix)
+ }
+ 
+ static bool skip_relocation(const char *name) {
+-	return strstr(name, "/proc/") == name
+-	       || strcmp(name, "/proc") == 0
+-	       || strcmp(name, "/etc/resolv.conf") == 0
+-	       || strcmp(name, "/etc/passwd") == 0
+-	       || strcmp(name, "/dev/null") == 0
+-	;
++    return strstr(name, "/proc/") == name
++           || strcmp(name, "/proc") == 0
++           || strstr(name, "/sys/") == name
++           || strcmp(name, "/sys") == 0
++           || strcmp(name, "/etc/resolv.conf") == 0
++           || strcmp(name, "/etc/passwd") == 0
++           || strcmp(name, "/dev/null") == 0
++;
+ }
+ 
+ const char *do_relocate_path(const char *name, char *out)
+-- 
+2.49.0.windows.1
+

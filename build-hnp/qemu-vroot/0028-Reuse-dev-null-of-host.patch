@@ -1,0 +1,31 @@
+From ef56e9345d05af60615f6ad9de928ad7d80ea3c5 Mon Sep 17 00:00:00 2001
+From: hackeris <hackeris@qq.com>
+Date: Sat, 19 Jul 2025 22:24:15 +0800
+Subject: [PATCH 28/32] Reuse /dev/null of host
+
+---
+ util/path.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/util/path.c b/util/path.c
+index 7191a83..b18a1e6 100644
+--- a/util/path.c
++++ b/util/path.c
+@@ -40,9 +40,11 @@ void init_paths(const char *prefix)
+ }
+ 
+ static bool skip_relocation(const char *name) {
+-    return strstr(name, "/proc/") == name
+-           || strcmp(name, "/etc/resolv.conf") == 0
+-           || strcmp(name, "/proc") == 0;
++	return strstr(name, "/proc/") == name
++	       || strcmp(name, "/proc") == 0
++	       || strcmp(name, "/etc/resolv.conf") == 0
++	       || strcmp(name, "/dev/null") == 0
++	;
+ }
+ 
+ const char *do_relocate_path(const char *name, char *out)
+-- 
+2.49.0.windows.1
+
