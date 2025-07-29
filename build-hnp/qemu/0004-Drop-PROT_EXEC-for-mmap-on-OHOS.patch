@@ -1,8 +1,17 @@
+From bdc5ec193a7366d5ba3a1afeb7fe5a9c847bf117 Mon Sep 17 00:00:00 2001
+From: hackeris <hackeris@qq.com>
+Date: Sun, 6 Jul 2025 01:40:32 +0800
+Subject: [PATCH 4/5] Drop PROT_EXEC for mmap on OHOS
+
+---
+ linux-user/syscall.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
 diff --git a/linux-user/syscall.c b/linux-user/syscall.c
-index 19c5dc7..3a376f1 100644
+index c7e8425..0e9cc55 100644
 --- a/linux-user/syscall.c
 +++ b/linux-user/syscall.c
-@@ -9116,10 +9116,13 @@ static abi_long do_syscall1(void *cpu_env, int num, abi_long arg1,
+@@ -9119,10 +9119,13 @@ static abi_long do_syscall1(void *cpu_env, int num, abi_long arg1,
                                          v5, v6));
          }
  #else
@@ -17,3 +26,6 @@ index 19c5dc7..3a376f1 100644
  #endif
          return ret;
  #endif
+-- 
+2.49.0.windows.1
+
