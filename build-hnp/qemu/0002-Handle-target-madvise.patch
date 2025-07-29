@@ -1,8 +1,23 @@
+From acc9ae6bf271caee6b0f92f4fbe1d0838aa3e11f Mon Sep 17 00:00:00 2001
+From: hackeris <hackeris@qq.com>
+Date: Sun, 6 Jul 2025 01:39:48 +0800
+Subject: [PATCH 2/5] Handle target madvise
+
+---
+ accel/tcg/translate-all.c |  8 +++++--
+ bsd-user/mmap.c           |  8 +++----
+ include/exec/cpu-all.h    | 11 ++++++++-
+ linux-user/elfload.c      |  2 +-
+ linux-user/mmap.c         | 49 +++++++++++++++++++++++++++++++++++----
+ linux-user/qemu.h         |  1 +
+ linux-user/syscall.c      | 12 ++++------
+ 7 files changed, 71 insertions(+), 20 deletions(-)
+
 diff --git a/accel/tcg/translate-all.c b/accel/tcg/translate-all.c
-index b0d1ec7..e02da31 100644
+index 45b1918..b7cccc3 100644
 --- a/accel/tcg/translate-all.c
 +++ b/accel/tcg/translate-all.c
-@@ -2490,7 +2490,8 @@ int page_get_flags(target_ulong address)
+@@ -2491,7 +2491,8 @@ int page_get_flags(target_ulong address)
  /* Modify the flags of a page and invalidate the code if necessary.
     The flag PAGE_WRITE_ORG is positioned automatically depending
     on PAGE_WRITE.  The mmap_lock should already be held.  */
@@ -12,7 +27,7 @@ index b0d1ec7..e02da31 100644
  {
      target_ulong addr, len;
  
-@@ -2522,7 +2523,10 @@ void page_set_flags(target_ulong start, target_ulong end, int flags)
+@@ -2523,7 +2524,10 @@ void page_set_flags(target_ulong start, target_ulong end, int flags)
              p->first_tb) {
              tb_invalidate_phys_page(addr, 0);
          }
@@ -95,7 +110,7 @@ index 49384bb..8673a79 100644
  #endif
  
 diff --git a/linux-user/elfload.c b/linux-user/elfload.c
-index 558df4d..d3b4548 100644
+index dea50b1..4832a39 100644
 --- a/linux-user/elfload.c
 +++ b/linux-user/elfload.c
 @@ -1847,7 +1847,7 @@ static void zero_bss(abi_ulong elf_bss, abi_ulong last_bss, int prot)
@@ -211,7 +226,7 @@ index 792c742..2df9da3 100644
  extern abi_ulong mmap_next_start;
  abi_ulong mmap_find_vma(abi_ulong, abi_ulong, abi_ulong);
 diff --git a/linux-user/syscall.c b/linux-user/syscall.c
-index 1351c7e..19c5dc7 100644
+index 81574f9..c7e8425 100644
 --- a/linux-user/syscall.c
 +++ b/linux-user/syscall.c
 @@ -4316,7 +4316,8 @@ static inline abi_ulong do_shmat(CPUArchState *cpu_env,
@@ -234,7 +249,7 @@ index 1351c7e..19c5dc7 100644
              break;
          }
      }
-@@ -11319,11 +11321,7 @@ static abi_long do_syscall1(void *cpu_env, int num, abi_long arg1,
+@@ -11325,11 +11327,7 @@ static abi_long do_syscall1(void *cpu_env, int num, abi_long arg1,
  
  #ifdef TARGET_NR_madvise
      case TARGET_NR_madvise:
@@ -247,3 +262,6 @@ index 1351c7e..19c5dc7 100644
  #endif
  #ifdef TARGET_NR_fcntl64
      case TARGET_NR_fcntl64:
+-- 
+2.49.0.windows.1
+

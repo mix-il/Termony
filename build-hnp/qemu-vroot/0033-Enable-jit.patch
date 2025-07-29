@@ -1,0 +1,62 @@
+From fb8023ef92614c0016cb57902bc51c642cf7c1d8 Mon Sep 17 00:00:00 2001
+From: hackeris <hackeris@qq.com>
+Date: Tue, 29 Jul 2025 09:17:37 +0800
+Subject: [PATCH 33/33] Enable jit
+
+---
+ accel/tcg/translate-all.c | 16 +++++++++++++++-
+ include/qemu/osdep.h      |  5 +++++
+ 2 files changed, 20 insertions(+), 1 deletion(-)
+
+diff --git a/accel/tcg/translate-all.c b/accel/tcg/translate-all.c
+index 45b1918..3628604 100644
+--- a/accel/tcg/translate-all.c
++++ b/accel/tcg/translate-all.c
+@@ -1041,13 +1041,27 @@ static inline void *alloc_code_gen_buffer(void)
+ #else
+ static inline void *alloc_code_gen_buffer(void)
+ {
+-    // avoid PROT_EXEC on OHOS
++#if !defined(CONFIG_TCG_INTERPRETER)
++    int prot = PROT_WRITE | PROT_READ | PROT_EXEC;
++#else
+     int prot = PROT_WRITE | PROT_READ;
++#endif
+     int flags = MAP_PRIVATE | MAP_ANONYMOUS;
+     size_t size = tcg_ctx->code_gen_buffer_size;
+     void *buf;
+ 
++#if !defined(CONFIG_TCG_INTERPRETER)
++    //  required by OHOS
++    prctl(PRCTL_SET_JITFORT, 0, 0);
++#endif
++
+     buf = mmap(NULL, size, prot, flags, -1, 0);
++
++#if !defined(CONFIG_TCG_INTERPRETER)
++    //  required by OHOS
++    prctl(PRCTL_SET_JITFORT, 0, 1);
++#endif
++
+     if (buf == MAP_FAILED) {
+         return NULL;
+     }
+diff --git a/include/qemu/osdep.h b/include/qemu/osdep.h
+index 1866cab..077a272 100644
+--- a/include/qemu/osdep.h
++++ b/include/qemu/osdep.h
+@@ -115,6 +115,11 @@ extern int daemon(int, int);
+ #define WEXITSTATUS(x) (x)
+ #endif
+ 
++#if !defined(CONFIG_TCG_INTERPRETER)
++#include <sys/prctl.h>
++#define PRCTL_SET_JITFORT   0x6a6974
++#endif
++
+ #ifdef _WIN32
+ #include "sysemu/os-win32.h"
+ #endif
+-- 
+2.49.0.windows.1
+

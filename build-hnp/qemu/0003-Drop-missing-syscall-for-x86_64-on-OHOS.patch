@@ -1,3 +1,12 @@
+From b82c99bb20cd05d894ff211cea8d057d85bd8672 Mon Sep 17 00:00:00 2001
+From: hackeris <hackeris@qq.com>
+Date: Sun, 6 Jul 2025 01:40:06 +0800
+Subject: [PATCH 3/5] Drop missing syscall for x86_64 on OHOS
+
+---
+ linux-user/x86_64/syscall_64.tbl | 7 -------
+ 1 file changed, 7 deletions(-)
+
 diff --git a/linux-user/x86_64/syscall_64.tbl b/linux-user/x86_64/syscall_64.tbl
 index 44d510b..90ea8b4 100644
 --- a/linux-user/x86_64/syscall_64.tbl
@@ -23,3 +32,6 @@ index 44d510b..90ea8b4 100644
  528	x32	kexec_load		__x32_compat_sys_kexec_load
  529	x32	waitid			__x32_compat_sys_waitid
  530	x32	set_robust_list		__x32_compat_sys_set_robust_list
+-- 
+2.49.0.windows.1
+
