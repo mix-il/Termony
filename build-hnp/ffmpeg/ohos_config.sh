@@ -21,6 +21,7 @@ FF_CONFIG_OPTIONS="
     --enable-libsvtav1
     --enable-libmp3lame
     --enable-libfdk-aac
+    --enable-libopus
     --enable-gpl
     --enable-nonfree
 "

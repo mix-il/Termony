@@ -19,8 +19,13 @@ all: download/src.zip ohos_config.sh
 	cd temp/src && touch vulkan_beta.h
 	
 	# fix pkgconfig prefix
-	cd temp/pkgconfig && cp ../../../sysroot/lib/pkgconfig/SvtAv1Enc.pc . && sed -i 's@^prefix=.*@prefix=$(shell pwd)/../sysroot@g' SvtAv1Enc.pc
+	cd temp/pkgconfig && cp ../../../sysroot/lib/pkgconfig/SvtAv1Enc.pc . && sed -i 's@$(PREFIX)@$(shell pwd)/../sysroot@g' SvtAv1Enc.pc
+	cd temp/pkgconfig && cp ../../../sysroot/lib/pkgconfig/opus.pc . && sed -i 's@$(PREFIX)@$(shell pwd)/../sysroot@g' opus.pc
 
+	# debug output
+	pkg-config -cflags --libs SvtAv1Enc opus
+
+	# configure and build
 	cd temp/src && ./ohos_config.sh $(shell pwd)/temp/src $(PREFIX) aarch64 $(OHOS_SDK_HOME)/native/llvm $(OHOS_SDK_HOME)/native/sysroot false
 	cd temp/src && make -j $(shell nproc) && make install DESTDIR=$(shell pwd)/build
 

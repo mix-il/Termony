@@ -58,6 +58,7 @@ PKGS=gettext \
 	libsvt-av1 \
 	libmp3-lame \
 	libfdk-aac \
+	libopus \
 	ffmpeg
 STAMP=$(patsubst %,%/.stamp,$(PKGS))
 
