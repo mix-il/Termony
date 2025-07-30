@@ -22,6 +22,7 @@ FF_CONFIG_OPTIONS="
     --enable-libmp3lame
     --enable-libfdk-aac
     --enable-libopus
+    --enable-libvorbis
     --enable-gpl
     --enable-nonfree
 "
