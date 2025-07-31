@@ -51,7 +51,17 @@ PKGS=gettext \
 	libffi \
 	glib \
 	qemu \
-	qemu-vroot
+	qemu-vroot \
+	libx264 \
+	libx265 \
+	libvpx \
+	libsvt-av1 \
+	libmp3-lame \
+	libfdk-aac \
+	libopus \
+	libogg \
+	libvorbis \
+	ffmpeg
 STAMP=$(patsubst %,%/.stamp,$(PKGS))
 
 all: copy
