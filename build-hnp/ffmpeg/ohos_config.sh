@@ -144,23 +144,23 @@ sed '/^BUILD_ROOT=/d' ./ffbuild/config.mak > $tmp_file
 rm -f ./ffbuild/config.mak
 mv $tmp_file ./ffbuild/config.mak
 
-## rm amr-eabi-gcc
+## rm arm-eabi-gcc
 sed '/^CC=arm-eabi-gcc/d' ./ffbuild/config.mak > $tmp_file
 rm -f ./ffbuild/config.mak
 mv $tmp_file ./ffbuild/config.mak
 
-## rm amr-eabi-gcc
+## rm arm-eabi-gcc
 sed '/^AS=arm-eabi-gcc/d' ./ffbuild/config.mak > $tmp_file
 rm -f ./ffbuild/config.mak
 mv $tmp_file ./ffbuild/config.mak
 
 
-## rm amr-eabi-gcc
+## rm arm-eabi-gcc
 sed '/^LD=arm-eabi-gcc/d' ./ffbuild/config.mak > $tmp_file
 rm -f ./ffbuild/config.mak
 mv $tmp_file ./ffbuild/config.mak
 
-## rm amr-eabi-gcc
+## rm arm-eabi-gcc
 sed '/^DEPCC=arm-eabi-gcc/d' ./ffbuild/config.mak > $tmp_file
 rm -f ./ffbuild/config.mak
 mv $tmp_file ./ffbuild/config.mak
