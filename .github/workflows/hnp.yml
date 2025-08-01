@@ -44,6 +44,9 @@ jobs:
           sudo apt install -y build-essential cmake curl wget unzip python3 libncurses-dev \
                               git flex bison bash make autoconf libcurl4-openssl-dev tcl \
                               gettext zip pigz meson liblzma-dev
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
                               
       - name: Download OHOS SDK
         shell: bash
@@ -61,7 +64,7 @@ jobs:
       - name: Build hnp
         shell: bash
         run: |
-          make -C build-hnp
+          USE_CCACHE=1 make -C build-hnp
 
       - name: Upload hnp
         uses: actions/upload-artifact@v4
