@@ -1,0 +1,87 @@
+From c11c54f789a924a1721a8d39831d2424cec8dc78 Mon Sep 17 00:00:00 2001
+From: hackeris <hackeris@qq.com>
+Date: Sat, 2 Aug 2025 17:26:59 +0800
+Subject: [PATCH 6/6] Fix pc register from tci to guest
+
+---
+ accel/tcg/user-exec.c   | 8 ++++++++
+ include/exec/exec-all.h | 1 +
+ tcg/tcg-common.c        | 1 +
+ tcg/tci.c               | 2 ++
+ 4 files changed, 12 insertions(+)
+
+diff --git a/accel/tcg/user-exec.c b/accel/tcg/user-exec.c
+index 4be78eb..11a6f92 100644
+--- a/accel/tcg/user-exec.c
++++ b/accel/tcg/user-exec.c
+@@ -316,7 +316,11 @@ int cpu_signal_handler(int host_signum, void *pinfo,
+     ucontext_t *uc = puc;
+ #endif
+ 
++#if defined(CONFIG_TCG_INTERPRETER)
++    pc = tci_host_pc;
++#else
+     pc = PC_sig(uc);
++#endif
+     return handle_cpu_signal(pc, info,
+                              TRAP_sig(uc) == 0xe ? (ERROR_sig(uc) >> 1) & 1 : 0,
+                              &MASK_sig(uc));
+@@ -546,7 +550,11 @@ int cpu_signal_handler(int host_signum, void *pinfo, void *puc)
+ {
+     siginfo_t *info = pinfo;
+     ucontext_t *uc = puc;
++#if defined(CONFIG_TCG_INTERPRETER)
++    uintptr_t pc = tci_host_pc;
++#else
+     uintptr_t pc = uc->uc_mcontext.pc;
++#endif
+     bool is_write;
+     struct _aarch64_ctx *hdr;
+     struct esr_context const *esrctx = NULL;
+diff --git a/include/exec/exec-all.h b/include/exec/exec-all.h
+index 350c4b4..f5717e8 100644
+--- a/include/exec/exec-all.h
++++ b/include/exec/exec-all.h
+@@ -471,6 +471,7 @@ void tb_set_jmp_target(TranslationBlock *tb, int n, uintptr_t addr);
+ #if defined(CONFIG_TCG_INTERPRETER)
+ extern uintptr_t tci_tb_ptr;
+ # define GETPC() tci_tb_ptr
++extern __thread uintptr_t tci_host_pc;
+ #else
+ # define GETPC() \
+     ((uintptr_t)__builtin_extract_return_addr(__builtin_return_address(0)))
+diff --git a/tcg/tcg-common.c b/tcg/tcg-common.c
+index 7e1992e..2edfb89 100644
+--- a/tcg/tcg-common.c
++++ b/tcg/tcg-common.c
+@@ -27,6 +27,7 @@
+ 
+ #if defined(CONFIG_TCG_INTERPRETER)
+ uintptr_t tci_tb_ptr;
++__thread uintptr_t tci_host_pc;
+ #endif
+ 
+ TCGOpDef tcg_op_defs[] = {
+diff --git a/tcg/tci.c b/tcg/tci.c
+index 46fe9ce..1a77476 100644
+--- a/tcg/tci.c
++++ b/tcg/tci.c
+@@ -30,6 +30,7 @@
+ #include "qemu-common.h"
+ #include "tcg/tcg.h"           /* MAX_OPC_PARAM_IARGS */
+ #include "exec/cpu_ldst.h"
++#include "exec/exec-all.h"
+ #include "tcg/tcg-op.h"
+ 
+ /* Marker for missing code. */
+@@ -510,6 +511,7 @@ uintptr_t tcg_qemu_tb_exec(CPUArchState *env, uint8_t *tb_ptr)
+ #if defined(GETPC)
+         tci_tb_ptr = (uintptr_t)tb_ptr;
+ #endif
++        tci_host_pc = (uintptr_t)tb_ptr;
+ 
+         /* Skip opcode and size entry. */
+         tb_ptr += 2;
+-- 
+2.49.0.windows.1
+

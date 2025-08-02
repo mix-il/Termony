@@ -35,6 +35,7 @@ all: download/qemu-5.0
 	cd temp/qemu-5.0 && git apply ../../0031-Restore-path-from-syscall-to-users.patch
 	cd temp/qemu-5.0 && git apply ../../0032-Reuse-sys-of-host.patch
 	cd temp/qemu-5.0 && git apply ../../0033-Enable-jit.patch
+	cd temp/qemu-5.0 && git apply ../../0034-Fix-pc-register-from-tci-to-guest.patch
 	cd temp/qemu-5.0 && \
 	PKG_CONFIG=$(shell which pkg-config) \
 	PKG_CONFIG_PATH= \

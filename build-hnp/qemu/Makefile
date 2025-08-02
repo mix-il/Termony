@@ -9,6 +9,7 @@ all: download/qemu-5.0
 	cd temp/qemu-5.0 && git apply ../../0003-Drop-missing-syscall-for-x86_64-on-OHOS.patch
 	cd temp/qemu-5.0 && git apply ../../0004-Drop-PROT_EXEC-for-mmap-on-OHOS.patch
 	cd temp/qemu-5.0 && git apply ../../0005-Enable-jit.patch
+	cd temp/qemu-5.0 && git apply ../../0006-Fix-pc-register-from-tci-to-guest.patch
 	cd temp/qemu-5.0 && \
 	PKG_CONFIG=$(shell which pkg-config) \
 	PKG_CONFIG_PATH= \
