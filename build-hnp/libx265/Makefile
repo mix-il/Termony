@@ -1,3 +1,6 @@
+# does not work
+export USE_CCACHE := 0
+
 include ../utils/Makefrag
 
 SOURCE_URL = http://ftp.videolan.org/pub/videolan/x265/x265_4.1.tar.gz
