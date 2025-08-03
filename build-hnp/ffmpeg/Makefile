@@ -31,6 +31,7 @@ all: download/src.zip ohos_config.sh
 
 	# strip all elf files
 	$(OHOS_SDK_HOME)/native/llvm/bin/llvm-strip build$(PREFIX)/bin/*
+	$(OHOS_SDK_HOME)/native/llvm/bin/llvm-strip build$(PREFIX)/lib/*.a
 
 	mkdir -p ../sysroot/bin
 	cp -rfv build$(PREFIX)/. ../sysroot | tee file.lst
