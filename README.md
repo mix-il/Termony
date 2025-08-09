@@ -105,18 +105,22 @@ Terminal features:
 For example, you can run into a alpine root-filesystem by following steps:
 
 - Download alpine minimal root filesystem from https://alpinelinux.org/downloads/ (aarch64 or x64)
-- Extract downloaded rootfs tar.gz file, for example, to `/storage/Users/currentUser/alpine_rootfs`
+- Extract downloaded rootfs tar.gz file, for better compatibility, `/data/storage/el2/base/files/alpine_rootfs` is recommended.
+```shell
+mkdir -p /data/storage/el2/base/files/alpine_rootfs
+tar xvf alpine-minirootfs-3.22.0-aarch64.tar.gz -C /data/storage/el2/base/files/alpine_rootfs
+```
 - Run `qemu-vroot-aarch64` to load busybox shell with root-filesystem and environment variables (for root-filesystem on x86_64, use `qemu-vroot-x86_64`)
 ```shell
-cd /storage/Users/currentUser/alpine_rootfs
-qemu-vroot-aarch64 -E LD_LIBRARY_PATH=/lib:/usr/lib -E PATH=/bin:/usr/bin:/sbin -L ./ ./bin/busybox sh
+cd /data/storage/el2/base/files/alpine_rootfs
+qemu-vroot-aarch64 -E PATH=/bin:/usr/bin:/sbin -E HOME=/root -L ./ ./bin/busybox sh -c 'cd && sh'
 ```
-- cd to `/` and run `busybox ls`, the root has changed!
+- run `ls /`, the root has changed!
 ```shell
-cd /
-busybox ls
+ls /
 bin    dev    etc    home   lib    media  mnt    opt    proc   root   run    sbin   srv    sys    tmp    usr    var
 ```
+- run `apk update`, the alpine package manager works fine, you can install packages by `apk`
 
 ## Usage (if you are a Mac user):
 
