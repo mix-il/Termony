@@ -9,6 +9,7 @@ all: download/qemu-10
 	cd temp/qemu-10 && git apply ../../0003-update-gitignore.patch
 	cd temp/qemu-10 && git apply ../../0004-enable-jit-on-OHOS.patch
 	cd temp/qemu-10 && git apply ../../0005-fix-argv-for-geust-on-OHOS.patch
+	cd temp/qemu-10 && git apply ../../0006-fix-jit-on-OHOS.patch
 	cd temp/qemu-10 && \
 	PKG_CONFIG=$(shell which pkg-config) \
 	PKG_CONFIG_PATH= \
