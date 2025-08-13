@@ -10,6 +10,7 @@ all: download/qemu-10
 	cd temp/qemu-10 && git apply ../../0004-enable-jit-on-OHOS.patch
 	cd temp/qemu-10 && git apply ../../0005-fix-argv-for-geust-on-OHOS.patch
 	cd temp/qemu-10 && git apply ../../0006-support-redirecting-file-access-to-specified-root-fi.patch
+	cd temp/qemu-10 && git apply ../../0007-fix-jit-on-OHOS.patch
 	cd temp/qemu-10 && \
 	PKG_CONFIG=$(shell which pkg-config) \
 	PKG_CONFIG_PATH= \
