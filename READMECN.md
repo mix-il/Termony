@@ -71,7 +71,7 @@ Termux for HarmonyOS Computer。开发进行中。
 
 小技巧：你可以在内置终端应用中使用这些工具 `/data/service/hnp`：
 
-![](screenshot_20250817_115624.jpg)
+![](https://gitee.com/nanqu_ait/termony-hnp/raw/master/screenshot_20250817_115624.jpg)
 
 尽管由于前缀设置为 `/data/app/base.org/base_1.0`（感谢 @duskmoon314），某些路径可能会出错。你可以像这样覆盖它们：
 
