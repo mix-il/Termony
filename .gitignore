@@ -16,3 +16,4 @@
 arkuix-sdk.zip
 *.hap
 .vscode
+/build-profile.json5

@@ -1646,7 +1646,8 @@ void terminal_context::Fork() {
         // override TMPDIR for tmux
         setenv("TMUX_TMPDIR", "/data/storage/el2/base/cache", 1);
         chdir(home);
-        execl("/data/app/bin/bash", "/data/app/bin/bash", nullptr);
+        //execl("/data/app/bin/bash", "/data/app/bin/bash", nullptr);
+        execl("/bin/sh", "/bin/sh", nullptr);
 #endif
     }
 
