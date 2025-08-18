@@ -79,15 +79,15 @@
         ]
       }
     ],
-    "hnpPackages": [
-      {
-        "package": "base.hnp",
-        "type": "private"
-      },
-      {
-        "package": "base-public.hnp",
-        "type": "public"
-      }
-    ]
+//    "hnpPackages": [
+//      {
+//        "package": "base.hnp",
+//        "type": "private"
+//      },
+//      {
+//        "package": "base-public.hnp",
+//        "type": "public"
+//      }
+//    ]
   }
 }
