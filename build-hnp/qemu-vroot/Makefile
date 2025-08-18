@@ -11,6 +11,8 @@ all: download/qemu-10
 	cd temp/qemu-10 && git apply ../../0005-fix-argv-for-geust-on-OHOS.patch
 	cd temp/qemu-10 && git apply ../../0006-support-redirecting-file-access-to-specified-root-fi.patch
 	cd temp/qemu-10 && git apply ../../0007-fix-jit-on-OHOS.patch
+	cd temp/qemu-10 && git apply ../../0008-forward-dev-access-to-host.patch
+	cd temp/qemu-10 && git apply ../../0009-support-mount-root-of-host-to-guest.patch
 	cd temp/qemu-10 && \
 	PKG_CONFIG=$(shell which pkg-config) \
 	PKG_CONFIG_PATH= \
