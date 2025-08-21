@@ -90,7 +90,7 @@ if [ -d "/data/service/hnp/base.org/base_1.0" ]; then
 fi
 ```
 
-However, the builtin Terminal app does not have the permission to map R+X pages, so you cannot use elf loader there. You can use it in Termony. Also, the public folder does not get updated if you upgrade Termony. You need to re-install Termony to get the latest version available.
+However, the builtin Terminal app does not have the permission to map R+X pages, so you cannot use elf loader there. You can use it in Termony. Also, the public folder `/data/service/hnp` does not get updated if you upgrade Termony. You need to re-install Termony to get the latest version available.
 
 Terminal features:
 

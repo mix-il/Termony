@@ -1,6 +1,6 @@
 # Termony
-> 原始项目链接 [Termony](https://github.com/TermonyHQ/Termony)
 
+[GitHub](https://github.com/jiegec/Termony) [Gitee](https://gitee.com/jiegec/Termony)
 
 Termux for HarmonyOS Computer。开发进行中。
 
@@ -14,7 +14,7 @@ Termux for HarmonyOS Computer。开发进行中。
 
 ## 概述
 
-捆绑软件包：
+内置软件包：
 
 - aria2
 - bash
@@ -53,7 +53,7 @@ Termux for HarmonyOS Computer。开发进行中。
 - proot
 - python
 - qemu (你可以运行没有可执行权限的可执行文件！例如 `cp /data/app/bin/bash ~/ && qemu-aarch64 ~/bash`)
-- qemu-vroot (修补过的 qemu 以模拟 proot 行为)
+- qemu-vroot (patch 过的 qemu 以模拟 proot 行为)
 - readline
 - sl
 - strace
@@ -71,15 +71,15 @@ Termux for HarmonyOS Computer。开发进行中。
 
 小技巧：你可以在内置终端应用中使用这些工具 `/data/service/hnp`：
 
-![](https://gitee.com/nanqu_ait/termony-hnp/raw/master/screenshot_20250817_115624.jpg)
+![](./screenshot_hishell_cn.jpg)
 
-尽管由于前缀设置为 `/data/app/base.org/base_1.0`（感谢 @duskmoon314），某些路径可能会出错。你可以像这样覆盖它们：
+由于 PREFIX 被设置为 `/data/app/base.org/base_1.0`（感谢 @duskmoon314），某些路径可能会出错。你可以像这样覆盖它们：
 
 ```shell
 LD_LIBRARY_PATH=/data/service/hnp/base.org/base_1.0/lib TERMINFO=/data/service/hnp/base.org/base_1.0/share/terminfo fish
 ```
 
-你可以将它们持久化到 `~/.bashrc`，并在从 Termony 执行其他命令之前运行 bash：
+你可以将它们持久化到 `~/.bashrc`，并在运行其他由 Termony 提供的命令之前运行 bash：
 
 ```shell
 if [ -d "/data/service/hnp/base.org/base_1.0" ]; then
@@ -90,13 +90,13 @@ if [ -d "/data/service/hnp/base.org/base_1.0" ]; then
 fi
 ```
 
-但是，内置终端应用没有映射 R+X 页面的权限，因此你不能在那里使用 elf 加载器。你可以在 Termony 中使用它。此外，如果你升级了 Termony，公共文件夹不会更新。你需要重新安装 Termony 才能获得最新版本。
+但是，系统自带的终端应用没有映射 R+X 页面的权限，因此不能在那里使用 elf 加载器。你可以在 Termony 中使用它。此外，如果你升级了 Termony，公共 HNP 安装路径 `/data/service/hnp` 不会更新。你需要重新安装 Termony 才能获得最新版本。
 
 终端特性：
 
 - 基本的转义序列支持
 - 通过上下文菜单粘贴（右键单击激活）
-- 在命令行中复制/粘贴使用 OSC52 转义序列通过 pbcopy/pbpaste
+- 在命令行中通过 pbcopy/pbpaste 复制/粘贴（基于 OSC52 转义序列）
 
 ### 在新的根文件系统中运行（早期实验性）
 
@@ -127,7 +127,7 @@ bin    dev    etc    home   lib    media  mnt    opt    proc   root   run    sbi
 1. 将你的 MateBook Pro 连接到 Mac，并在 Mac 上执行以下步骤
 2. 递归克隆此仓库，并进入该仓库目录
 3. 在 DevEco-Studio 中设置代码签名，忽略任何警告
-4. 安装 `wget`、`coreutils`、`make`、`gsed`、`gettext`、`automake`、`cmake`、`pkg-config` 和 `ncurses` 从 Homebrew 或 Nix
+4. 从 Homebrew 或 Nix 安装 `wget`、`coreutils`、`make`、`gsed`、`gettext`、`automake`、`cmake`、`pkg-config` 和 `ncurses`
 5. （M 系列用户）`export PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:/opt/homebrew/opt/gnu-sed/libexec/gnubin:/opt/homebrew/opt/make/libexec/gnubin:$PATH"`
 6. 运行 `./create-hnp.sh` 创建 hnp 包
 7. 运行 `./build-macos.sh`
@@ -141,7 +141,7 @@ bin    dev    etc    home   lib    media  mnt    opt    proc   root   run    sbi
 3. 在 DevEco-Studio 中设置代码签名，忽略任何警告
 4. 设置 DevEco 命令行工具，并确保 `$TOOL_HOME` 环境变量是 SDK 的正确目录
 5. 运行 `./build-linux.sh -b` 创建 hnp 包
-6. 运行 `./build-linux.sh -s` 签署 hap 文件
+6. 运行 `./build-linux.sh -s` 对 hap 文件签名
 7. 运行 `./build-linux.sh -p` 推送并安装 Termony 到你的设备
 8. 在你的 HarmonyOS 计算机上尝试 Termony
 
@@ -153,21 +153,9 @@ bin    dev    etc    home   lib    media  mnt    opt    proc   root   run    sbi
 4. 在 DevEco-Studio 中设置代码签名，忽略任何警告
 5. 在 WSL 中设置 DevEco 命令行工具，并确保 `$TOOL_HOME` 环境变量是 SDK 的正确目录
 6. 在 WSL 中运行 `./build-linux.sh -b` 创建 hnp 包
-7. 在 WSL 中运行 `./build-linux.sh -s` 签署 hap 文件
+7. 在 WSL 中运行 `./build-linux.sh -s` 对 hap 文件签名
 8. 在 Windows 终端中使用 `hdc` 在 Windows 上发送和安装 hap 文件，如 `build-linux.sh` 中的 `hdc_push`
 9. 在你的 HarmonyOS 计算机上尝试 Termony
-
-## 使用方法（如果您是 Docker 用户）：
-
-1. 复制项目文件夹下的DockerEnv/Dockerfile到您自己的PC中 注：目前仅支持x86_64的PC
-2. 执行`docker build -t termony .`构建镜像
-3. 运行容器`docker run -itd -p 2222:22 --name termony --hostname termony --privileged=true termony /sbin/init`
-4. 进入容器修改root用户密码`docker exec -it termony bash`
-5. 使用ssh客户端链接容器，端口为2222，用户名为root，密码为刚刚设置的密码，IP地址为您的服务器ip地址
-6. 上传commandline-tools-linux.zip，并将commandline-tools-linux.zip解压到/opt目录下
-7. 运行`source /root/termony.env`
-8. 在项目文件夹中执行`./build-linux.sh -b` 创建 hnp 包
-9. 在项目文件夹中执行`./build-linux.sh -s` 签署 hap 文件
 
 ## 它是如何工作的
 
