@@ -15,6 +15,13 @@ enum font_weight {
     NUM_WEIGHT,
 };
 
+// make sure conform to ANSI
+enum term_colors {
+    black, red, green, yellow, blue, magenta, cyan, white,
+    brblack, brred, brgreen, bryellow, brblue, brmagenta, brcyan, brwhite,
+    max_term_color
+};
+
 // maintain terminal status
 struct term_style {
     // font weight

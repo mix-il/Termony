@@ -2,6 +2,7 @@
 // g++ terminal.cpp -I/usr/include/freetype2 -DSTANDALONE -lfreetype -lGLESv2 -lglfw -o terminal
 
 #include "terminal.h"
+#include "freetype/ftmm.h"
 #include <GLES3/gl32.h>
 #include <algorithm>
 #include <assert.h>
@@ -63,26 +64,6 @@ void CustomPrintf(const char *fmt, ...) {
 // Ps: a single and optional numeric parameter
 // Pm: list of Ps, separated by ;
 // Pt: text parameter of printable characters
-
-enum term_colors {
-    brblack,
-    black,
-    brgreen,
-    bryellow,
-    brblue,
-    brcyan,
-    white,
-    brwhite,
-    yellow,
-    brred,
-    red,
-    magenta,
-    brmagenta,
-    blue,
-    cyan,
-    green,
-    max_term_color
-};
 
 // solarized light
 static std::array<int, 3> predefined_colors[max_term_color] = {
@@ -386,16 +367,18 @@ static std::vector<std::string> SplitString(const std::string &str, const std::s
 }
 
 // viewport width/height
-static int width = 0;
-static int height = 0;
+static int vw100 = 0;
+static int vh100 = 0;
 static GLint surface_location = -1;
 static GLint render_pass_location = -1;
 #ifdef STANDALONE
+// and this is scale = 1.0, too small on a HiDPI display
 static int font_height = 24;
 static int font_width = 12;
 static int max_font_width = 24;
 static int baseline_height = 5;
 #else
+// ohos screen is scaled but not 200% i think
 static int font_height = 48;
 static int font_width = 24;
 static int max_font_width = 48;
@@ -1702,8 +1685,8 @@ static GLuint texture_id;
 static void ResizeTo(int new_term_row, int new_term_col, bool update_viewport = true) {
     // update viewport
     if (update_viewport) {
-        width = new_term_col * font_width;
-        height = new_term_row * font_height;
+        vw100 = new_term_col * font_width;
+        vh100 = new_term_row * font_height;
     }
 
     term.ResizeTo(new_term_row, new_term_col);
@@ -1744,7 +1727,7 @@ void SendData(uint8_t *data, size_t length) {
 // 0.5 +------+--+
 //     | 0x01    |
 // 1.0 +------+--+
-static void LoadFont() {
+static void BuildFontAtlas() {
     need_reload_font = false;
 
     FT_Library ft;
@@ -1756,8 +1739,8 @@ static void LoadFont() {
         {"../../../../../fonts/ttf/Inconsolata-Regular.ttf", font_weight::regular},
         {"../../../../../fonts/ttf/Inconsolata-Bold.ttf", font_weight::bold},
 #else
-        {"/data/storage/el2/base/haps/entry/files/Inconsolata-Regular.ttf", font_weight::regular},
-        {"/data/storage/el2/base/haps/entry/files/Inconsolata-Bold.ttf", font_weight::bold},
+        {"/system/fonts/NotoSansMono[wdth,wght].ttf", font_weight::regular},
+        {"/system/fonts/NotoSansMono[wdth,wght].ttf", font_weight::bold},
 #endif
     };
 
@@ -1774,6 +1757,12 @@ static void LoadFont() {
         FT_Face face;
         err = FT_New_Face(ft, font, 0, &face);
         assert(err == 0);
+        
+        FT_Fixed coords[2];
+        coords[0] = (weight == font_weight::bold ? 400 : 400) * 65536;
+        coords[1] = 90 * 65536;
+        assert(FT_Set_Var_Design_Coordinates(face, 2, coords) == 0);
+        
         FT_Set_Pixel_Sizes(face, 0, font_height);
         // Note: in 26.6 fractional pixel format
         OH_LOG_INFO(LOG_APP,
@@ -1781,17 +1770,20 @@ static void LoadFont() {
                     "YMin: %{public}ld YMax: %{public}ld XScale: %{public}ld YScale: %{public}ld",
                     face->ascender, face->descender, face->height, face->bbox.xMin, face->bbox.xMax, face->bbox.yMin,
                     face->bbox.yMax, face->size->metrics.x_scale, face->size->metrics.y_scale);
-
-        for (uint32_t c : codepoints_to_load) {
-            // load character glyph
-            assert(FT_Load_Char(face, c, FT_LOAD_RENDER) == 0);
+        
+        for (uint32_t charCode : codepoints_to_load) {
+            if (charCode != 0)
+                // load character glyph
+                assert(FT_Load_Char(face, charCode, FT_LOAD_RENDER) == 0);
+            else
+                FT_Load_Glyph(face, 0, FT_LOAD_RENDER);
 
             OH_LOG_INFO(LOG_APP,
                         "Weight: %{public}d Char: %{public}d(0x%{public}x) Glyph: %{public}d %{public}d Left: "
                         "%{public}d "
                         "Top: %{public}d "
                         "Advance: %{public}ld",
-                        weight, c, c, face->glyph->bitmap.width, face->glyph->bitmap.rows, face->glyph->bitmap_left,
+                        weight, charCode, charCode, face->glyph->bitmap.width, face->glyph->bitmap.rows, face->glyph->bitmap_left,
                         face->glyph->bitmap_top, face->glyph->advance.x);
 
             // copy to bitmap
@@ -1821,7 +1813,7 @@ static void LoadFont() {
                 .width = (int)face->glyph->bitmap.width,
                 .height = (int)face->glyph->bitmap.rows,
             };
-            characters[{c, weight}] = character;
+            characters[{charCode, weight}] = character;
         }
 
 
@@ -1842,9 +1834,10 @@ static void LoadFont() {
 
     // disable byte-alignment restriction
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
+    
     // generate texture
     glBindTexture(GL_TEXTURE_2D, texture_id);
+    OH_LOG_INFO(LOG_APP, "map height: %{public}d", bitmap_height);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, row_stride, bitmap_height, 0, GL_RED, GL_UNSIGNED_BYTE, bitmap.data());
 
     // set texture options
@@ -1875,10 +1868,10 @@ static void Draw() {
 
     // update surface size
     pthread_mutex_lock(&term.lock);
-    int aligned_width = width / font_width * font_width;
-    int aligned_height = height / font_height * font_height;
+    int aligned_width = vw100 / font_width * font_width;
+    int aligned_height = vh100 / font_height * font_height;
     glUniform2f(surface_location, aligned_width, aligned_height);
-    glViewport(0, height - aligned_height, aligned_width, aligned_height);
+    glViewport(0, vh100 - aligned_height, aligned_width, aligned_height);
 
     // set texture
     glActiveTexture(GL_TEXTURE0);
@@ -1887,7 +1880,7 @@ static void Draw() {
     // bind our vertex array
     glBindVertexArray(vertex_array);
 
-    int max_lines = height / font_height;
+    int max_lines = vh100 / font_height;
     // vec4 vertex
     static std::vector<GLfloat> vertex_pass0_data;
     static std::vector<GLfloat> vertex_pass1_data;
@@ -1934,11 +1927,11 @@ static void Draw() {
             if (it == characters.end()) {
                 // reload font to locate it
                 OH_LOG_WARN(LOG_APP, "Missing character: %{public}d of weight %{public}d", c.ch, c.style.weight);
-                need_reload_font = true;
-                codepoints_to_load.insert(c.ch);
+                //need_reload_font = true;
+                //codepoints_to_load.insert(c.ch);
 
-                // we don't have the character, fallback to space
-                it = characters.find(std::pair<uint32_t, enum font_weight>(' ', c.style.weight));
+                // we don't have the character, fallback to .notdef
+                it = characters.find(std::pair<uint32_t, enum font_weight>(0, c.style.weight));
                 assert(it != characters.end());
             }
 
@@ -2147,10 +2140,11 @@ static void *RenderWorker(void *) {
     // load font from ttf for the initial characters
     glGenTextures(1, &texture_id);
     // load common characters initially
-    for (uint32_t i = 0; i < 128; i++) {
+    codepoints_to_load.insert(0);
+    for (uint32_t i = 32; i < 128; i++) {
         codepoints_to_load.insert(i);
     }
-    LoadFont();
+    BuildFontAtlas();
 
     // create buffers for drawing
     glGenVertexArrays(1, &vertex_array);
@@ -2244,7 +2238,7 @@ static void *RenderWorker(void *) {
         }
 
         if (need_reload_font) {
-            LoadFont();
+            BuildFontAtlas();
         }
     }
 }
@@ -2253,10 +2247,10 @@ static void *RenderWorker(void *) {
 // on resize
 void Resize(int new_width, int new_height) {
     pthread_mutex_lock(&term.lock);
-    width = new_width;
-    height = new_height;
+    vw100 = new_width;
+    vh100 = new_height;
 
-    ResizeTo(height / font_height, width / font_width, false);
+    ResizeTo(vh100 / font_height, vw100 / font_width, false);
     pthread_mutex_unlock(&term.lock);
 }
 
