@@ -1,5 +1,5 @@
 // for standalone build to test on Linux:
-// g++ terminal.cpp -I/usr/include/freetype2 -DSTANDALONE -lfreetype -lGLESv2 -lglfw -o terminal
+// clang++ -std=c++17 terminal.cpp -I/usr/include/freetype2 -DSTANDALONE -lfreetype -lGLESv2 -lglfw -o terminal
 
 #include "terminal.h"
 #include "freetype/ftmm.h"
@@ -66,23 +66,25 @@ void CustomPrintf(const char *fmt, ...) {
 // Pt: text parameter of printable characters
 
 // solarized light
+// fails on g++
 static std::array<int, 3> predefined_colors[max_term_color] = {
-    [brblack] = { 0, 43, 54 },
     [black] = { 7, 54, 66 },
+    [red] = { 220, 50, 47 },
+    [green] = { 13, 153, 0 },
+    [yellow] = { 181, 137, 0 },
+    [blue] = { 38, 139, 210 },
+    [magenta] = { 221, 54, 130 },
+    [cyan] = { 42, 161, 152 },
+    [white] = { 238, 232, 213 },
+
+    [brblack] = { 0, 43, 54 },
+    [brred] = { 203, 75, 22 },
     [brgreen] = { 88, 110, 117 },
     [bryellow] = { 101, 123, 131 },
     [brblue] = { 131, 148, 150 },
-    [brcyan] = { 147, 161, 161 },
-    [white] = { 238, 232, 213 },
-    [brwhite] = { 253, 246, 227 },
-    [yellow] = { 181, 137, 0 },
-    [brred] = { 203, 75, 22 },
-    [red] = { 220, 50, 47 },
-    [magenta] = { 221, 54, 130 },
     [brmagenta] = { 108, 113, 196 },
-    [blue] = { 38, 139, 210 },
-    [cyan] = { 42, 161, 152 },
-    [green] = { 13, 153, 0 },
+    [brcyan] = { 147, 161, 161 },
+    [brwhite] = { 253, 246, 227 },
 };
 
 term_style::term_style() {
@@ -93,265 +95,6 @@ term_style::term_style() {
     bg_green = predefined_colors[white][1] / 255.0;
     bg_blue = predefined_colors[white][2] / 255.0;
 }
-
-uint32_t color_map_256[] = {
-    0x000000,
-    0x800000,
-    0x008000,
-    0x808000,
-    0x000080,
-    0x800080,
-    0x008080,
-    0xc0c0c0,
-    0x808080,
-    0xff0000,
-    0x00ff00, 
-    0xffff00, 
-    0x0000ff,
-    0xff00ff,
-    0x00ffff,
-    0xffffff,
-    0x000000,
-    0x00005f,
-    0x000087,
-    0x0000af,
-    0x0000d7,
-    0x0000ff,
-    0x005f00,
-    0x005f5f,
-    0x005f87,
-    0x005faf,
-    0x005fd7,
-    0x005fff,
-    0x008700,
-    0x00875f,
-    0x008787,
-    0x0087af,
-    0x0087d7,
-    0x0087ff,
-    0x00af00,
-    0x00af5f,
-    0x00af87,
-    0x00afaf,
-    0x00afd7,
-    0x00afff,
-    0x00d700,
-    0x00d75f,
-    0x00d787,
-    0x00d7af,
-    0x00d7d7,
-    0x00d7ff,
-    0x00ff00,
-    0x00ff5f,
-    0x00ff87,
-    0x00ffaf,
-    0x00ffd7,
-    0x00ffff,
-    0x5f0000,
-    0x5f005f,
-    0x5f0087,
-    0x5f00af,
-    0x5f00d7,
-    0x5f00ff,
-    0x5f5f00,
-    0x5f5f5f,
-    0x5f5f87,
-    0x5f5faf,
-    0x5f5fd7,
-    0x5f5fff,
-    0x5f8700,
-    0x5f875f,
-    0x5f8787,
-    0x5f87af,
-    0x5f87d7,
-    0x5f87ff,
-    0x5faf00,
-    0x5faf5f,
-    0x5faf87,
-    0x5fafaf,
-    0x5fafd7,
-    0x5fafff,
-    0x5fd700,
-    0x5fd75f,
-    0x5fd787,
-    0x5fd7af,
-    0x5fd7d7,
-    0x5fd7ff,
-    0x5fff00,
-    0x5fff5f,
-    0x5fff87,
-    0x5fffaf,
-    0x5fffd7,
-    0x5fffff,
-    0x870000,
-    0x87005f,
-    0x870087,
-    0x8700af,
-    0x8700d7,
-    0x8700ff,
-    0x875f00,
-    0x875f5f,
-    0x875f87,
-    0x875faf,
-    0x875fd7,
-    0x875fff,
-    0x878700, 
-    0x87875f, 
-    0x878787, 
-    0x8787af, 
-    0x8787d7, 
-    0x8787ff,
-    0x87af00, 
-    0x87af5f, 
-    0x87af87, 
-    0x87afaf, 
-    0x87afd7, 
-    0x87afff,
-    0x87d700, 
-    0x87d75f, 
-    0x87d787, 
-    0x87d7af, 
-    0x87d7d7, 
-    0x87d7ff,
-    0x87ff00, 
-    0x87ff5f, 
-    0x87ff87, 
-    0x87ffaf, 
-    0x87ffd7, 
-    0x87ffff,
-    0xaf0000, 
-    0xaf005f, 
-    0xaf0087, 
-    0xaf00af, 
-    0xaf00d7, 
-    0xaf00ff,
-    0xaf5f00, 
-    0xaf5f5f, 
-    0xaf5f87, 
-    0xaf5faf, 
-    0xaf5fd7, 
-    0xaf5fff,
-    0xaf8700, 
-    0xaf875f, 
-    0xaf8787, 
-    0xaf87af, 
-    0xaf87d7, 
-    0xaf87ff,
-    0xafaf00, 
-    0xafaf5f, 
-    0xafaf87, 
-    0xafafaf, 
-    0xafafd7, 
-    0xafafff,
-    0xafd700, 
-    0xafd75f, 
-    0xafd787, 
-    0xafd7af, 
-    0xafd7d7, 
-    0xafd7ff,
-    0xafff00, 
-    0xafff5f, 
-    0xafff87, 
-    0xafffaf, 
-    0xafffd7, 
-    0xafffff,
-    0xd70000, 
-    0xd7005f, 
-    0xd70087, 
-    0xd700af, 
-    0xd700d7, 
-    0xd700ff,
-    0xd75f00, 
-    0xd75f5f, 
-    0xd75f87, 
-    0xd75faf, 
-    0xd75fd7, 
-    0xd75fff,
-    0xd78700, 
-    0xd7875f, 
-    0xd78787, 
-    0xd787af, 
-    0xd787d7, 
-    0xd787ff,
-    0xd7af00, 
-    0xd7af5f, 
-    0xd7af87, 
-    0xd7afaf, 
-    0xd7afd7, 
-    0xd7afff,
-    0xd7d700, 
-    0xd7d75f, 
-    0xd7d787, 
-    0xd7d7af, 
-    0xd7d7d7, 
-    0xd7d7ff,
-    0xd7ff00, 
-    0xd7ff5f, 
-    0xd7ff87, 
-    0xd7ffaf, 
-    0xd7ffd7, 
-    0xd7ffff,
-    0xff0000, 
-    0xff005f, 
-    0xff0087, 
-    0xff00af, 
-    0xff00d7, 
-    0xff00ff,
-    0xff5f00, 
-    0xff5f5f, 
-    0xff5f87, 
-    0xff5faf, 
-    0xff5fd7, 
-    0xff5fff,
-    0xff8700, 
-    0xff875f, 
-    0xff8787, 
-    0xff87af, 
-    0xff87d7, 
-    0xff87ff,
-    0xffaf00, 
-    0xffaf5f, 
-    0xffaf87, 
-    0xffafaf, 
-    0xffafd7, 
-    0xffafff,
-    0xffd700, 
-    0xffd75f, 
-    0xffd787, 
-    0xffd7af, 
-    0xffd7d7, 
-    0xffd7ff,
-    0xffff00, 
-    0xffff5f, 
-    0xffff87, 
-    0xffffaf, 
-    0xffffd7, 
-    0xffffff,
-    0x080808, 
-    0x121212, 
-    0x1c1c1c, 
-    0x262626, 
-    0x303030, 
-    0x3a3a3a,
-    0x444444, 
-    0x4e4e4e, 
-    0x585858, 
-    0x606060, 
-    0x666666, 
-    0x767676,
-    0x808080, 
-    0x8a8a8a, 
-    0x949494, 
-    0x9e9e9e, 
-    0xa8a8a8, 
-    0xb2b2b2,
-    0xbcbcbc, 
-    0xc6c6c6, 
-    0xd0d0d0, 
-    0xdadada, 
-    0xe4e4e4, 
-    0xeeeeee
-};
 
 static std::vector<std::string> SplitString(const std::string &str, const std::string &delimiter) {
     std::vector<std::string> result;
@@ -1598,14 +1341,21 @@ static void BuildFontAtlas() {
 
     decltype(characters) newChars;
     
-    std::vector<std::tuple<const char *, font_weight, int>> fonts = {
+    std::vector<struct font_spec> fonts = {
 #ifdef STANDALONE
-        {"/usr/share/fonts/noto/NotoSansMono-Regular.ttf", font_weight::regular},
-        {"/usr/share/fonts/noto/NotoSansMono-Bold.ttf", font_weight::bold},
+        {"/usr/share/fonts/noto/NotoSansMono-Regular.ttf", {font_weight::regular}},
+        {"/usr/share/fonts/noto/NotoSansMono-Bold.ttf", {font_weight::bold}},
+        {"/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc", {.weight=font_weight::regular, .ttc_index=0}}
 #else
-        {"/system/fonts/NotoSansMono[wdth,wght].ttf", font_weight::regular, 0},
-        {"/system/fonts/NotoSansMono[wdth,wght].ttf", font_weight::bold, 0},
-        {"/system/fonts/NotoSansCJK-Regular.ttc", font_weight::regular, 2}
+        {
+            "/system/fonts/NotoSansMono[wdth,wght].ttf",
+            {.variable_width = 88 << 16, .variable_weight = 400 << 16}
+        },
+        {
+            "/system/fonts/NotoSansMono[wdth,wght].ttf",
+            {.weight = font_weight::bold, .variable_width = 88 << 16, .variable_weight = 700 << 16}
+        },
+        {"/system/fonts/NotoSansCJK-Regular.ttc", {.ttc_index=2}} // 0=JP, 1=KR
 #endif
     };
 
@@ -1614,19 +1364,27 @@ static void BuildFontAtlas() {
     int bound = font_height, num_rows = 1, row_pointer = 0;
     std::vector<uint8_t> bitmap(bound * atlas_width, 0);
 
-    for (auto fontuple : fonts) {
-        const char *font = std::get<0>(fontuple);
-        font_weight weight = std::get<1>(fontuple);
-        int faceIndex = std::get<2>(fontuple);
-
+    for (const auto & fnt : fonts) {
+        const char *font = fnt.path;
         FT_Face face;
-        err = FT_New_Face(ft, font, faceIndex, &face);
+        err = FT_New_Face(ft, font, fnt.opts.ttc_index, &face);
         assert(err == 0);
-        if (strstr(font, "[wdth,wght]")) {
-            FT_Fixed var[2];
-            var[0] = (weight == font_weight::bold ? 700 : 400) * 65536;
-            var[1] = 88 * 65536;
-            assert(FT_Set_Var_Design_Coordinates(face, 2, var) == 0);
+    
+        if (fnt.opts.variable_width.has_value() || fnt.opts.variable_weight.has_value()) {
+            FT_MM_Var * vars;
+            std::vector<FT_Fixed> coords;
+            if (FT_Get_MM_Var(face, &vars) == 0) {
+                for (int ia = 0; ia < vars->num_axis; ia++) {
+                    if (strcmp("wdth", vars->axis[ia].name) == 0)
+                        coords.push_back(fnt.opts.variable_width.value_or(vars->axis[ia].def));
+                    else if (strcmp("wght", vars->axis[ia].name) == 0)
+                        coords.push_back(fnt.opts.variable_weight.value_or(vars->axis[ia].def));
+                    else
+                        coords.push_back(vars->axis[ia].def);
+                }
+                FT_Set_Var_Design_Coordinates(face, coords.size(), coords.data());
+                FT_Done_MM_Var(ft, vars);
+            }
         }
         
         FT_Set_Pixel_Sizes(face, 0, font_height);
@@ -1639,7 +1397,7 @@ static void BuildFontAtlas() {
         
         for (auto charCode : codepoints_to_load) {
             // already loaded
-            if (newChars.count({charCode, weight}))
+            if (newChars.count({charCode, fnt.opts.weight}))
                 continue;
             FT_ULong glyphIndex = FT_Get_Char_Index(face, charCode);
             // allow NUL to be loaded
@@ -1647,7 +1405,7 @@ static void BuildFontAtlas() {
                 FT_Load_Glyph(face, glyphIndex, FT_LOAD_RENDER);
             }
             else {
-                if (fontuple == fonts.back()) {
+                if (&fnt == &fonts.back()) {
                     newChars[{charCode, font_weight::regular}] = newChars[{0, font_weight::regular}];
                 }
                 continue;
@@ -1658,7 +1416,7 @@ static void BuildFontAtlas() {
                         "%{public}d "
                         "Top: %{public}d "
                         "Advance: %{public}ld",
-                        weight, charCode, charCode, face->glyph->bitmap.width, face->glyph->bitmap.rows, face->glyph->bitmap_left,
+                        fnt.weight, charCode, charCode, face->glyph->bitmap.width, face->glyph->bitmap.rows, face->glyph->bitmap_left,
                         face->glyph->bitmap_top, face->glyph->advance.x);
 
             auto glyph = face->glyph;
@@ -1702,7 +1460,7 @@ static void BuildFontAtlas() {
                 .width = int(bits.width),
                 .height = int(bits.rows),
             };
-            newChars.insert(std::make_pair(std::make_pair(charCode, weight), character));
+            newChars.insert(std::make_pair(std::make_pair(charCode, fnt.weight), character));
         }
 
 
