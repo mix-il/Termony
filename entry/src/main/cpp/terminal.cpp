@@ -1596,13 +1596,16 @@ static void BuildFontAtlas() {
     FT_Error err = FT_Init_FreeType(&ft);
     assert(err == 0);
 
-    std::vector<std::pair<const char *, font_weight>> fonts = {
+    decltype(characters) newChars;
+    
+    std::vector<std::tuple<const char *, font_weight, int>> fonts = {
 #ifdef STANDALONE
         {"/usr/share/fonts/noto/NotoSansMono-Regular.ttf", font_weight::regular},
         {"/usr/share/fonts/noto/NotoSansMono-Bold.ttf", font_weight::bold},
 #else
-        {"/system/fonts/NotoSansMono[wdth,wght].ttf", font_weight::regular},
-        {"/system/fonts/NotoSansMono[wdth,wght].ttf", font_weight::bold},
+        {"/system/fonts/NotoSansMono[wdth,wght].ttf", font_weight::regular, 0},
+        {"/system/fonts/NotoSansMono[wdth,wght].ttf", font_weight::bold, 0},
+        {"/system/fonts/NotoSansCJK-Regular.ttc", font_weight::regular, 2}
 #endif
     };
 
@@ -1611,19 +1614,20 @@ static void BuildFontAtlas() {
     int bound = font_height, num_rows = 1, row_pointer = 0;
     std::vector<uint8_t> bitmap(bound * atlas_width, 0);
 
-    for (auto pair : fonts) {
-        const char *font = pair.first;
-        font_weight weight = pair.second;
+    for (auto fontuple : fonts) {
+        const char *font = std::get<0>(fontuple);
+        font_weight weight = std::get<1>(fontuple);
+        int faceIndex = std::get<2>(fontuple);
 
         FT_Face face;
-        err = FT_New_Face(ft, font, 0, &face);
+        err = FT_New_Face(ft, font, faceIndex, &face);
         assert(err == 0);
-#if !defined(STANDALONE)
-        FT_Fixed var[2];
-        var[0] = (weight == font_weight::bold ? 700 : 400) * 65536;
-        var[1] = 90 * 65536;
-        assert(FT_Set_Var_Design_Coordinates(face, 2, var) == 0);
-#endif
+        if (strstr(font, "[wdth,wght]")) {
+            FT_Fixed var[2];
+            var[0] = (weight == font_weight::bold ? 700 : 400) * 65536;
+            var[1] = 88 * 65536;
+            assert(FT_Set_Var_Design_Coordinates(face, 2, var) == 0);
+        }
         
         FT_Set_Pixel_Sizes(face, 0, font_height);
         // Note: in 26.6 fractional pixel format
@@ -1633,13 +1637,21 @@ static void BuildFontAtlas() {
                     face->ascender, face->descender, face->height, face->bbox.xMin, face->bbox.xMax, face->bbox.yMin,
                     face->bbox.yMax, face->size->metrics.x_scale, face->size->metrics.y_scale);
         
-        for (uint32_t charCode : codepoints_to_load) {
-            if (charCode != 0)
-                // load character glyph
-                assert(FT_Load_Char(face, charCode, FT_LOAD_RENDER) == 0);
-            else
-                // load placeholding glyph
-                FT_Load_Glyph(face, 0, FT_LOAD_RENDER);
+        for (auto charCode : codepoints_to_load) {
+            // already loaded
+            if (newChars.count({charCode, weight}))
+                continue;
+            FT_ULong glyphIndex = FT_Get_Char_Index(face, charCode);
+            // allow NUL to be loaded
+            if (!charCode || glyphIndex) {
+                FT_Load_Glyph(face, glyphIndex, FT_LOAD_RENDER);
+            }
+            else {
+                if (fontuple == fonts.back()) {
+                    newChars[{charCode, font_weight::regular}] = newChars[{0, font_weight::regular}];
+                }
+                continue;
+            }
 
             OH_LOG_INFO(LOG_APP,
                         "Weight: %{public}d Char: %{public}d(0x%{public}x) Glyph: %{public}d %{public}d Left: "
@@ -1690,7 +1702,7 @@ static void BuildFontAtlas() {
                 .width = int(bits.width),
                 .height = int(bits.rows),
             };
-            characters[{charCode, weight}] = character;
+            newChars.insert(std::make_pair(std::make_pair(charCode, weight), character));
         }
 
 
@@ -1702,7 +1714,7 @@ static void BuildFontAtlas() {
     int atlas_height = bound * num_rows;
     // now bitmap contains all glyphs
     // second pass: convert pixels to uv coordinates
-    for (auto &pair : characters) {
+    for (auto &pair : newChars) {
         auto& g = pair.second;
         // https://stackoverflow.com/questions/35454432/finding-image-pixel-coordinates-integers-from-uv-values-floats-of-obj-file
         g.left /= atlas_width;
@@ -1729,6 +1741,8 @@ static void BuildFontAtlas() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    
+    characters = newChars;
 }
 
 static GLuint program_id;
@@ -1808,6 +1822,8 @@ static void Draw() {
             uint32_t codepoint = c.ch;
             auto key = std::pair<uint32_t, enum font_weight>(c.ch, c.style.weight);
             auto it = characters.find(key);
+            if (it == characters.end())
+                it = characters.find(std::make_pair(c.ch, font_weight::regular));
             if (it == characters.end()) {
                 // reload font to locate it
                 OH_LOG_WARN(LOG_APP, "Missing character: %{public}d of weight %{public}d", c.ch, c.style.weight);
@@ -1897,7 +1913,7 @@ static void Draw() {
             background_color_data.insert(background_color_data.end(), &g_background_color_buffer_data[0],
                                          &g_background_color_buffer_data[18]);
 
-            x += font_width;
+            x += w < font_width * 1.33 ? font_width : 2.0 * font_width;
             cur_col++;
         }
     }
