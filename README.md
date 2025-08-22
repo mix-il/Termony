@@ -16,58 +16,22 @@ Also compile and run C/C++ programs on HarmonyOS Computer:
 
 Bundled packages:
 
-- aria2
-- bash
-- binutils
-- busybox
-- c-ares
-- coremark
-- curl
-- [elf-loader](https://github.com/MikhailProg/elf) (you can run executable without executable permission! e.g. `cp /data/app/bin/bash ~/ && loader ~/bash`)
-- expat
-- fastfetch
-- fish
-- gcc
-- gdb
-- gettext
-- git
-- glib
-- gmp
-- hdc
-- htop
-- kbd
-- libarchive
-- libevent
-- libffi
-- libidn2
-- libunistring
-- lz4
-- make
-- mpc
-- mpfr
-- ncnn
-- ncurses
-- openssh
-- openssl
-- pcre2
-- proot
-- python
-- qemu (you can run executable without executable permission! e.g. `cp /data/app/bin/bash ~/ && qemu-aarch64 ~/bash`)
-- qemu-vroot (qemu patched to mimic proot behavior)
-- readline
-- sl
-- strace
-- stream
-- talloc
-- tar
-- tmux
-- tree
-- vim
-- vkpeak
-- xxhash
-- xz
-- yyjson
-- zstd
+||||||
+| --- | --- | --- | --- | --- |
+| aria2 | bash | binutils | busybox | c-ares |
+| coremark | curl | elf-loader | expat | fastfetch |
+| fish | gcc | gdb | gettext | git |
+| glib | gmp | hdc | htop | kbd |
+|lib{archive|event|ffi|idn2|unistring|
+| lz4 | make | mpc | mpfr | ncnn |
+|ncurses|openssh|openssl|pcre2|proot|
+|python|qemu|qemu-vroot|readline|sl|
+|strace|stream|talloc|tar|tmux|
+|tree|vim|vkpeak|xxhash|xz|
+|yyjson|zstd|
+
+- [elf-loader](https://github.com/MikhailProg/elf): you can run executable without executable permission! e.g. `cp /data/app/bin/bash ~/ && loader ~/bash`
+- qemu{,vroot}: you can run executable without executable permission! e.g. `cp /data/app/bin/bash ~/ && qemu-aarch64 ~/bash`
 
 Pro tip: you can use these utilities in the builtin Terminal app under `/data/service/hnp`:
 
@@ -90,7 +54,8 @@ if [ -d "/data/service/hnp/base.org/base_1.0" ]; then
 fi
 ```
 
-However, the builtin Terminal app does not have the permission to map R+X pages, so you cannot use elf loader there. You can use it in Termony. Also, the public folder does not get updated if you upgrade Termony. You need to re-install Termony to get the latest version available.
+However, now whatever debug mode app has access to `mprotect(anon_page, R_X, ...)`, so you can use elf loader in HiShell.
+The HNP folder does not get updated if you upgrade Termony. You need to re-install Termony to get the latest version available.
 
 Terminal features:
 
@@ -100,7 +65,7 @@ Terminal features:
 
 ### Run in a new root file-system (Early experimental)
 
-`qemu-vroot-aarch64` is a user mode qemu modified to to mimic proot behavior. It allows user to run linux binary(even for another CPU architecture) and switch to a new root-filesystem like chroot or proot.
+`qemu-vroot-aarch64` is a user mode qemu modified to to mimic proot behavior. It allows user to run linux binary (even for another CPU architecture) and switch to a new root-filesystem like chroot or proot.
 
 For example, you can run into a alpine root-filesystem by following steps:
 
