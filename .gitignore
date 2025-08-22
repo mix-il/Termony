@@ -15,5 +15,6 @@
 /arkui-x
 arkuix-sdk.zip
 *.hap
+*.hnp
 .vscode
 /build-profile.json5
