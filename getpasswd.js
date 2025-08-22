@@ -1,7 +1,9 @@
+// 源自 https://github.com/TermonyHQ/Termony/blob/dd59f36bc1c66f8c41726727a15da8535595557e/sign.js
 const buffer = require("buffer");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 class DecipherUtil {
   static decryptPwd(r, e) {
     let t = buffer.Buffer.from("");
@@ -72,4 +74,16 @@ DecipherUtil.readDirBytes = r => {
   return new Int8Array(t);
 };
 
-console.log(DecipherUtil.decryptPwd(process.argv[2], process.argv[3]));
+const dotConfig = path.resolve(os.homedir(), '.ohos', 'config');
+const buildProfile = process.argv[2];
+const build = fs.readFileSync(buildProfile, "utf-8");
+const keyPassword = build.match(/keyPassword":\s*"([0-9a-fA-F]+)"/);
+const storePassword = build.match(/storePassword":\s*"([0-9a-fA-F]+)"/);
+
+if (keyPassword)
+  console.log(DecipherUtil.decryptPwd(dotConfig, keyPassword[1]))
+if (storePassword)
+  console.log(DecipherUtil.decryptPwd(dotConfig, storePassword[1]))
+/* must have configured signing in deveco
+node getpasswd.js build-profile.json5
+ */
