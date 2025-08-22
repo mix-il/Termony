@@ -943,46 +943,11 @@ void terminal_context::HandleCSI(uint8_t current) {
                     std::swap(current_style.fg_red, current_style.bg_red);
                     std::swap(current_style.fg_green, current_style.bg_green);
                     std::swap(current_style.fg_blue, current_style.bg_blue);
-                } else if (param == 30) {
-                    // black foreground
-                    current_style.fg_red = predefined_colors[black][0] / 255.0;
-                    current_style.fg_green = predefined_colors[black][1] / 255.0;
-                    current_style.fg_blue = predefined_colors[black][2] / 255.0;
-                } else if (param == 31) {
-                    // red foreground
-                    current_style.fg_red = predefined_colors[red][0] / 255.0;
-                    current_style.fg_green = predefined_colors[red][1] / 255.0;
-                    current_style.fg_blue = predefined_colors[red][2] / 255.0;
-                } else if (param == 32) {
-                    // green foreground
-                    current_style.fg_red = predefined_colors[green][0] / 255.0;
-                    current_style.fg_green = predefined_colors[green][1] / 255.0;
-                    current_style.fg_blue = predefined_colors[green][2] / 255.0;
-                } else if (param == 33) {
-                    // yellow foreground
-                    current_style.fg_red = predefined_colors[yellow][0] / 255.0;
-                    current_style.fg_green = predefined_colors[yellow][1] / 255.0;
-                    current_style.fg_blue = predefined_colors[yellow][2] / 255.0;
-                } else if (param == 34) {
-                    // blue foreground
-                    current_style.fg_red = predefined_colors[blue][0] / 255.0;
-                    current_style.fg_green = predefined_colors[blue][1] / 255.0;
-                    current_style.fg_blue = predefined_colors[blue][2] / 255.0;
-                } else if (param == 35) {
-                    // magenta foreground
-                    current_style.fg_red = predefined_colors[magenta][0] / 255.0;
-                    current_style.fg_green = predefined_colors[magenta][1] / 255.0;
-                    current_style.fg_blue = predefined_colors[magenta][2] / 255.0;
-                } else if (param == 36) {
-                    // cyan foreground
-                    current_style.fg_red = predefined_colors[cyan][0] / 255.0;
-                    current_style.fg_green = predefined_colors[cyan][1] / 255.0;
-                    current_style.fg_blue = predefined_colors[cyan][2] / 255.0;
-                } else if (param == 37) {
-                    // white foreground
-                    current_style.fg_red = predefined_colors[white][0] / 255.0;
-                    current_style.fg_green = predefined_colors[white][1] / 255.0;
-                    current_style.fg_blue = predefined_colors[white][2] / 255.0;
+                } else if (30 <= param && param <= 37) {
+                    // foreground ansi 0..7
+                    current_style.fg_red = predefined_colors[param-30][0] / 255.0;
+                    current_style.fg_green = predefined_colors[param-30][1] / 255.0;
+                    current_style.fg_blue = predefined_colors[param-30][2] / 255.0;
                 } else if (param == 38 || param == 48) {
                     // foreground color: extended color, CSI 38 : ... m
                     // background color: extended color, CSI 48 : ... m
@@ -1022,131 +987,26 @@ void terminal_context::HandleCSI(uint8_t current) {
                     current_style.fg_red = predefined_colors[black][0] / 255.0;
                     current_style.fg_green = predefined_colors[black][1] / 255.0;
                     current_style.fg_blue = predefined_colors[black][2] / 255.0;
-                } else if (param == 40) {
-                    // black background
-                    current_style.bg_red = predefined_colors[black][0] / 255.0;
-                    current_style.bg_green = predefined_colors[black][1] / 255.0;
-                    current_style.bg_blue = predefined_colors[black][2] / 255.0;
-                } else if (param == 41) {
-                    // red background
-                    current_style.bg_red = predefined_colors[red][0] / 255.0;
-                    current_style.bg_green = predefined_colors[red][1] / 255.0;
-                    current_style.bg_blue = predefined_colors[red][2] / 255.0;
-                } else if (param == 42) {
-                    // green background
-                    current_style.bg_red = predefined_colors[green][0] / 255.0;
-                    current_style.bg_green = predefined_colors[green][1] / 255.0;
-                    current_style.bg_blue = predefined_colors[green][2] / 255.0;
-                } else if (param == 43) {
-                    // yellow background
-                    current_style.bg_red = predefined_colors[yellow][0] / 255.0;
-                    current_style.bg_green = predefined_colors[yellow][1] / 255.0;
-                    current_style.bg_blue = predefined_colors[yellow][2] / 255.0;
-                } else if (param == 44) {
-                    // blue background
-                    current_style.bg_red = predefined_colors[blue][0] / 255.0;
-                    current_style.bg_green = predefined_colors[blue][1] / 255.0;
-                    current_style.bg_blue = predefined_colors[blue][2] / 255.0;
-                } else if (param == 45) {
-                    // magenta background
-                    current_style.bg_red = predefined_colors[magenta][0] / 255.0;
-                    current_style.bg_green = predefined_colors[magenta][1] / 255.0;
-                    current_style.bg_blue = predefined_colors[magenta][2] / 255.0;
-                } else if (param == 46) {
-                    // cyan background
-                    current_style.bg_red = predefined_colors[cyan][0] / 255.0;
-                    current_style.bg_green = predefined_colors[cyan][1] / 255.0;
-                    current_style.bg_blue = predefined_colors[cyan][2] / 255.0;
-                } else if (param == 47) {
-                    // white background
-                    current_style.bg_red = predefined_colors[white][0] / 255.0;
-                    current_style.bg_green = predefined_colors[white][1] / 255.0;
-                    current_style.bg_blue = predefined_colors[white][2] / 255.0;
+                } else if (40 <= param && param <= 47) {
+                    // background ansi 0..7
+                    current_style.bg_red = predefined_colors[param-40][0] / 255.0;
+                    current_style.bg_green = predefined_colors[param-40][1] / 255.0;
+                    current_style.bg_blue = predefined_colors[param-40][2] / 255.0;
                 } else if (param == 49) {
                     // default background
                     current_style.bg_red = predefined_colors[white][0] / 255.0;
                     current_style.bg_green = predefined_colors[white][1] / 255.0;
                     current_style.bg_blue = predefined_colors[white][2] / 255.0;
-                } else if (param == 90) {
-                    // bright black foreground
-                    current_style.fg_red = predefined_colors[brblack][0] / 255.0;
-                    current_style.fg_green = predefined_colors[brblack][1] / 255.0;
-                    current_style.fg_blue = predefined_colors[brblack][2] / 255.0;
-                } else if (param == 91) {
-                    // red foreground
-                    current_style.fg_red = predefined_colors[brred][0] / 255.0;
-                    current_style.fg_green = predefined_colors[brred][1] / 255.0;
-                    current_style.fg_blue = predefined_colors[brred][2] / 255.0;
-                } else if (param == 92) {
-                    // green foreground
-                    current_style.fg_red = predefined_colors[brgreen][0] / 255.0;
-                    current_style.fg_green = predefined_colors[brgreen][1] / 255.0;
-                    current_style.fg_blue = predefined_colors[brgreen][2] / 255.0;
-                } else if (param == 93) {
-                    // yellow foreground
-                    current_style.fg_red = predefined_colors[bryellow][0] / 255.0;
-                    current_style.fg_green = predefined_colors[bryellow][1] / 255.0;
-                    current_style.fg_blue = predefined_colors[bryellow][2] / 255.0;
-                } else if (param == 94) {
-                    // blue foreground
-                    current_style.fg_red = predefined_colors[brblue][0] / 255.0;
-                    current_style.fg_green = predefined_colors[brblue][1] / 255.0;
-                    current_style.fg_blue = predefined_colors[brblue][2] / 255.0;
-                } else if (param == 95) {
-                    // magenta foreground
-                    current_style.fg_red = predefined_colors[brmagenta][0] / 255.0;
-                    current_style.fg_green = predefined_colors[brmagenta][1] / 255.0;
-                    current_style.fg_blue = predefined_colors[brmagenta][2] / 255.0;
-                } else if (param == 96) {
-                    // cyan foreground
-                    current_style.fg_red = predefined_colors[brcyan][0] / 255.0;
-                    current_style.fg_green = predefined_colors[brcyan][1] / 255.0;
-                    current_style.fg_blue = predefined_colors[brcyan][2] / 255.0;
-                } else if (param == 97) {
-                    // white foreground
-                    current_style.fg_red = predefined_colors[brwhite][0] / 255.0;
-                    current_style.fg_green = predefined_colors[brwhite][1] / 255.0;
-                    current_style.fg_blue = predefined_colors[brwhite][2] / 255.0;
-                } else if (param == 100) {
-                    // black background
-                    current_style.bg_red = predefined_colors[brblack][0] / 255.0;
-                    current_style.bg_green = predefined_colors[brblack][1] / 255.0;
-                    current_style.bg_blue = predefined_colors[brblack][2] / 255.0;
-                } else if (param == 101) {
-                    // red background
-                    current_style.bg_red = predefined_colors[brred][0] / 255.0;
-                    current_style.bg_green = predefined_colors[brred][1] / 255.0;
-                    current_style.bg_blue = predefined_colors[brred][2] / 255.0;
-                } else if (param == 102) {
-                    // green background
-                    current_style.bg_red = predefined_colors[brgreen][0] / 255.0;
-                    current_style.bg_green = predefined_colors[brgreen][1] / 255.0;
-                    current_style.bg_blue = predefined_colors[brgreen][2] / 255.0;
-                } else if (param == 103) {
-                    // yellow background
-                    current_style.bg_red = predefined_colors[bryellow][0] / 255.0;
-                    current_style.bg_green = predefined_colors[bryellow][1] / 255.0;
-                    current_style.bg_blue = predefined_colors[bryellow][2] / 255.0;
-                } else if (param == 104) {
-                    // blue background
-                    current_style.bg_red = predefined_colors[brblue][0] / 255.0;
-                    current_style.bg_green = predefined_colors[brblue][1] / 255.0;
-                    current_style.bg_blue = predefined_colors[brblue][2] / 255.0;
-                } else if (param == 105) {
-                    // magenta background
-                    current_style.bg_red = predefined_colors[brmagenta][0] / 255.0;
-                    current_style.bg_green = predefined_colors[brmagenta][1] / 255.0;
-                    current_style.bg_blue = predefined_colors[brmagenta][2] / 255.0;
-                } else if (param == 106) {
-                    // cyan background
-                    current_style.bg_red = predefined_colors[brcyan][0] / 255.0;
-                    current_style.bg_green = predefined_colors[brcyan][1] / 255.0;
-                    current_style.bg_blue = predefined_colors[brcyan][2] / 255.0;
-                } else if (param == 107) {
-                    // white background
-                    current_style.bg_red = predefined_colors[brwhite][0] / 255.0;
-                    current_style.bg_green = predefined_colors[brwhite][1] / 255.0;
-                    current_style.bg_blue = predefined_colors[brwhite][2] / 255.0;
+                } else if (90 <= param && param <= 97) {
+                    // foreground ansi 8..15
+                    current_style.fg_red = predefined_colors[8 + param - 90][0] / 255.0;
+                    current_style.fg_green = predefined_colors[8 + param - 90][1] / 255.0;
+                    current_style.fg_blue = predefined_colors[8 + param - 90][2] / 255.0;
+                } else if (100 <= param && param <= 107) {
+                    // background ansi 8..15
+                    current_style.bg_red = predefined_colors[8 + param - 100][0] / 255.0;
+                    current_style.bg_green = predefined_colors[8 + param - 100][1] / 255.0;
+                    current_style.bg_blue = predefined_colors[8 + param - 100][2] / 255.0;
                 } else {
                     OH_LOG_WARN(LOG_APP, "Unknown CSI Pm m: %{public}s from %{public}s %{public}c",
                                 part.c_str(), escape_buffer.c_str(), current);
@@ -1678,9 +1538,11 @@ static std::map<std::pair<uint32_t, enum font_weight>, struct character> charact
 // code points to load from the font
 static std::set<uint32_t> codepoints_to_load;
 // do we need to reload font due to missing glyphs?
-static bool need_reload_font = false;
+static bool need_rebuild_atlas = false;
 // id of texture for glyphs
-static GLuint texture_id;
+static GLuint atlas_texture_id;
+// there is a limit on how big a texture can be
+static int atlas_width = 8192;
 
 static void ResizeTo(int new_term_row, int new_term_col, bool update_viewport = true) {
     // update viewport
@@ -1728,7 +1590,7 @@ void SendData(uint8_t *data, size_t length) {
 //     | 0x01    |
 // 1.0 +------+--+
 static void BuildFontAtlas() {
-    need_reload_font = false;
+    need_rebuild_atlas = false;
 
     FT_Library ft;
     FT_Error err = FT_Init_FreeType(&ft);
@@ -1736,8 +1598,8 @@ static void BuildFontAtlas() {
 
     std::vector<std::pair<const char *, font_weight>> fonts = {
 #ifdef STANDALONE
-        {"../../../../../fonts/ttf/Inconsolata-Regular.ttf", font_weight::regular},
-        {"../../../../../fonts/ttf/Inconsolata-Bold.ttf", font_weight::bold},
+        {"/usr/share/fonts/noto/NotoSansMono-Regular.ttf", font_weight::regular},
+        {"/usr/share/fonts/noto/NotoSansMono-Bold.ttf", font_weight::bold},
 #else
         {"/system/fonts/NotoSansMono[wdth,wght].ttf", font_weight::regular},
         {"/system/fonts/NotoSansMono[wdth,wght].ttf", font_weight::bold},
@@ -1746,9 +1608,8 @@ static void BuildFontAtlas() {
 
     // save glyph for all characters of all weights
     // only one channel
-    std::vector<uint8_t> bitmap;
-    int row_stride = max_font_width;
-    int bitmap_height = 0;
+    int bound = font_height, num_rows = 1, row_pointer = 0;
+    std::vector<uint8_t> bitmap(bound * atlas_width, 0);
 
     for (auto pair : fonts) {
         const char *font = pair.first;
@@ -1757,11 +1618,12 @@ static void BuildFontAtlas() {
         FT_Face face;
         err = FT_New_Face(ft, font, 0, &face);
         assert(err == 0);
-        
-        FT_Fixed coords[2];
-        coords[0] = (weight == font_weight::bold ? 400 : 400) * 65536;
-        coords[1] = 90 * 65536;
-        assert(FT_Set_Var_Design_Coordinates(face, 2, coords) == 0);
+#if !defined(STANDALONE)
+        FT_Fixed var[2];
+        var[0] = (weight == font_weight::bold ? 700 : 400) * 65536;
+        var[1] = 90 * 65536;
+        assert(FT_Set_Var_Design_Coordinates(face, 2, var) == 0);
+#endif
         
         FT_Set_Pixel_Sizes(face, 0, font_height);
         // Note: in 26.6 fractional pixel format
@@ -1776,6 +1638,7 @@ static void BuildFontAtlas() {
                 // load character glyph
                 assert(FT_Load_Char(face, charCode, FT_LOAD_RENDER) == 0);
             else
+                // load placeholding glyph
                 FT_Load_Glyph(face, 0, FT_LOAD_RENDER);
 
             OH_LOG_INFO(LOG_APP,
@@ -1786,32 +1649,46 @@ static void BuildFontAtlas() {
                         weight, charCode, charCode, face->glyph->bitmap.width, face->glyph->bitmap.rows, face->glyph->bitmap_left,
                         face->glyph->bitmap_top, face->glyph->advance.x);
 
-            // copy to bitmap
-            int old_bitmap_height = bitmap_height;
-            int new_bitmap_height = bitmap_height + face->glyph->bitmap.rows;
-            bitmap.resize(row_stride * new_bitmap_height);
-            bitmap_height = new_bitmap_height;
+            auto glyph = face->glyph;
+            auto bits = face->glyph->bitmap;
 
-            assert(face->glyph->bitmap.width <= row_stride);
-            for (int i = 0; i < face->glyph->bitmap.rows; i++) {
-                for (int j = 0; j < face->glyph->bitmap.width; j++) {
-                    // compute offset in the large texture
-                    int off = old_bitmap_height * row_stride;
-                    bitmap[i * row_stride + j + off] = face->glyph->bitmap.buffer[i * face->glyph->bitmap.width + j];
+            int row_start;
+            // if current row can't fit new char, extend a row
+            if (row_pointer + bits.width < atlas_width) {
+                row_start = row_pointer;
+                row_pointer += bits.width;
+            } else {
+                row_start = 0;
+                row_pointer = bits.width;
+                // a new row cannot be added
+                if (bound * (num_rows + 1) > atlas_width)
+                    break;
+                num_rows += 1;
+                bitmap.resize(bound * atlas_width * num_rows);
+            }
+            int col_start = bound * (num_rows - 1);
+
+            for (int i = 0; i < bits.rows; i++) {
+                for (int j = 0; j < bits.width; j++) {
+                    bitmap[
+                        atlas_width * (col_start + i)
+                        + row_start + j
+                    ] =
+                    bits.buffer[bits.width * i + j];
                 }
             }
 
             // compute location within the texture
             // first pass: store pixels
             character character = {
-                .left = 0,
-                .right = (float)face->glyph->bitmap.width - 1,
-                .top = (float)old_bitmap_height,
-                .bottom = (float)new_bitmap_height - 1,
-                .xoff = face->glyph->bitmap_left,
-                .yoff = (int)(baseline_height + face->glyph->bitmap_top - face->glyph->bitmap.rows),
-                .width = (int)face->glyph->bitmap.width,
-                .height = (int)face->glyph->bitmap.rows,
+                .left = float(row_start),
+                .right = float(row_start + bits.width - 1),
+                .top = float(col_start),
+                .bottom = float(col_start + bits.rows - 1),
+                .xoff = glyph->bitmap_left,
+                .yoff = int(baseline_height + glyph->bitmap_top - bits.rows),
+                .width = int(bits.width),
+                .height = int(bits.rows),
             };
             characters[{charCode, weight}] = character;
         }
@@ -1822,23 +1699,30 @@ static void BuildFontAtlas() {
 
     FT_Done_FreeType(ft);
 
+    int atlas_height = bound * num_rows;
     // now bitmap contains all glyphs
     // second pass: convert pixels to uv coordinates
     for (auto &pair : characters) {
+        auto& g = pair.second;
         // https://stackoverflow.com/questions/35454432/finding-image-pixel-coordinates-integers-from-uv-values-floats-of-obj-file
-        pair.second.left /= row_stride - 1;
-        pair.second.right /= row_stride - 1;
-        pair.second.top = (pair.second.top + 0.5) / bitmap_height;
-        pair.second.bottom = (pair.second.bottom + 0.5) / bitmap_height;
+        g.left /= atlas_width;
+        g.right /= atlas_width;
+        g.top = (g.top + 0.5) / atlas_height;
+        g.bottom = (g.bottom + 0.5) / atlas_height;
     }
 
     // disable byte-alignment restriction
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     
     // generate texture
-    glBindTexture(GL_TEXTURE_2D, texture_id);
-    OH_LOG_INFO(LOG_APP, "map height: %{public}d", bitmap_height);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, row_stride, bitmap_height, 0, GL_RED, GL_UNSIGNED_BYTE, bitmap.data());
+    glBindTexture(GL_TEXTURE_2D, atlas_texture_id);
+    {
+    GLenum err = glGetError();
+    assert(err == GL_NO_ERROR);
+    }
+
+    OH_LOG_INFO(LOG_APP, "map height: %{public}d", atlas_height);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, atlas_width, atlas_height, 0, GL_RED, GL_UNSIGNED_BYTE, bitmap.data());
 
     // set texture options
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -1875,7 +1759,7 @@ static void Draw() {
 
     // set texture
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture_id);
+    glBindTexture(GL_TEXTURE_2D, atlas_texture_id);
 
     // bind our vertex array
     glBindVertexArray(vertex_array);
@@ -1927,8 +1811,8 @@ static void Draw() {
             if (it == characters.end()) {
                 // reload font to locate it
                 OH_LOG_WARN(LOG_APP, "Missing character: %{public}d of weight %{public}d", c.ch, c.style.weight);
-                //need_reload_font = true;
-                //codepoints_to_load.insert(c.ch);
+                need_rebuild_atlas = true;
+                codepoints_to_load.insert(c.ch);
 
                 // we don't have the character, fallback to .notdef
                 it = characters.find(std::pair<uint32_t, enum font_weight>(0, c.style.weight));
@@ -2138,12 +2022,13 @@ static void *RenderWorker(void *) {
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
     // load font from ttf for the initial characters
-    glGenTextures(1, &texture_id);
+    glGenTextures(1, &atlas_texture_id);
     // load common characters initially
     codepoints_to_load.insert(0);
     for (uint32_t i = 32; i < 128; i++) {
         codepoints_to_load.insert(i);
     }
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &atlas_width);
     BuildFontAtlas();
 
     // create buffers for drawing
@@ -2237,7 +2122,7 @@ static void *RenderWorker(void *) {
             time.clear();
         }
 
-        if (need_reload_font) {
+        if (need_rebuild_atlas) {
             BuildFontAtlas();
         }
     }
