@@ -13,6 +13,8 @@ all: download/qemu-10
 	cd temp/qemu-10 && git apply ../../0007-fix-jit-on-OHOS.patch
 	cd temp/qemu-10 && git apply ../../0008-forward-dev-access-to-host.patch
 	cd temp/qemu-10 && git apply ../../0009-support-mount-root-of-host-to-guest.patch
+	cd temp/qemu-10 && git apply ../../0010-emulate-root-user-to-guest.patch
+	cd temp/qemu-10 && git apply ../../0011-restore-path-from-host-to-guest.patch
 	cd temp/qemu-10 && \
 	PKG_CONFIG=$(shell which pkg-config) \
 	PKG_CONFIG_PATH= \

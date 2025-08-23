@@ -98,9 +98,11 @@ fi
 - 通过上下文菜单粘贴（右键单击激活）
 - 在命令行中通过 pbcopy/pbpaste 复制/粘贴（基于 OSC52 转义序列）
 
-### 在新的根文件系统中运行（早期实验性）
+### 在新的根文件系统中运行
 
 `qemu-vroot-aarch64` 是一个用户模式 qemu，修改后可以模拟 proot 行为。它允许用户运行 Linux 二进制文件（甚至是另一种 CPU 架构的），并像 chroot 或 proot 一样切换到新的根文件系统。
+
+#### Alpine Linux
 
 例如，你可以通过以下步骤运行 Alpine 根文件系统：
 
@@ -121,6 +123,28 @@ ls /
 bin    dev    etc    home   lib    media  mnt    opt    proc   root   run    sbin   srv    sys    tmp    usr    var
 ```
 - 运行 `apk update`，Alpine 包管理器运行良好，你可以通过 `apk` 安装包
+
+#### Ubuntu
+
+你也可以按下列步骤使用 Ubuntu 根文件系统：
+
+- 下载 ubuntu base 根文件系统，地址：[Ubuntu Base 24.04](https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/) (选择文件：ubuntu-base-24.04.3-base-arm64.tar.gz)
+- 解压下载后的 tar.gz 文件, 考虑到兼容性, 推荐解压到`/data/storage/el2/base/files/ubuntu_rootfs`
+```shell
+mkdir -p /data/storage/el2/base/files/ubuntu_rootfs
+tar xvf ubuntu-base-24.04.3-base-arm64.tar.gz -C /data/storage/el2/base/files/ubuntu_rootfs
+```
+- 将 `APT::Sandbox::User "root";` 添加到 Ubuntu 根文件系统中的 `/etc/apt/apt.conf.d/01-vendor-ubuntu` 文件中
+```shell
+cd /data/storage/el2/base/files/ubuntu_rootfs
+echo 'APT::Sandbox::User "root";' > etc/apt/apt.conf.d/01-vendor-ubuntu
+```
+- 使用 `qemu-vroot-aarch64` 运行根文件系统中的 bash
+```shell
+cd /data/storage/el2/base/files/ubuntu_rootfs
+qemu-vroot-aarch64 -E PATH=/bin:/usr/bin:/sbin -E HOME=/root -L ./ ./bin/bash -c 'cd && bash'
+```
+- 运行 `apt update`, 可以看到 `apt` 已经成功运行。你可以通过 `apt` 安装各种软件包
 
 ## 使用方法（如果你是 Mac 用户）：
 
