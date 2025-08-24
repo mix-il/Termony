@@ -3,5 +3,6 @@
 -DSTANDALONE
 -I/usr/include/freetype2
 -lfreetype
+-lutf8proc
 -lGLESv3
 -lglfw
