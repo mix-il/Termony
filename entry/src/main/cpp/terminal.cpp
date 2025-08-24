@@ -25,32 +25,31 @@
 #include FT_FREETYPE_H
 
 #ifdef STANDALONE
-// https://stackoverflow.com/questions/5343190/how-do-i-replace-all-instances-of-a-string-with-another-string
-std::string ReplaceString(std::string subject, const std::string& search,
-                          const std::string& replace) {
-    size_t pos = 0;
-    while ((pos = subject.find(search, pos)) != std::string::npos) {
-         subject.replace(pos, search.length(), replace);
-         pos += replace.length();
-    }
-    return subject;
-}
-
-void CustomPrintf(const char *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    std::string new_fmt = fmt;
-    new_fmt = ReplaceString(new_fmt, "%{public}", "%");
-    new_fmt += "\n";
-    vfprintf(stderr, new_fmt.c_str(), args);
-}
-#define OH_LOG_ERROR(tag, fmt, ...) CustomPrintf(fmt, __VA_ARGS__)
-#define OH_LOG_INFO(tag, fmt, ...) CustomPrintf(fmt, __VA_ARGS__)
-#define OH_LOG_WARN(tag, fmt, ...) CustomPrintf(fmt, __VA_ARGS__)
+#define LOG_INFO(fmt, ...) fprintf(stderr, fmt "\n", __VA_ARGS__)
+#define LOG_WARN(fmt, ...) fprintf(stderr, fmt "\n", __VA_ARGS__)
+#define LOG_ERROR(fmt, ...) fprintf(stderr, fmt "\n", __VA_ARGS__)
 #else
 #include "hilog/log.h"
-#undef LOG_TAG
-#define LOG_TAG "testTag"
+#undef LOG_DEBUG
+#undef LOG_INFO
+#undef LOG_WARN
+#undef LOG_ERROR
+#undef LOG_FATAL
+void hiprintf(int level, const char * fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    constexpr int bufsz = 8192;
+    char buf[bufsz];
+    if (vsnprintf(buf, bufsz, fmt, args) > 0) {
+        OH_LOG_Print(LOG_APP, (LogLevel)level, 0, "testTag", "%{public}s", buf);
+    }
+    va_end(args);
+}
+#define LOG_DEBUG(...) hiprintf(3, __VA_ARGS__)
+#define LOG_INFO(...) hiprintf(4, __VA_ARGS__)
+#define LOG_WARN(...) hiprintf(5, __VA_ARGS__)
+#define LOG_ERROR(...) hiprintf(6, __VA_ARGS__)
+#define LOG_FATAL(...) hiprintf(7, __VA_ARGS__)
 #endif
 
 // docs for escape codes:
@@ -194,16 +193,16 @@ void terminal_context::InsertUtf8(uint32_t codepoint) {
             row++;
             DropFirstRowIfOverflow();
 
-            terminal[row][col].ch = codepoint;
+            terminal[row][col].code = codepoint;
             terminal[row][col].style = current_style;
             col++;
         } else {
             // override last column
-            terminal[row][term_col - 1].ch = codepoint;
+            terminal[row][term_col - 1].code = codepoint;
             terminal[row][term_col - 1].style = current_style;
         }
     } else {
-        terminal[row][col].ch = codepoint;
+        terminal[row][col].code = codepoint;
         terminal[row][col].style = current_style;
         col++;
     }
@@ -272,7 +271,7 @@ void terminal_context::WriteFull(uint8_t *data, size_t length) {
             hex += (char)data[i];
         }
     }
-    OH_LOG_INFO(LOG_APP, "Send: %{public}s", hex.c_str());
+    LOG_INFO("Send: %s", hex.c_str());
 
     int written = 0;
     while (written < length) {
@@ -520,7 +519,7 @@ void terminal_context::HandleCSI(uint8_t current) {
                     // CSI 4 h, Insert Mode (IRM)
                     insert_mode = true;
                 } else {
-                    OH_LOG_WARN(LOG_APP, "Unknown CSI Pm h: %{public}s %{public}c",
+                    LOG_WARN("Unknown CSI Pm h: %s %c",
                                 escape_buffer.c_str(), current);
                 }
             }
@@ -569,7 +568,7 @@ void terminal_context::HandleCSI(uint8_t current) {
                     // CSI ? 2004 h, set bracketed paste mode
                     // TODO
                 } else {
-                    OH_LOG_WARN(LOG_APP, "Unknown CSI ? Pm h: %{public}s %{public}c",
+                    LOG_WARN("Unknown CSI ? Pm h: %s %c",
                                 escape_buffer.c_str(), current);
                 }
             }
@@ -581,7 +580,7 @@ void terminal_context::HandleCSI(uint8_t current) {
                     // CSI 4 l, Replace Mode (IRM)
                     insert_mode = false;
                 } else {
-                    OH_LOG_WARN(LOG_APP, "Unknown CSI Pm h: %{public}s %{public}c",
+                    LOG_WARN("Unknown CSI Pm h: %s %c",
                                 escape_buffer.c_str(), current);
                 }
             }
@@ -624,7 +623,7 @@ void terminal_context::HandleCSI(uint8_t current) {
                     // CSI ? 2004 l, reset bracketed paste mode
                     // TODO
                 } else {
-                    OH_LOG_WARN(LOG_APP, "Unknown CSI ? Pm l: %{public}s %{public}c",
+                    LOG_WARN("Unknown CSI ? Pm l: %s %c",
                                 escape_buffer.c_str(), current);
                 }
             }
@@ -722,7 +721,7 @@ void terminal_context::HandleCSI(uint8_t current) {
                     // background ansi 8..15
                     current_style.back = predefined_colors[8 + param - 100];
                 } else {
-                    OH_LOG_WARN(LOG_APP, "Unknown CSI Pm m: %{public}s from %{public}s %{public}c",
+                    LOG_WARN("Unknown CSI Pm m: %s from %s %c",
                                 part.c_str(), escape_buffer.c_str(), current);
                 }
             }
@@ -785,7 +784,7 @@ void terminal_context::HandleCSI(uint8_t current) {
             int count = read_int_or_default(1);
             for (int i = term_col - 1; i >= col; i--) {
                 if (i - col < count) {
-                    terminal[row][i].ch = ' ';
+                    terminal[row][i].code = ' ';
                 } else {
                     terminal[row][i] = terminal[row][i - count];
                 }
@@ -793,7 +792,7 @@ void terminal_context::HandleCSI(uint8_t current) {
         } else {
 unknown:
             // unknown
-            OH_LOG_WARN(LOG_APP, "Unknown escape sequence in CSI: %{public}s %{public}c",
+            LOG_WARN("Unknown escape sequence in CSI: %s %c",
                         escape_buffer.c_str(), current);
         }
         escape_state = state_idle;
@@ -804,7 +803,7 @@ unknown:
     } else {
         // invalid byte
         // unknown
-        OH_LOG_WARN(LOG_APP, "Unknown escape sequence in CSI: %{public}s %{public}c",
+        LOG_WARN("Unknown escape sequence in CSI: %s %c",
                     escape_buffer.c_str(), current);
         escape_state = state_idle;
     }
@@ -883,7 +882,7 @@ void terminal_context::Parse(uint8_t input) {
             for (int i = 0;i < term_row;i++) {
                 for (int j = 0;j < term_col;j++) {
                     terminal[i][j] = term_char();
-                    terminal[i][j].ch = 'E';
+                    terminal[i][j].code = 'E';
                 }
             }
             escape_state = state_idle;
@@ -905,7 +904,7 @@ void terminal_context::Parse(uint8_t input) {
             escape_buffer += input;
         } else {
             // unknown
-            OH_LOG_WARN(LOG_APP, "Unknown escape sequence after ESC: %{public}s %{public}c",
+            LOG_WARN("Unknown escape sequence after ESC: %s %c",
                         escape_buffer.c_str(), input);
             escape_state = state_idle;
         }
@@ -919,14 +918,14 @@ void terminal_context::Parse(uint8_t input) {
                 // OSC 52 ; c ; BASE64 BEL
                 // copy to clipboard
                 std::string base64 = parts[2];
-                OH_LOG_INFO(LOG_APP, "Copy to pasteboard in native: %{public}s",
+                LOG_INFO("Copy to pasteboard in native: %s",
                             base64.c_str());
                 Copy(base64);
             } else if (parts.size() == 3 && parts[0] == "52" && parts[1] == "c" && parts[2] == "?") {
                 // OSC 52 ; c ; ? BEL
                 // paste from clipboard
                 RequestPaste();
-                OH_LOG_INFO(LOG_APP, "Request Paste from pasteboard: %{public}s", escape_buffer.c_str());
+                LOG_INFO("Request Paste from pasteboard: %s", escape_buffer.c_str());
             }
             escape_state = state_idle;
         } else if (input == '\\' && escape_buffer.size() > 0 && escape_buffer[escape_buffer.size() - 1] == '\x1b') {
@@ -952,7 +951,7 @@ void terminal_context::Parse(uint8_t input) {
             escape_buffer += input;
         } else {
             // unknown
-            OH_LOG_WARN(LOG_APP, "Unknown escape sequence in OSC: %{public}s %{public}c",
+            LOG_WARN("Unknown escape sequence in OSC: %s %c",
                         escape_buffer.c_str(), input);
             escape_state = state_idle;
         }
@@ -965,7 +964,7 @@ void terminal_context::Parse(uint8_t input) {
             escape_buffer += input;
         } else {
             // unknown
-            OH_LOG_WARN(LOG_APP, "Unknown escape sequence in DCS: %{public}s %{public}c",
+            LOG_WARN("Unknown escape sequence in DCS: %s %c",
                         escape_buffer.c_str(), input);
             escape_state = state_idle;
         }
@@ -1131,7 +1130,7 @@ void terminal_context::Worker() {
                         hex += (char)buffer[i];
                     }
                 }
-                OH_LOG_INFO(LOG_APP, "Got: %{public}s", hex.c_str());
+                LOG_INFO("Got: %s", hex.c_str());
 
                 // parse output
                 pthread_mutex_lock(&lock);
@@ -1141,7 +1140,7 @@ void terminal_context::Worker() {
                 pthread_mutex_unlock(&lock);
             } else if (r < 0 && errno == EIO) {
                 // handle child exit
-                OH_LOG_INFO(LOG_APP, "Program exited: %{public}ld %{public}d", r, errno);
+                LOG_INFO("Program exited: %ld %d", r, errno);
                 // relaunch
                 pthread_mutex_lock(&lock);
                 close(fd);
@@ -1173,7 +1172,7 @@ void terminal_context::Worker() {
         std::string paste = GetPaste();
         if (paste.size() > 0) {
             // send OSC 52 ; c ; BASE64 ST
-            OH_LOG_INFO(LOG_APP, "Paste from pasteboard: %{public}s",
+            LOG_INFO("Paste from pasteboard: %s",
                         paste.c_str());
             std::string resp = "\x1b]52;c;" + paste + "\x1b\\";
             WriteFull((uint8_t *)resp.c_str(), resp.size());
@@ -1360,9 +1359,9 @@ static void BuildFontAtlas() {
         
         FT_Set_Pixel_Sizes(face, 0, font_height);
         // Note: in 26.6 fractional pixel format
-        OH_LOG_INFO(LOG_APP,
-                    "Ascender: %{public}d Descender: %{public}d Height: %{public}d XMin: %{public}ld XMax: %{public}ld "
-                    "YMin: %{public}ld YMax: %{public}ld XScale: %{public}ld YScale: %{public}ld",
+        LOG_INFO(
+                    "Ascender: %d Descender: %d Height: %d XMin: %ld XMax: %ld "
+                    "YMin: %ld YMax: %ld XScale: %ld YScale: %ld",
                     face->ascender, face->descender, face->height, face->bbox.xMin, face->bbox.xMax, face->bbox.yMin,
                     face->bbox.yMax, face->size->metrics.x_scale, face->size->metrics.y_scale);
         
@@ -1382,11 +1381,11 @@ static void BuildFontAtlas() {
                 continue;
             }
 
-            OH_LOG_INFO(LOG_APP,
-                        "Weight: %{public}d Char: %{public}d(0x%{public}x) Glyph: %{public}d %{public}d Left: "
-                        "%{public}d "
-                        "Top: %{public}d "
-                        "Advance: %{public}ld",
+            LOG_INFO(
+                        "Weight: %d Char: %d(0x%x) Glyph: %d %d Left: "
+                        "%d "
+                        "Top: %d "
+                        "Advance: %ld",
                         fnt.weight, charCode, charCode, face->glyph->bitmap.width, face->glyph->bitmap.rows, face->glyph->bitmap_left,
                         face->glyph->bitmap_top, face->glyph->advance.x);
 
@@ -1462,7 +1461,6 @@ static void BuildFontAtlas() {
     assert(err == GL_NO_ERROR);
     }
 
-    OH_LOG_INFO(LOG_APP, "map height: %{public}d", atlas_height);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, atlas_width, atlas_height, 0, GL_RED, GL_UNSIGNED_BYTE, bitmap.data());
 
     // set texture options
@@ -1551,16 +1549,16 @@ static void Draw() {
 
         int cur_col = 0;
         for (auto c : ch) {
-            uint32_t codepoint = c.ch;
-            auto key = std::pair<uint32_t, enum font_weight>(c.ch, c.style.weight);
+            uint32_t codepoint = c.code;
+            auto key = std::pair<uint32_t, enum font_weight>(c.code, c.style.weight);
             auto it = characters.find(key);
             if (it == characters.end())
-                it = characters.find(std::make_pair(c.ch, font_weight::regular));
+                it = characters.find(std::make_pair(c.code, font_weight::regular));
             if (it == characters.end()) {
                 // reload font to locate it
-                OH_LOG_WARN(LOG_APP, "Missing character: %{public}d of weight %{public}d", c.ch, c.style.weight);
+                LOG_WARN("Missing character: %d of weight %d", c.code, c.style.weight);
                 need_rebuild_atlas = true;
-                codepoints_to_load.insert(c.ch);
+                codepoints_to_load.insert(c.code);
 
                 // we don't have the character, fallback to .notdef
                 it = characters.find(std::pair<uint32_t, enum font_weight>(0, c.style.weight));
@@ -1696,7 +1694,7 @@ static void *RenderWorker(void *) {
     if (info_log_length > 0) {
         std::vector<char> vertex_shader_error_message(info_log_length + 1);
         glGetShaderInfoLog(vertex_shader_id, info_log_length, NULL, &vertex_shader_error_message[0]);
-        OH_LOG_ERROR(LOG_APP, "Failed to build vertex shader: %{public}s", &vertex_shader_error_message[0]);
+        LOG_ERROR("Failed to build vertex shader: %s", &vertex_shader_error_message[0]);
     }
 
     GLuint fragment_shader_id = glCreateShader(GL_FRAGMENT_SHADER);
@@ -1729,7 +1727,7 @@ static void *RenderWorker(void *) {
     if (info_log_length > 0) {
         std::vector<char> fragment_shader_error_message(info_log_length + 1);
         glGetShaderInfoLog(fragment_shader_id, info_log_length, NULL, &fragment_shader_error_message[0]);
-        OH_LOG_ERROR(LOG_APP, "Failed to build fragment shader: %{public}s", &fragment_shader_error_message[0]);
+        LOG_ERROR("Failed to build fragment shader: %s", &fragment_shader_error_message[0]);
     }
 
     GLuint program_id = glCreateProgram();
@@ -1741,7 +1739,7 @@ static void *RenderWorker(void *) {
     if (info_log_length > 0) {
         std::vector<char> link_program_error_message(info_log_length + 1);
         glGetProgramInfoLog(program_id, info_log_length, NULL, &link_program_error_message[0]);
-        OH_LOG_ERROR(LOG_APP, "Failed to link program: %{public}s", &link_program_error_message[0]);
+        LOG_ERROR("Failed to link program: %s", &link_program_error_message[0]);
     }
 
     surface_location = glGetUniformLocation(program_id, "surface");
@@ -1850,7 +1848,7 @@ static void *RenderWorker(void *) {
             for (auto t : time) {
                 sum += t;
             }
-            OH_LOG_INFO(LOG_APP, "FPS: %{public}d, %{public}ld ms per draw", fps, sum / fps);
+            LOG_INFO("FPS: %d, %ld ms per draw", fps, sum / fps);
             fps = 0;
             time.clear();
         }

@@ -77,7 +77,8 @@ struct term_style {
 
 // character in terminal
 struct term_char {
-    uint32_t ch = ' ';
+    static constexpr uint32_t zw_space = 0x200b;
+    uint32_t code = ' ';
     term_style style;
 };
 
