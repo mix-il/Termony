@@ -1,6 +1,7 @@
 #ifndef __TERMINAL_H__
 #define __TERMINAL_H__
 
+#include <cstdint>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string>
@@ -77,7 +78,9 @@ struct term_style {
 
 // character in terminal
 struct term_char {
-    static constexpr uint32_t zw_space = 0x200b;
+    // way beyond valid utf8
+    static constexpr uint32_t
+        WIDE_TAIL = 'wcht';
     uint32_t code = ' ';
     term_style style;
 };
@@ -120,17 +123,11 @@ struct terminal_context {
     utf8_states utf8_state = state_initial;
     uint32_t current_utf8 = 0;
 
-    // terminal state
-    // scrollback history
-    std::deque<std::vector<term_char>> history;
-    // current text style, see CSI Pm M, SGR
-    term_style current_style;
-
     // DEC private modes
     // DECTCEM, Show cursor
     bool show_cursor = true;
     // DECAWM, Autowrap Mode
-    bool autowrap = true;
+    bool enable_wrap = true;
     // DECSCNM, Reverse Video
     bool reverse_video = false;
     // DECOM, Origin Mode
@@ -147,19 +144,23 @@ struct terminal_context {
     int save_row = 0;
     int save_col = 0;
     term_style save_style;
+    // current text style, see CSI Pm M, SGR
+    term_style current_style;
 
-    // terminal content
-    std::vector<std::vector<term_char>> terminal;
+    // scrollback history, only if exceeds buffer
+    std::deque<std::vector<term_char>> history;
+    // terminal content, limited to rows & cols
+    std::vector<std::vector<term_char>> buffer;
     // terminal size
-    int term_col = 0;
-    int term_row = 0;
+    int num_cols = 0;
+    int num_rows = 0;
     // cursor location
     int row = 0;
     int col = 0;
 
     // DECSTBM, scrolling region
     int scroll_top = 0;
-    int scroll_bottom = term_row - 1;
+    int scroll_bottom = num_rows - 1;
 
     void ResizeTo(int new_term_row, int new_term_col);
 
@@ -182,10 +183,12 @@ struct terminal_context {
     // handle CSI escape sequences
     void HandleCSI(uint8_t current);
 
-    static void *TerminalWorker(void * data);
 
     void Parse(uint8_t input);
 
+    // wrapper that calls ctx->Worker
+    static void *TerminalWorker(void * data);
+    // poll fds and feed to terminal Parse
     void Worker();
 
     // fork & create pty
