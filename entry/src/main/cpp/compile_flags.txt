@@ -1,0 +1,7 @@
+-xc++
+-std=c++17
+-DSTANDALONE
+-I/usr/include/freetype2
+-lfreetype
+-lGLESv3
+-lglfw
