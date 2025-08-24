@@ -1,24 +1,24 @@
 // for standalone build to test on Linux:
-// clang++ -std=c++17 terminal.cpp -I/usr/include/freetype2 -DSTANDALONE -lfreetype -lGLESv2 -lglfw -o terminal
+// clang++ -std=c++17 terminal.cpp -I/usr/include/freetype2 -DSTANDALONE -lfreetype -lutf8proc -lGLESv2 -lglfw -o terminal
 
 #include "terminal.h"
 #include "freetype/ftmm.h"
+#include "utf8proc-2.10.0/utf8proc.h"
 #include <GLES3/gl32.h>
 #include <algorithm>
-#include <assert.h>
+#include <cstdarg>
 #include <cstdint>
 #include <deque>
-#include <fcntl.h>
 #include <map>
-#include <poll.h>
-#include <pty.h>
 #include <set>
-#include <stdint.h>
 #include <string>
+#include <vector>
+#include <assert.h>
+#include <fcntl.h>
 #include <sys/time.h>
 #include <unistd.h>
-#include <vector>
-#include <array>
+#include <poll.h>
+#include <pty.h>
 #include <pthread.h>
 
 #include <ft2build.h>
@@ -132,35 +132,35 @@ constexpr uint32_t TrueColorFrom(uint8_t index) {
 }
 
 void terminal_context::ResizeTo(int new_term_row, int new_term_col) {
-    int old_term_col = term_col;
-    term_row = new_term_row;
-    term_col = new_term_col;
+    int old_term_col = num_cols;
+    num_rows = new_term_row;
+    num_cols = new_term_col;
 
     // update scroll margin
     scroll_top = 0;
-    scroll_bottom = term_row - 1;
+    scroll_bottom = num_rows - 1;
 
-    terminal.resize(term_row);
-    for (int i = 0; i < term_row; i++) {
-        terminal[i].resize(term_col);
+    buffer.resize(num_rows);
+    for (int i = 0; i < num_rows; i++) {
+        buffer[i].resize(num_cols);
     }
 
-    if (row > term_row - 1) {
-        row = term_row - 1;
+    if (row > num_rows - 1) {
+        row = num_rows - 1;
     }
 
-    if (col > term_col - 1) {
-        col = term_col - 1;
+    if (col > num_cols - 1) {
+        col = num_cols - 1;
     }
 
-    tab_stops.resize(term_col);
-    for (int i = old_term_col;i < term_col;i += tab_size) {
+    tab_stops.resize(num_cols);
+    for (int i = old_term_col;i < num_cols;i += tab_size) {
         tab_stops[i] = true;
     }
 
     struct winsize ws = {};
-    ws.ws_col = term_col;
-    ws.ws_row = term_row;
+    ws.ws_col = num_cols;
+    ws.ws_row = num_rows;
     ioctl(fd, TIOCSWINSZ, &ws);
 }
 
@@ -168,44 +168,62 @@ void terminal_context::DropFirstRowIfOverflow() {
     if (row == scroll_bottom + 1) {
         // drop first row in scrolling margin
         assert(scroll_top < scroll_bottom);
-        history.push_back(terminal[scroll_top]);
-        terminal.erase(terminal.begin() + scroll_top);
-        terminal.insert(terminal.begin() + scroll_bottom, std::vector<term_char>());
-        terminal[scroll_bottom].resize(term_col);
+        history.push_back(buffer[scroll_top]);
+        buffer.erase(buffer.begin() + scroll_top);
+        buffer.insert(buffer.begin() + scroll_bottom, std::vector<term_char>());
+        buffer[scroll_bottom].resize(num_cols);
         row--;
 
         while (history.size() > MAX_HISTORY_LINES) {
             history.pop_front();
         }
-    } else if (row >= term_row) {
-        row = term_row - 1;
+    } else if (row >= num_rows) {
+        row = num_rows - 1;
     }
 }
 
-void terminal_context::InsertUtf8(uint32_t codepoint) {
-    assert(row >= 0 && row < term_row);
-    assert(col >= 0 && col <= term_col);
-    if (col == term_col) {
-        // special handling if cursor is on the right edge
-        if (autowrap) {
-            // wrap to next line
-            col = 0;
-            row++;
-            DropFirstRowIfOverflow();
+int char_width(uint32_t codepoint) {
+    return utf8proc_charwidth(codepoint);
+}
 
-            terminal[row][col].code = codepoint;
-            terminal[row][col].style = current_style;
-            col++;
+void terminal_context::InsertUtf8(uint32_t codepoint) {
+    assert(row >= 0 && row < num_rows);
+    assert(col >= 0 && col <= num_cols);
+
+    int cw = char_width(codepoint);
+    // don't insert zero-width characters
+    if (cw <= 0) return;
+    // can fit if just equal num_cols
+    if (col + cw > num_cols) {
+        if (enable_wrap) {
+            // wrap to next line
+            row ++;
+            col = 0;
+            DropFirstRowIfOverflow();
         } else {
-            // override last column
-            terminal[row][term_col - 1].code = codepoint;
-            terminal[row][term_col - 1].style = current_style;
+            // remove tail chars until fit
+            col = num_cols - cw;
+            // remove a broken wide char
+            while (buffer[row][col].code == term_char::WIDE_TAIL)
+                col --;
         }
-    } else {
-        terminal[row][col].code = codepoint;
-        terminal[row][col].style = current_style;
-        col++;
     }
+    if (cw > 1) {
+        // place the wide char
+        buffer[row][col].code = codepoint;
+        buffer[row][col++].style = current_style;
+        // and cw-2 spacers
+        for (int i=1; i < cw-1 && col < num_cols; i++) {
+            buffer[row][col].code = term_char::WIDE_TAIL;
+            buffer[row][col++].style = current_style;
+        }
+        // final spacer can't be inserted
+        if (col == num_cols) return;
+        codepoint = term_char::WIDE_TAIL;
+    }
+    LOG_INFO("column: %d (%d)", col, cw);
+    buffer[row][col].code = codepoint;
+    buffer[row][col++].style = current_style;
 }
 
 // clamp cursor to valid range
@@ -213,8 +231,8 @@ void terminal_context::ClampCursor() {
     // clamp col
     if (col < 0) {
         col = 0;
-    } else if (col > term_col - 1) {
-        col = term_col - 1;
+    } else if (col > num_cols - 1) {
+        col = num_cols - 1;
     }
 
     // clamp row
@@ -229,8 +247,8 @@ void terminal_context::ClampCursor() {
         // limit cursor to terminal
         if (row < 0) {
             row = 0;
-        } else if (row > term_row - 1) {
-            row = term_row - 1;
+        } else if (row > num_rows - 1) {
+            row = num_rows - 1;
         }
     }
 }
@@ -362,26 +380,26 @@ void terminal_context::HandleCSI(uint8_t current) {
             if (escape_buffer == "" || escape_buffer == "0") {
                 // CSI J, CSI 0 J
                 // erase below
-                for (int i = col; i < term_col; i++) {
-                    terminal[row][i] = term_char();
+                for (int i = col; i < num_cols; i++) {
+                    buffer[row][i] = term_char();
                 }
-                for (int i = row + 1; i < term_row; i++) {
-                    std::fill(terminal[i].begin(), terminal[i].end(), term_char());
+                for (int i = row + 1; i < num_rows; i++) {
+                    std::fill(buffer[i].begin(), buffer[i].end(), term_char());
                 }
             } else if (escape_buffer == "1") {
                 // CSI 1 J
                 // erase above
                 for (int i = 0; i < row; i++) {
-                    std::fill(terminal[i].begin(), terminal[i].end(), term_char());
+                    std::fill(buffer[i].begin(), buffer[i].end(), term_char());
                 }
                 for (int i = 0; i <= col; i++) {
-                    terminal[row][i] = term_char();
+                    buffer[row][i] = term_char();
                 }
             } else if (escape_buffer == "2") {
                 // CSI 2 J
                 // erase all
-                for (int i = 0; i < term_row; i++) {
-                    std::fill(terminal[i].begin(), terminal[i].end(), term_char());
+                for (int i = 0; i < num_rows; i++) {
+                    std::fill(buffer[i].begin(), buffer[i].end(), term_char());
                 }
             } else {
                 goto unknown;
@@ -391,20 +409,20 @@ void terminal_context::HandleCSI(uint8_t current) {
             if (escape_buffer == "" || escape_buffer == "0") {
                 // CSI K, CSI 0 K
                 // erase to right
-                for (int i = col; i < term_col; i++) {
-                    terminal[row][i] = term_char();
+                for (int i = col; i < num_cols; i++) {
+                    buffer[row][i] = term_char();
                 }
             } else if (escape_buffer == "1") {
                 // CSI 1 K
                 // erase to left
-                for (int i = 0; i <= col && i < term_col; i++) {
-                    terminal[row][i] = term_char();
+                for (int i = 0; i <= col && i < num_cols; i++) {
+                    buffer[row][i] = term_char();
                 }
             } else if (escape_buffer == "2") {
                 // CSI 2 K
                 // erase whole line
-                for (int i = 0; i < term_col; i++) {
-                    terminal[row][i] = term_char();
+                for (int i = 0; i < num_cols; i++) {
+                    buffer[row][i] = term_char();
                 }
             } else {
                 goto unknown;
@@ -418,9 +436,9 @@ void terminal_context::HandleCSI(uint8_t current) {
                 // insert lines from current row, add new rows from scroll bottom
                 for (int i = scroll_bottom;i >= row;i --) {
                     if (i - line >= row) {
-                        terminal[i] = terminal[i - line];
+                        buffer[i] = buffer[i - line];
                     } else {
-                        std::fill(terminal[i].begin(), terminal[i].end(), term_char());
+                        std::fill(buffer[i].begin(), buffer[i].end(), term_char());
                     }
                 }
                 // set to first column
@@ -435,9 +453,9 @@ void terminal_context::HandleCSI(uint8_t current) {
                 // delete lines from current row, add new rows from scroll bottom
                 for (int i = row;i <= scroll_bottom;i ++) {
                     if (i + line <= scroll_bottom) {
-                        terminal[i] = terminal[i + line];
+                        buffer[i] = buffer[i + line];
                     } else {
-                        std::fill(terminal[i].begin(), terminal[i].end(), term_char());
+                        std::fill(buffer[i].begin(), buffer[i].end(), term_char());
                     }
                 }
                 // set to first column
@@ -446,11 +464,11 @@ void terminal_context::HandleCSI(uint8_t current) {
         } else if (current == 'P') {
             // CSI Ps P, DCH, delete # characters, move right to left
             int del = read_int_or_default(1);
-            for (int i = col; i < term_col; i++) {
-                if (i + del < term_col) {
-                    terminal[row][i] = terminal[row][i + del];
+            for (int i = col; i < num_cols; i++) {
+                if (i + del < num_cols) {
+                    buffer[row][i] = buffer[row][i + del];
                 } else {
-                    terminal[row][i] = term_char();
+                    buffer[row][i] = term_char();
                 }
             }
         } else if (current == 'S') {
@@ -458,16 +476,16 @@ void terminal_context::HandleCSI(uint8_t current) {
             int line = read_int_or_default(1);
             for (int i = scroll_top; i <= scroll_bottom; i++) {
                 if (i + line <= scroll_bottom) {
-                    terminal[i] = terminal[i + line];
+                    buffer[i] = buffer[i + line];
                 } else {
-                    std::fill(terminal[i].begin(), terminal[i].end(), term_char());
+                    std::fill(buffer[i].begin(), buffer[i].end(), term_char());
                 }
             }
         } else if (current == 'X') {
             // CSI Ps X, ECH, erase # characters, do not move others
             int del = read_int_or_default(1);
-            for (int i = col; i < col + del && i < term_col; i++) {
-                terminal[row][i] = term_char();
+            for (int i = col; i < col + del && i < num_cols; i++) {
+                buffer[row][i] = term_char();
             }
         } else if (current == 'c' && (escape_buffer == "" || escape_buffer == "0")) {
             // CSI Ps c, Send Device Attributes, Primary DA
@@ -532,7 +550,7 @@ void terminal_context::HandleCSI(uint8_t current) {
                     // TODO
                 } else if (part == "3") {
                     // CSI ? 3 h, Enable 132 Column mode, DECCOLM
-                    ResizeTo(term_row, 132);
+                    ResizeTo(num_rows, 132);
                     ResizeWidth(132 * font_width);
                 } else if (part == "4") {
                     // CSI ? 4 h, Smooth (Slow) Scroll (DECSCLM)
@@ -545,7 +563,7 @@ void terminal_context::HandleCSI(uint8_t current) {
                     origin_mode = true;
                 } else if (part == "7") {
                     // CSI ? 7 h, Set autowrap
-                    autowrap = true;
+                    enable_wrap = true;
                 } else if (part == "12") {
                     // CSI ? 12 h, Start blinking cursor
                     // TODO
@@ -593,7 +611,7 @@ void terminal_context::HandleCSI(uint8_t current) {
                     // TODO
                 } else if (part == "3") {
                     // CSI ? 3 l, 80 Column Mode (DECCOLM)
-                    ResizeTo(term_row, 80);
+                    ResizeTo(num_rows, 80);
                     ResizeWidth(80 * font_width);
                 } else if (part == "4") {
                     // CSI ? 4 l, Jump (Fast) Scroll (DECSCLM)
@@ -606,7 +624,7 @@ void terminal_context::HandleCSI(uint8_t current) {
                     origin_mode = false;
                 } else if (part == "7") {
                     // CSI ? 7 l, Reset autowrap
-                    autowrap = false;
+                    enable_wrap = false;
                 } else if (part == "8") {
                     // CSI ? 8 l, No Auto-Repeat Keys (DECARM)
                     // TODO
@@ -745,7 +763,7 @@ void terminal_context::HandleCSI(uint8_t current) {
             // CSI Ps ; Ps r, Set Scrolling Region [top;bottom]
             std::vector<std::string> parts = SplitString(escape_buffer, ";");
             int new_top = 1;
-            int new_bottom = term_row;
+            int new_bottom = num_rows;
             if (parts.size() == 2) {
                 // CSI Ps ; Ps r
                 sscanf(parts[0].c_str(), "%d", &new_top);
@@ -757,13 +775,13 @@ void terminal_context::HandleCSI(uint8_t current) {
                 // full size of window
                 // CSI r
                 new_top = 0;
-                new_bottom = term_row - 1;
+                new_bottom = num_rows - 1;
             } else if (parts.size() == 1) {
                 // CSI Ps r
                 sscanf(parts[0].c_str(), "%d", &new_top);
                 // convert to 1-based
                 new_top --;
-                new_bottom = term_row - 1;
+                new_bottom = num_rows - 1;
             } else {
                 goto unknown;
             }
@@ -782,11 +800,11 @@ void terminal_context::HandleCSI(uint8_t current) {
                     escape_buffer == "")) {
             // CSI Ps @, ICH, Insert Ps (Blank) Character(s)
             int count = read_int_or_default(1);
-            for (int i = term_col - 1; i >= col; i--) {
+            for (int i = num_cols - 1; i >= col; i--) {
                 if (i - col < count) {
-                    terminal[row][i].code = ' ';
+                    buffer[row][i].code = ' ';
                 } else {
-                    terminal[row][i] = terminal[row][i - count];
+                    buffer[row][i] = buffer[row][i - count];
                 }
             }
         } else {
@@ -866,9 +884,9 @@ void terminal_context::Parse(uint8_t input) {
             if (row == scroll_top) {
                 // shift rows down
                 for (int i = scroll_bottom;i > scroll_top;i--) {
-                    terminal[i] = terminal[i-1];
+                    buffer[i] = buffer[i-1];
                 }
-                std::fill(terminal[scroll_top].begin(), terminal[scroll_top].end(), term_char());
+                std::fill(buffer[scroll_top].begin(), buffer[scroll_top].end(), term_char());
             } else {
                 row --;
                 ClampCursor();
@@ -879,10 +897,10 @@ void terminal_context::Parse(uint8_t input) {
             escape_state = state_dcs;
         } else if (input == '8' && escape_buffer == "#") {
             // ESC # 8, DECALN fill viewport with a test pattern (E)
-            for (int i = 0;i < term_row;i++) {
-                for (int j = 0;j < term_col;j++) {
-                    terminal[i][j] = term_char();
-                    terminal[i][j].code = 'E';
+            for (int i = 0;i < num_rows;i++) {
+                for (int j = 0;j < num_cols;j++) {
+                    buffer[i][j] = term_char();
+                    buffer[i][j].code = 'E';
                 }
             }
             escape_state = state_idle;
@@ -975,8 +993,8 @@ void terminal_context::Parse(uint8_t input) {
                 // printable
                 if (insert_mode) {
                     // move characters rightward
-                    for (int i = term_col - 1;i > col;i--) {
-                        terminal[row][i] = terminal[row][i - 1];
+                    for (int i = num_cols - 1;i > col;i--) {
+                        buffer[row][i] = buffer[row][i - 1];
                     }
                 }
                 InsertUtf8(input);
@@ -1018,7 +1036,7 @@ void terminal_context::Parse(uint8_t input) {
             } else if (input == '\t') {
                 // goto next tab stop
                 col ++;
-                while (col < term_col && !tab_stops[col]) {
+                while (col < num_cols && !tab_stops[col]) {
                     col ++;
                 }
                 ClampCursor();
@@ -1185,8 +1203,8 @@ void terminal_context::Worker() {
 // assume lock is held
 void terminal_context::Fork() {
     struct winsize ws = {};
-    ws.ws_col = term_col;
-    ws.ws_row = term_row;
+    ws.ws_col = num_cols;
+    ws.ws_row = num_rows;
 
     int pid = forkpty(&fd, nullptr, nullptr, &ws);
     if (!pid) {
@@ -1518,13 +1536,13 @@ static void Draw() {
     static std::vector<GLfloat> background_color_data;
 
     vertex_pass0_data.clear();
-    vertex_pass0_data.reserve(term.term_row * term.term_col * 24);
+    vertex_pass0_data.reserve(term.num_rows * term.num_cols * 24);
     vertex_pass1_data.clear();
-    vertex_pass1_data.reserve(term.term_row * term.term_col * 24);
+    vertex_pass1_data.reserve(term.num_rows * term.num_cols * 24);
     text_color_data.clear();
-    text_color_data.reserve(term.term_row * term.term_col * 18);
+    text_color_data.reserve(term.num_rows * term.num_cols * 18);
     background_color_data.clear();
-    background_color_data.reserve(term.term_row * term.term_col * 18);
+    background_color_data.reserve(term.num_rows * term.num_cols * 18);
 
     // ensure at least one line shown, for very large scroll_offset
     int scroll_rows = scroll_offset / font_height;
@@ -1539,8 +1557,8 @@ static void Draw() {
         float y = aligned_height - (i + 1) * font_height;
         int i_row = i - scroll_rows;
         std::vector<term_char> ch;
-        if (i_row >= 0 && i_row < term.term_row) {
-            ch = term.terminal[i_row];
+        if (i_row >= 0 && i_row < term.num_rows) {
+            ch = term.buffer[i_row];
         } else if (i_row < 0 && (int)term.history.size() + i_row >= 0) {
             ch = term.history[term.history.size() + i_row];
         } else {
@@ -1627,8 +1645,7 @@ static void Draw() {
             background_color_data.insert(background_color_data.end(), &g_background_color_buffer_data[0],
                                          &g_background_color_buffer_data[18]);
 
-            // temp solution
-            x += w < font_width * 1.33 ? font_width : 2.0 * font_width;
+            x += font_width;
             cur_col++;
         }
     }

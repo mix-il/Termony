@@ -39,22 +39,22 @@ TEST_CASE( "Line feed", "" ) {
     ctx.Parse('\x0a');
     REQUIRE( ctx.row == 1 );
     REQUIRE( ctx.col == 0 );
-    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+    REQUIRE( ctx.buffer[0][0].code == 'a' );
 
     // a
     // b|
     ctx.Parse('b');
     REQUIRE( ctx.row == 1 );
     REQUIRE( ctx.col == 1 );
-    REQUIRE( ctx.terminal[1][0].ch == 'b' );
+    REQUIRE( ctx.buffer[1][0].code == 'b' );
 
     // b
     //  |
     ctx.Parse('\x0a');
     REQUIRE( ctx.row == 1 );
     REQUIRE( ctx.col == 1 );
-    REQUIRE( ctx.terminal[0][0].ch == 'b' );
-    REQUIRE( ctx.terminal[1][0].ch == ' ' );
+    REQUIRE( ctx.buffer[0][0].code == 'b' );
+    REQUIRE( ctx.buffer[1][0].code == ' ' );
 }
 
 TEST_CASE( "Backspace", "" ) {
@@ -68,18 +68,18 @@ TEST_CASE( "Backspace", "" ) {
     ctx.Parse('a');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 1 );
-    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+    REQUIRE( ctx.buffer[0][0].code == 'a' );
 
     ctx.Parse('\x08');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 0 );
-    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+    REQUIRE( ctx.buffer[0][0].code == 'a' );
 
     // b|
     ctx.Parse('b');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 1 );
-    REQUIRE( ctx.terminal[0][0].ch == 'b' );
+    REQUIRE( ctx.buffer[0][0].code == 'b' );
 }
 
 TEST_CASE( "Tab", "" ) {
@@ -93,19 +93,19 @@ TEST_CASE( "Tab", "" ) {
     ctx.Parse('a');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 1 );
-    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+    REQUIRE( ctx.buffer[0][0].code == 'a' );
 
     // a       |
     ctx.Parse('\x09');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 8 );
-    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+    REQUIRE( ctx.buffer[0][0].code == 'a' );
 
     // a       b|
     ctx.Parse('b');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 9 );
-    REQUIRE( ctx.terminal[0][8].ch == 'b' );
+    REQUIRE( ctx.buffer[0][8].code == 'b' );
 }
 
 TEST_CASE( "Insert Characters", "" ) {
@@ -119,13 +119,13 @@ TEST_CASE( "Insert Characters", "" ) {
     ctx.Parse('a');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 1 );
-    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+    REQUIRE( ctx.buffer[0][0].code == 'a' );
 
     // a
     ctx.Parse('\x0d');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 0 );
-    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+    REQUIRE( ctx.buffer[0][0].code == 'a' );
 
     // |a
     // CSI @
@@ -134,8 +134,8 @@ TEST_CASE( "Insert Characters", "" ) {
     ctx.Parse('@');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 0 );
-    REQUIRE( ctx.terminal[0][0].ch == ' ' );
-    REQUIRE( ctx.terminal[0][1].ch == 'a' );
+    REQUIRE( ctx.buffer[0][0].code == ' ' );
+    REQUIRE( ctx.buffer[0][1].code == 'a' );
 
     // |  a
     // CSI 2 @
@@ -145,10 +145,10 @@ TEST_CASE( "Insert Characters", "" ) {
     ctx.Parse('@');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 0 );
-    REQUIRE( ctx.terminal[0][0].ch == ' ' );
-    REQUIRE( ctx.terminal[0][1].ch == ' ' );
-    REQUIRE( ctx.terminal[0][2].ch == ' ' );
-    REQUIRE( ctx.terminal[0][3].ch == 'a' );
+    REQUIRE( ctx.buffer[0][0].code == ' ' );
+    REQUIRE( ctx.buffer[0][1].code == ' ' );
+    REQUIRE( ctx.buffer[0][2].code == ' ' );
+    REQUIRE( ctx.buffer[0][3].code == 'a' );
 }
 
 TEST_CASE( "Cursor Up", "" ) {
@@ -162,7 +162,7 @@ TEST_CASE( "Cursor Up", "" ) {
     ctx.Parse('a');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 1 );
-    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+    REQUIRE( ctx.buffer[0][0].code == 'a' );
 
     // a|
     ctx.Parse('\x0d');
@@ -171,14 +171,14 @@ TEST_CASE( "Cursor Up", "" ) {
     ctx.Parse('A');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 0 );
-    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+    REQUIRE( ctx.buffer[0][0].code == 'a' );
 
     // a
     //  |
     ctx.Parse('\x0a');
     REQUIRE( ctx.row == 1 );
     REQUIRE( ctx.col == 0 );
-    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+    REQUIRE( ctx.buffer[0][0].code == 'a' );
 
     // a
     // |
@@ -194,13 +194,13 @@ TEST_CASE( "Cursor Up", "" ) {
     ctx.Parse('A');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 0 );
-    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+    REQUIRE( ctx.buffer[0][0].code == 'a' );
 
     // b|
     ctx.Parse('b');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 1 );
-    REQUIRE( ctx.terminal[0][0].ch == 'b' );
+    REQUIRE( ctx.buffer[0][0].code == 'b' );
 
     // b
     // |
@@ -238,13 +238,13 @@ TEST_CASE( "Erase in Display", "" ) {
     ctx.Parse('a');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 1 );
-    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+    REQUIRE( ctx.buffer[0][0].code == 'a' );
 
     // ab|
     ctx.Parse('b');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 2 );
-    REQUIRE( ctx.terminal[0][1].ch == 'b' );
+    REQUIRE( ctx.buffer[0][1].code == 'b' );
 
     // ab
     ctx.Parse('\x08');
@@ -258,8 +258,8 @@ TEST_CASE( "Erase in Display", "" ) {
     ctx.Parse('J');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 1 );
-    REQUIRE( ctx.terminal[0][0].ch == 'a' );
-    REQUIRE( ctx.terminal[0][1].ch == ' ' );
+    REQUIRE( ctx.buffer[0][0].code == 'a' );
+    REQUIRE( ctx.buffer[0][1].code == ' ' );
 }
 
 TEST_CASE( "Save Cursor", "" ) {
@@ -273,14 +273,14 @@ TEST_CASE( "Save Cursor", "" ) {
     ctx.Parse('a');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 1 );
-    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+    REQUIRE( ctx.buffer[0][0].code == 'a' );
 
     // a|
     ctx.Parse('\x1b');
     ctx.Parse('7');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 1 );
-    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+    REQUIRE( ctx.buffer[0][0].code == 'a' );
 
     // a
     ctx.Parse('\x08');
@@ -292,13 +292,13 @@ TEST_CASE( "Save Cursor", "" ) {
     ctx.Parse('8');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 1 );
-    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+    REQUIRE( ctx.buffer[0][0].code == 'a' );
 
     // ab|
     ctx.Parse('b');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 2 );
-    REQUIRE( ctx.terminal[0][1].ch == 'b' );
+    REQUIRE( ctx.buffer[0][1].code == 'b' );
 }
 
 TEST_CASE( "Tab Clear", "" ) {
@@ -312,19 +312,19 @@ TEST_CASE( "Tab Clear", "" ) {
     ctx.Parse('a');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 1 );
-    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+    REQUIRE( ctx.buffer[0][0].code == 'a' );
 
     // a       |
     ctx.Parse('\x09');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 8 );
-    REQUIRE( ctx.terminal[0][0].ch == 'a' );
+    REQUIRE( ctx.buffer[0][0].code == 'a' );
 
     // a       b|
     ctx.Parse('b');
     REQUIRE( ctx.row == 0 );
     REQUIRE( ctx.col == 9 );
-    REQUIRE( ctx.terminal[0][8].ch == 'b' );
+    REQUIRE( ctx.buffer[0][8].code == 'b' );
 
     // a       b|
     ctx.Parse('\x1b');
@@ -359,10 +359,10 @@ void TestAlacritty(std::string name) {
     std::ifstream grid_f(ref + "/" + name + "/grid.json");
     json grid_json = json::parse(grid_f);
 
-    for (int i = 0;i < ctx.term_row;i++) {
-        for (int j = 0;j < ctx.term_col;j++) {
+    for (int i = 0;i < ctx.num_rows;i++) {
+        for (int j = 0;j < ctx.num_cols;j++) {
             // order is inverted!
-            json expected_json = grid_json["raw"]["inner"][ctx.term_row - i - 1]["inner"][j];
+            json expected_json = grid_json["raw"]["inner"][ctx.num_rows - i - 1]["inner"][j];
             std::string expected_str = expected_json["c"].template get<std::string>();
             REQUIRE (expected_str.size() == 1 );
 
@@ -372,13 +372,13 @@ void TestAlacritty(std::string name) {
             }
 
             // TODO: validate style
-            if (ctx.terminal[i][j].ch != expected_str[0]) {
+            if (ctx.buffer[i][j].code != expected_str[0]) {
                 // print diff
                 fprintf(stderr, "Diff:\n");
-                for (int ii = 0;ii < ctx.term_row;ii++) {
+                for (int ii = 0;ii < ctx.num_rows;ii++) {
                     bool equal = true;
-                    for (int jj = 0;jj < ctx.term_col;jj++) {
-                        json expected_json = grid_json["raw"]["inner"][ctx.term_row - ii - 1]["inner"][jj];
+                    for (int jj = 0;jj < ctx.num_cols;jj++) {
+                        json expected_json = grid_json["raw"]["inner"][ctx.num_rows - ii - 1]["inner"][jj];
                         std::string expected_str = expected_json["c"].template get<std::string>();
                         REQUIRE (expected_str.size() == 1 );
 
@@ -387,27 +387,27 @@ void TestAlacritty(std::string name) {
                             expected_str[0] = ' ';
                         }
 
-                        if (ctx.terminal[ii][jj].ch != expected_str[0]) {
+                        if (ctx.buffer[ii][jj].code != expected_str[0]) {
                             equal = false;
                         }
                     }
 
                     if (equal) {
                         fprintf(stderr, "%02d=", ii);
-                        for (int jj = 0;jj < ctx.term_col;jj++) {
-                            fprintf(stderr, "%c", ctx.terminal[ii][jj].ch);
+                        for (int jj = 0;jj < ctx.num_cols;jj++) {
+                            fprintf(stderr, "%c", ctx.buffer[ii][jj].code);
                         }
                         fprintf(stderr, "\n");
                     } else {
                         fprintf(stderr, "%02d-", ii);
-                        for (int jj = 0;jj < ctx.term_col;jj++) {
-                            fprintf(stderr, "%c", ctx.terminal[ii][jj].ch);
+                        for (int jj = 0;jj < ctx.num_cols;jj++) {
+                            fprintf(stderr, "%c", ctx.buffer[ii][jj].code);
                         }
                         fprintf(stderr, "\n");
 
                         fprintf(stderr, "%02d+", ii);
-                        for (int jj = 0;jj < ctx.term_col;jj++) {
-                            json expected = grid_json["raw"]["inner"][ctx.term_row - ii - 1]["inner"][jj];
+                        for (int jj = 0;jj < ctx.num_cols;jj++) {
+                            json expected = grid_json["raw"]["inner"][ctx.num_rows - ii - 1]["inner"][jj];
                             std::string c = expected["c"].template get<std::string>();
                             REQUIRE( c.size() == 1 );
                             fprintf(stderr, "%c", c[0]);
@@ -416,7 +416,7 @@ void TestAlacritty(std::string name) {
                     }
                 }
             }
-            REQUIRE( ctx.terminal[i][j].ch == expected_str[0] );
+            REQUIRE( ctx.buffer[i][j].code == expected_str[0] );
         }
     }
 }
