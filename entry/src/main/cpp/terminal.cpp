@@ -66,34 +66,29 @@ void CustomPrintf(const char *fmt, ...) {
 // Pt: text parameter of printable characters
 
 // solarized light
-// fails on g++
-static std::array<int, 3> predefined_colors[max_term_color] = {
-    [black] = { 7, 54, 66 },
-    [red] = { 220, 50, 47 },
-    [green] = { 13, 153, 0 },
-    [yellow] = { 181, 137, 0 },
-    [blue] = { 38, 139, 210 },
-    [magenta] = { 221, 54, 130 },
-    [cyan] = { 42, 161, 152 },
-    [white] = { 238, 232, 213 },
+static uint32_t predefined_colors[max_term_color] = {
+    [black] = PACK_RGB( 7, 54, 66 ),
+    [red] = PACK_RGB( 220, 50, 47 ),
+    [green] = PACK_RGB( 13, 153, 0 ),
+    [yellow] = PACK_RGB( 181, 137, 0 ),
+    [blue] = PACK_RGB( 38, 139, 210 ),
+    [magenta] = PACK_RGB( 221, 54, 130 ),
+    [cyan] = PACK_RGB( 42, 161, 152 ),
+    [white] = PACK_RGB( 238, 232, 213 ),
 
-    [brblack] = { 0, 43, 54 },
-    [brred] = { 203, 75, 22 },
-    [brgreen] = { 88, 110, 117 },
-    [bryellow] = { 101, 123, 131 },
-    [brblue] = { 131, 148, 150 },
-    [brmagenta] = { 108, 113, 196 },
-    [brcyan] = { 147, 161, 161 },
-    [brwhite] = { 253, 246, 227 },
+    [brblack] = PACK_RGB( 0, 43, 54 ),
+    [brred] = PACK_RGB( 203, 75, 22 ),
+    [brgreen] = PACK_RGB( 88, 110, 117 ),
+    [bryellow] = PACK_RGB( 101, 123, 131 ),
+    [brblue] = PACK_RGB( 131, 148, 150 ),
+    [brmagenta] = PACK_RGB( 108, 113, 196 ),
+    [brcyan] = PACK_RGB( 147, 161, 161 ),
+    [brwhite] = PACK_RGB( 253, 246, 227 ),
 };
 
 term_style::term_style() {
-    fg_red = predefined_colors[black][0] / 255.0;
-    fg_green = predefined_colors[black][1] / 255.0;
-    fg_blue = predefined_colors[black][2] / 255.0;
-    bg_red = predefined_colors[white][0] / 255.0;
-    bg_green = predefined_colors[white][1] / 255.0;
-    bg_blue = predefined_colors[white][2] / 255.0;
+    fore = predefined_colors[black];
+    back = predefined_colors[white];
 }
 
 static std::vector<std::string> SplitString(const std::string &str, const std::string &delimiter) {
@@ -660,9 +655,7 @@ void terminal_context::HandleCSI(uint8_t current) {
                     current_style.blink = true;
                 } else if (param == 7) {
                     // inverse, flip foreground and background color, CSI 7 m
-                    std::swap(current_style.fg_red, current_style.bg_red);
-                    std::swap(current_style.fg_green, current_style.bg_green);
-                    std::swap(current_style.fg_blue, current_style.bg_blue);
+                    std::swap(current_style.fore, current_style.back);
                 } else if (param == 9) {
                     // set strikethrough, CSI 9 m
                     // TODO
@@ -683,14 +676,10 @@ void terminal_context::HandleCSI(uint8_t current) {
                     current_style.blink = false;
                 } else if (param == 27) {
                     // set positive (not inverse), CSI 27 m
-                    std::swap(current_style.fg_red, current_style.bg_red);
-                    std::swap(current_style.fg_green, current_style.bg_green);
-                    std::swap(current_style.fg_blue, current_style.bg_blue);
+                    std::swap(current_style.fore, current_style.back);
                 } else if (30 <= param && param <= 37) {
                     // foreground ansi 0..7
-                    current_style.fg_red = predefined_colors[param-30][0] / 255.0;
-                    current_style.fg_green = predefined_colors[param-30][1] / 255.0;
-                    current_style.fg_blue = predefined_colors[param-30][2] / 255.0;
+                    current_style.fore = predefined_colors[param - 30];
                 } else if (param == 38 || param == 48) {
                     // foreground color: extended color, CSI 38 : ... m
                     // background color: extended color, CSI 48 : ... m
@@ -701,13 +690,9 @@ void terminal_context::HandleCSI(uint8_t current) {
                             int color_index = std::stoi(parts[++i]);
                             uint32_t color = TrueColorFrom(color_index);
                             if (param == 38) {
-                                current_style.fg_red = ((color >> 16) & 0xff) / 255.0;
-                                current_style.fg_green = ((color >> 8) & 0xff)  / 255.0;
-                                current_style.fg_blue = ((color >> 0) & 0xff)  / 255.0;
+                                current_style.fore = color;
                             } else {
-                                current_style.bg_red = ((color >> 16) & 0xff) / 255.0;
-                                current_style.bg_green = ((color >> 8) & 0xff) / 255.0;
-                                current_style.bg_blue = ((color >> 0) & 0xff) / 255.0;
+                                current_style.back = color;
                             }
                         } else if (color_type == 2 && i + 3 < parts.size()) { // RGB mode
                             // specified rgb
@@ -715,41 +700,27 @@ void terminal_context::HandleCSI(uint8_t current) {
                             int g = std::stoi(parts[++i]);
                             int b = std::stoi(parts[++i]);
                             if (param == 38) {
-                                current_style.fg_red = r / 255.0;
-                                current_style.fg_green = g / 255.0;
-                                current_style.fg_blue = b / 255.0;
+                                current_style.fore.set_rgb(r,g,b);
                             } else {
-                                current_style.bg_red = r / 255.0;
-                                current_style.bg_green = g / 255.0;
-                                current_style.bg_blue = b / 255.0;
+                                current_style.back.set_rgb(r,g,b);
                             }
                         }
                     }
                 } else if (param == 39) {
                     // default foreground
-                    current_style.fg_red = predefined_colors[black][0] / 255.0;
-                    current_style.fg_green = predefined_colors[black][1] / 255.0;
-                    current_style.fg_blue = predefined_colors[black][2] / 255.0;
+                    current_style.fore = predefined_colors[black];
                 } else if (40 <= param && param <= 47) {
                     // background ansi 0..7
-                    current_style.bg_red = predefined_colors[param-40][0] / 255.0;
-                    current_style.bg_green = predefined_colors[param-40][1] / 255.0;
-                    current_style.bg_blue = predefined_colors[param-40][2] / 255.0;
+                    current_style.back = predefined_colors[param - 40];
                 } else if (param == 49) {
                     // default background
-                    current_style.bg_red = predefined_colors[white][0] / 255.0;
-                    current_style.bg_green = predefined_colors[white][1] / 255.0;
-                    current_style.bg_blue = predefined_colors[white][2] / 255.0;
+                    current_style.back = predefined_colors[white];
                 } else if (90 <= param && param <= 97) {
                     // foreground ansi 8..15
-                    current_style.fg_red = predefined_colors[8 + param - 90][0] / 255.0;
-                    current_style.fg_green = predefined_colors[8 + param - 90][1] / 255.0;
-                    current_style.fg_blue = predefined_colors[8 + param - 90][2] / 255.0;
+                    current_style.fore = predefined_colors[8 + param - 90];
                 } else if (100 <= param && param <= 107) {
                     // background ansi 8..15
-                    current_style.bg_red = predefined_colors[8 + param - 100][0] / 255.0;
-                    current_style.bg_green = predefined_colors[8 + param - 100][1] / 255.0;
-                    current_style.bg_blue = predefined_colors[8 + param - 100][2] / 255.0;
+                    current_style.back = predefined_colors[8 + param - 100];
                 } else {
                     OH_LOG_WARN(LOG_APP, "Unknown CSI Pm m: %{public}s from %{public}s %{public}c",
                                 part.c_str(), escape_buffer.c_str(), current);
@@ -1519,7 +1490,10 @@ static void Draw() {
     uint64_t current_msec = tv.tv_sec * 1000 + tv.tv_usec / 1000;
 
     // clear buffer with background color
-    glClearColor(predefined_colors[white][0] / 255.0, predefined_colors[white][1] / 255.0, predefined_colors[white][2] / 255.0, 1.0f);
+    {
+        term_style::color back(predefined_colors[white]);
+        glClearColor(back.u.red / 255.0, back.u.green / 255.0, back.u.blue / 255.0, 1.0);
+    }
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // update surface size
@@ -1631,28 +1605,12 @@ static void Draw() {
             GLfloat g_text_color_buffer_data[18];
             GLfloat g_background_color_buffer_data[18];
 
-            if (i_row == term.row && cur_col == term.col && term.show_cursor) {
-                // cursor
-                for (int i = 0; i < 6; i++) {
-                    g_text_color_buffer_data[i * 3 + 0] = 1.0 - c.style.fg_red;
-                    g_text_color_buffer_data[i * 3 + 1] = 1.0 - c.style.fg_green;
-                    g_text_color_buffer_data[i * 3 + 2] = 1.0 - c.style.fg_blue;
-                    g_background_color_buffer_data[i * 3 + 0] = 1.0 - c.style.bg_red;
-                    g_background_color_buffer_data[i * 3 + 1] = 1.0 - c.style.bg_green;
-                    g_background_color_buffer_data[i * 3 + 2] = 1.0 - c.style.bg_blue;
-                }
-            } else {
-                for (int i = 0; i < 6; i++) {
-                    g_text_color_buffer_data[i * 3 + 0] = c.style.fg_red;
-                    g_text_color_buffer_data[i * 3 + 1] = c.style.fg_green;
-                    g_text_color_buffer_data[i * 3 + 2] = c.style.fg_blue;
-                    g_background_color_buffer_data[i * 3 + 0] = c.style.bg_red;
-                    g_background_color_buffer_data[i * 3 + 1] = c.style.bg_green;
-                    g_background_color_buffer_data[i * 3 + 2] = c.style.bg_blue;
-                }
+            for (int i = 0; i < 6; i++) {
+                c.style.fore.put_f3(&g_text_color_buffer_data[i*3]);
+                c.style.back.put_f3(&g_background_color_buffer_data[i*3]);
             }
 
-            if (term.reverse_video) {
+            if ((term.show_cursor && i_row == term.row && cur_col == term.col) ^ term.reverse_video) {
                 // invert all colors
                 for (int i = 0; i < 18; i++) {
                     g_text_color_buffer_data[i] = 1.0 - g_text_color_buffer_data[i];
@@ -1660,8 +1618,8 @@ static void Draw() {
                 }
             }
 
+            // blink: for every 1s, in 0.5s, text color equals to back ground color
             if (c.style.blink && current_msec % 1000 > 500) {
-                // for every 1s, in 0.5s, text color equals to back ground color
                 for (int i = 0; i < 18; i++) {
                     g_text_color_buffer_data[i] = g_background_color_buffer_data[i];
                 }
@@ -1671,6 +1629,7 @@ static void Draw() {
             background_color_data.insert(background_color_data.end(), &g_background_color_buffer_data[0],
                                          &g_background_color_buffer_data[18]);
 
+            // temp solution
             x += w < font_width * 1.33 ? font_width : 2.0 * font_width;
             cur_col++;
         }

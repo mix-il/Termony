@@ -34,20 +34,44 @@ enum term_colors {
     max_term_color
 };
 
+#define PACK_RGB(r,g,b) ((uint32_t(r&0xff)<<16) | (uint32_t(g&0xff)<<8) | uint32_t(b)&0xff)
 // maintain terminal status
 struct term_style {
+    struct color {
+        union {
+            uint32_t value;
+            struct {
+                uint8_t blue;
+                uint8_t green;
+                uint8_t red;
+                uint8_t zero;
+            } u;
+            uint8_t bgrz[4];
+        };
+        inline void set_rgb(uint8_t r, uint8_t g, uint8_t b) {
+            bgrz[0] = b;
+            bgrz[1] = g;
+            bgrz[2] = r;
+            bgrz[3] = 0;
+        }
+        inline void put_f3(float * pf3) const {
+            pf3[0] = bgrz[2] / 255.0;
+            pf3[1] = bgrz[1] / 255.0;
+            pf3[2] = bgrz[0] / 255.0;
+        }
+        color() : value(0) {}
+        color(uint32_t rgb) : value(rgb) {}
+        color & operator=(uint32_t val) {
+            value = val;
+            return * this;
+        }
+    };
+    color fore, back;
     // font weight
     font_weight weight = regular;
     // blinking
     bool blink = false;
-    // foreground color
-    float fg_red = 0.0;
-    float fg_green = 0.0;
-    float fg_blue = 0.0;
-    // background color
-    float bg_red = 1.0;
-    float bg_green = 1.0;
-    float bg_blue = 1.0;
+    // constuctor
     term_style();
 };
 
