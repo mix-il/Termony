@@ -5,6 +5,6 @@ SOURCE_FILE = tmux-3.5a.tar.gz
 SOURCE_DIR = tmux-3.5a
 # TCSANOW does not work, use TCSADRAIN
 PATCH_SOURCE = find temp/$(SOURCE_DIR) -type f | grep \\.c | xargs sed -i.bak 's/TCSANOW,/TCSADRAIN,/'
-CONFIG_ARGS = --prefix=$(PREFIX) --host aarch64-unknown-linux-musl CFLAGS="-I $(shell pwd)/../sysroot/include -I $(shell pwd)/../sysroot/include/ncursesw"
+CONFIG_ARGS = --prefix=$(PREFIX) --host $(OHOS_ARCH)-unknown-linux-musl CFLAGS="-I $(shell pwd)/../sysroot/include -I $(shell pwd)/../sysroot/include/ncursesw"
 
 $(eval $(call define_autotools_package))

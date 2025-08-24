@@ -25,7 +25,7 @@ all: download/busybox-1.37.0.tar.bz2
 	cd temp/busybox-1.37.0 && /usr/bin/sed -i.bak "s/if (setgid(gid))/\\/\\//" libbb/xfuncs_printf.c
 	cd temp/busybox-1.37.0 && /usr/bin/sed -i.bak "s/setgid(rgid)/\\/\\//" libbb/appletlib.c
 	cd temp/busybox-1.37.0 && /usr/bin/sed -i.bak "s/setuid(ruid)/\\/\\//" libbb/appletlib.c
-	cd temp/busybox-1.37.0 && make -j $(shell nproc) CC=$(OHOS_SDK_HOME)/native/llvm/bin/aarch64-unknown-linux-ohos-clang AR=$(OHOS_SDK_HOME)/native/llvm/bin/llvm-ar CFLAGS="-Wno-int-conversion" busybox_unstripped
+	cd temp/busybox-1.37.0 && make -j $(shell nproc) CC=$(OHOS_SDK_HOME)/native/llvm/bin/$(OHOS_ARCH)-unknown-linux-ohos-clang AR=$(OHOS_SDK_HOME)/native/llvm/bin/llvm-ar CFLAGS="-Wno-int-conversion" busybox_unstripped
 	$(OHOS_SDK_HOME)/native/llvm/bin/llvm-strip temp/busybox-1.37.0/busybox_unstripped
 	mkdir -p ../sysroot/bin
 	cp -v temp/busybox-1.37.0/busybox_unstripped ../sysroot/bin/busybox | tee file.lst

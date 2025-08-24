@@ -5,12 +5,12 @@ all: download/talloc-2.4.3.tar.gz
 	mkdir -p temp build
 	cd temp && tar xvf ../download/talloc-2.4.3.tar.gz
 	cd temp/talloc-2.4.3 && mkdir build
-	cp aarch64-unknown-linux-musl.txt temp/talloc-2.4.3
+	cp $(OHOS_ARCH)-unknown-linux-musl.txt temp/talloc-2.4.3
 	cd temp/talloc-2.4.3 && \
     CFLAGS="--sysroot=$(OHOS_SDK_HOME)/native/sysroot -O2 -g -pipe -fstack-protector-strong -fno-omit-frame-pointer -I$(shell pwd)/../sysroot/include -D_FORTIFY_SOURCE=2" \
     LDFLAGS="--sysroot=$(OHOS_SDK_HOME)/native/sysroot -L$(OHOS_SDK_HOME)/native/sysroot/usr/lib" \
 	./configure  --prefix=/data/app/base.org/base_1.0 \
-	--cross-compile --host aarch64-unknown-linux-musl --cross-answers=aarch64-unknown-linux-musl.txt \
+	--cross-compile --host $(OHOS_ARCH)-unknown-linux-musl --cross-answers=$(OHOS_ARCH)-unknown-linux-musl.txt \
 	--disable-python \
 	--check-c-compiler=clang
 	cd temp/talloc-2.4.3 && make -j$(shell nproc) && make install DESTDIR=$(shell pwd)/build
