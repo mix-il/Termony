@@ -1,3 +1,4 @@
+ifeq ($(OHOS_ARCH),aarch64)
 PKGS=gettext \
 	bash \
 	binutils \
@@ -62,6 +63,73 @@ PKGS=gettext \
 	libogg \
 	libvorbis \
 	ffmpeg
+else ifeq ($(OHOS_ARCH),x86_64)
+PKGS=gettext \
+	bash \
+	binutils \
+	busybox \
+	coremark \
+	lz4 \
+	make \
+	ncurses \
+	talloc \
+	openssl \
+	zstd \
+	pcre2 \
+	zlib \
+	libarchive \
+	proot \
+	strace \
+	tar \
+	tree \
+	vim \
+	xxhash \
+	libunistring \
+	libidn2 \
+	c-ares \
+	curl \
+	yyjson \
+	fastfetch \
+	sl \
+	openssh \
+	ncnn \
+	readline \
+	htop \
+	vkpeak \
+	libevent \
+	tmux \
+	fish \
+	elf-loader \
+	gmp \
+	mpfr \
+	mpc \
+	gcc \
+	expat \
+	git \
+	aria2 \
+	xz \
+	python \
+	libusb \
+	hdc \
+	libffi \
+	glib \
+	qemu \
+	qemu-vroot \
+	libx264 \
+	libx265 \
+	libvpx \
+	libsvt-av1 \
+	libmp3-lame \
+	libfdk-aac \
+	libopus \
+	libogg \
+	libvorbis \
+	ffmpeg
+else
+	echo "Unsupported OHOS_ARCH=$(OHOS_ARCH)"
+	exit 1
+endif
+
 STAMP=$(patsubst %,%/.stamp,$(PKGS))
 
 all: copy

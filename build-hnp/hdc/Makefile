@@ -8,7 +8,7 @@ all: download/hdc.zip download/securec.zip CMakeLists.txt
 	cp CMakeLists.txt temp
 	#cd temp/hdc && git init . && git add --all && git commit -m "init" # help to update 0001-ignore-usb-fail.diff with git diff
 	cd temp/hdc && cat ../../0001-ignore-usb-fail.diff | patch -Np1
-	cd build && cmake ../temp -DCMAKE_TOOLCHAIN_FILE=$(OHOS_SDK_HOME)/native/build/cmake/ohos.toolchain.cmake -DOHOS_ARCH=$(OHOS_ABI)
+	cd build && cmake ../temp -DCMAKE_TOOLCHAIN_FILE=$(OHOS_SDK_HOME)/native/build/cmake/ohos.toolchain.cmake -DOHOS_ARCH=$(OHOS_ABI) -DCMAKE_CXX_FLAGS="-Wno-c++11-narrowing"
 	cd build && make -j $(shell nproc)
 	mkdir -p ../sysroot/bin
 	cp build/hdc ../sysroot/bin/

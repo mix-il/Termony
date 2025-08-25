@@ -15,6 +15,7 @@ all: download/qemu-10
 	cd temp/qemu-10 && git apply ../../0009-support-mount-root-of-host-to-guest.patch
 	cd temp/qemu-10 && git apply ../../0010-emulate-root-user-to-guest.patch
 	cd temp/qemu-10 && git apply ../../0011-restore-path-from-host-to-guest.patch
+	cd temp/qemu-10 && git apply ../../0012-fix-for-x86-target.patch
 	cd temp/qemu-10 && \
 	PKG_CONFIG=$(shell which pkg-config) \
 	PKG_CONFIG_PATH= \

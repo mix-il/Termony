@@ -1639,6 +1639,9 @@ void terminal_context::Fork() {
 #else
         // override HOME to /storage/Users/currentUser since it is writable
         const char *home = "/storage/Users/currentUser";
+        setenv("PATH",
+            "/data/app/bin:/data/service/hnp/bin:/bin:"
+            "/usr/local/bin:/usr/bin:/system/bin:/vendor/bin", 1);
         setenv("HOME", home, 1);
         setenv("PWD", home, 1);
         // set LD_LIRBARY_PATH for shared libraries
