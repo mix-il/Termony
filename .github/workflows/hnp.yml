@@ -64,7 +64,7 @@ jobs:
       - name: Build hnp
         shell: bash
         run: |
-          USE_CCACHE=1 make -C build-hnp
+          USE_CCACHE=1 OHOS_ARCH=aarch64 OHOS_ABI=arm64-v8a make -C build-hnp
 
       - name: Upload hnp
         uses: actions/upload-artifact@v4
