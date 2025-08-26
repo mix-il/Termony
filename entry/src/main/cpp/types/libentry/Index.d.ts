@@ -9,3 +9,6 @@ export const checkCopy: () => string | undefined;
 export const checkPaste: () => boolean;
 // send paste result
 export const pushPaste: (base64: string) => void;
+//
+export const onForeground: () => void;
+export const onBackground: () => void;
