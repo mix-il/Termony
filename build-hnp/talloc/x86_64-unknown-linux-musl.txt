@@ -1,0 +1,18 @@
+Checking uname sysname type: x86_64
+Checking uname machine type: x86_64-unknown-linux-musl
+Checking uname release type: release
+Checking uname version type: 5.2
+rpath library support: OK
+Checking getconf LFS_CFLAGS: -D_LARGEFILE64_SOURCE=1
+Checking for -D_FILE_OFFSET_BITS=64: OK
+Checking for -D_LARGE_FILES: OK
+Checking for HAVE_SECURE_MKSTEMP: OK
+-Wl,--version-script support: FAIL
+Checking for large file support without additional flags: OK
+Checking correct behavior of strtoll: OK
+Checking for working strptime: OK
+Checking for C99 vsnprintf: OK
+Checking for HAVE_SHARED_MMAP: OK
+Checking for HAVE_MREMAP: OK
+Checking for HAVE_INCOHERENT_MMAP: OK
+Checking uname sysname type: UNKNOWN

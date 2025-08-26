@@ -6,11 +6,11 @@ export LC_TYPE := C
 export PKG_CONFIG_LIBDIR := $(shell pwd)/../sysroot/lib/pkgconfig:$(shell pwd)/../sysroot/share/pkgconfig
 # set toolchain paths
 ifeq ($(USE_CCACHE), 1)
-export CC := ccache $(OHOS_SDK_HOME)/native/llvm/bin/aarch64-unknown-linux-ohos-clang
-export CXX := ccache $(OHOS_SDK_HOME)/native/llvm/bin/aarch64-unknown-linux-ohos-clang++
+export CC := ccache $(OHOS_SDK_HOME)/native/llvm/bin/$(OHOS_ARCH)-unknown-linux-ohos-clang
+export CXX := ccache $(OHOS_SDK_HOME)/native/llvm/bin/$(OHOS_ARCH)-unknown-linux-ohos-clang++
 else
-export CC := $(OHOS_SDK_HOME)/native/llvm/bin/aarch64-unknown-linux-ohos-clang
-export CXX := $(OHOS_SDK_HOME)/native/llvm/bin/aarch64-unknown-linux-ohos-clang++
+export CC := $(OHOS_SDK_HOME)/native/llvm/bin/$(OHOS_ARCH)-unknown-linux-ohos-clang
+export CXX := $(OHOS_SDK_HOME)/native/llvm/bin/$(OHOS_ARCH)-unknown-linux-ohos-clang++
 endif
 export LD := $(OHOS_SDK_HOME)/native/llvm/bin/ld.lld
 export AR := $(OHOS_SDK_HOME)/native/llvm/bin/llvm-ar

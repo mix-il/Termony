@@ -3,7 +3,7 @@
 
 #include "terminal.h"
 #include "freetype/ftmm.h"
-#include "utf8proc-2.10.0/utf8proc.h"
+#include "utf8proc/utf8proc.h"
 #include <GLES3/gl32.h>
 #include <algorithm>
 #include <cassert>
@@ -1215,6 +1215,9 @@ void terminal_context::Fork() {
 #else
         // override HOME to /storage/Users/currentUser since it is writable
         const char *home = "/storage/Users/currentUser";
+        setenv("PATH",
+            "/data/app/bin:/data/service/hnp/bin:/bin:"
+            "/usr/local/bin:/usr/bin:/system/bin:/vendor/bin", 1);
         setenv("HOME", home, 1);
         setenv("PWD", home, 1);
         // set LD_LIRBARY_PATH for shared libraries
@@ -1428,7 +1431,8 @@ static void BuildFontAtlas() {
             }
             int col_start = bound * (num_rows - 1);
 
-            for (int i = 0; i < bits.rows; i++) {
+            // it is possible that rows >= font_height
+            for (int i = 0; i < bits.rows && i < bound; i++) {
                 for (int j = 0; j < bits.width; j++) {
                     bitmap[
                         atlas_width * (col_start + i)

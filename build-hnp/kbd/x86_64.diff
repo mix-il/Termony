@@ -1,0 +1,19 @@
+--- a/src/resizecons.c	2025-08-25 10:03:18.195649717 +0800
++++ b/src/resizecons.c	2025-08-25 10:07:43.668293720 +0800
+@@ -408,11 +408,11 @@
+ 
+ static void vga_init_io(void)
+ {
+-	if (iopl(3) < 0) {
+-		fprintf(stderr,
+-		        _("resizecons: cannot get I/O permissions.\n"));
+-		exit(EXIT_FAILURE);
+-	}
++	//if (iopl(3) < 0) {
++	//	fprintf(stderr,
++	//	        _("resizecons: cannot get I/O permissions.\n"));
++	//	exit(EXIT_FAILURE);
++	//}
+ 	crtcport = 0x3d4;
+ 	if ((my_inb(0x3cc) & 0x01) == 0)
+ 		crtcport = 0x3b4;
