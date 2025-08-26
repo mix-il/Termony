@@ -100,7 +100,7 @@ struct Index {
         this.imControllerOnce();
       })
       .catch((err: BusinessError) => {
-        console.log('attach error:', JSON.stringify(err))
+        console.log('ime attach error:', JSON.stringify(err))
       })
   }
 
@@ -142,10 +142,7 @@ struct Index {
             let record = data.getRecord(i);
             hilog.info(DOMAIN, 'testTag', 'Got pasteboard record: %{public}s', JSON.stringify(record));
             let plainText: string = record.plainText;
-
-            let textEncoder = util.TextEncoder.create('utf-8');
-            let encodeResult = textEncoder.encodeInto(plainText);
-
+            let encodeResult = encodeUtf8(plainText);
             let base64 = new util.Base64Helper();
             let encoded = base64.encodeToStringSync(encodeResult);
             testNapi.pushPaste(encoded);
@@ -184,8 +181,7 @@ struct Index {
             let record = data.getRecord(i);
             hilog.info(DOMAIN, 'testTag', 'Got pasteboard record: %{public}s', JSON.stringify(record));
             let plainText: string = record.plainText;
-            let textEncoder = util.TextEncoder.create('utf-8');
-            let encodeResult = textEncoder.encodeInto(plainText);
+            let encodeResult = encodeUtf8(plainText);
             testNapi.send(encodeResult.buffer);
           }
         })
@@ -218,15 +214,14 @@ struct Index {
         }
       }
     })
+    // it is after IME
     .onKeyEvent((event: KeyEvent) => {
       hilog.info(DOMAIN, 'testTag', 'Got key: %{public}s', JSON.stringify(event));
       if (event.type === KeyType.Down) {
         if (this.leftCtrlPressed && event.unicode as number >= 97 && event.unicode as number <= 122) {
           // Ctrl-A to Ctrl-Z
-          let buffer = new ArrayBuffer(1);
-          let view = new Uint8Array(buffer);
-          view[0] = event.unicode as number - 97 + 1; // ^A is 0x1
-          testNapi.send(buffer);
+          const escape = event.unicode as number - 97 + 1; // ^A is 0x1
+          testNapi.send(new Uint8Array([escape]).buffer);
         } else if (event.keyText === "KEYCODE_EQUALS") {
           let buffer = new ArrayBuffer(1);
           let view = new Uint8Array(buffer);
@@ -238,22 +233,14 @@ struct Index {
           }
           testNapi.send(buffer);
         } else if (event.unicode !== 0) {
-          let textEncoder = util.TextEncoder.create('utf-8');
-          let encodeResult = textEncoder.encodeInto(String.fromCharCode(event.unicode as number));
-          testNapi.send(encodeResult.buffer);
+          const array = encodeUtf8(String.fromCharCode(event.unicode as number));
+          testNapi.send(array.buffer);
         } else {
           if (event.keyText === "KEYCODE_CTRL_LEFT") {
             this.leftCtrlPressed = true;
           } else if (keyMapping.has(event.keyText)) {
-            let data: number[] = keyMapping.get(event.keyText)!;
-            let buffer = new ArrayBuffer(data.length);
-            let view = new Uint8Array(buffer);
-            let i = 0;
-            for (let byte of data) {
-              view[i] = byte;
-              i += 1;
-            }
-            testNapi.send(buffer);
+            const sequence = keyMapping.get(event.keyText)!;
+            testNapi.send(new Uint8Array(sequence).buffer);
           }
         }
       } else if (event.type === KeyType.Up) {

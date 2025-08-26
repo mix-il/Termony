@@ -3,7 +3,7 @@
 
 #include "terminal.h"
 #include "freetype/ftmm.h"
-#include "utf8proc-2.10.0/utf8proc.h"
+#include "utf8proc/utf8proc.h"
 #include <GLES3/gl32.h>
 #include <algorithm>
 #include <cassert>

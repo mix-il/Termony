@@ -5,5 +5,5 @@
 	path = entry/src/main/cpp/alacritty
 	url = https://github.com/alacritty/alacritty.git
 [submodule "utf8proc"]
-	path = entry/src/main/cpp/utf8proc-2.10.0
+	path = entry/src/main/cpp/utf8proc
 	url = https://github.com/JuliaStrings/utf8proc
