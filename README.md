@@ -63,9 +63,11 @@ Terminal features:
 - Paste via context menu (right-click to activate)
 - Copy/paste in command line via pbcopy/pbpaste using OSC52 escape sequence
 
-### Run in a new root file-system (Early experimental)
+### Run in a new root file-system
 
 `qemu-vroot-aarch64` is a user mode qemu modified to to mimic proot behavior. It allows user to run linux binary (even for another CPU architecture) and switch to a new root-filesystem like chroot or proot.
+
+#### Alpine Linux
 
 For example, you can run into a alpine root-filesystem by following steps:
 
@@ -86,6 +88,28 @@ ls /
 bin    dev    etc    home   lib    media  mnt    opt    proc   root   run    sbin   srv    sys    tmp    usr    var
 ```
 - run `apk update`, the alpine package manager works fine, you can install packages by `apk`
+
+#### Ubuntu
+
+You can also use ubuntu root-filesystem by following steps:
+
+- Download ubuntu base root filesystem from [Ubuntu Base 24.04](https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/) (ubuntu-base-24.04.3-base-arm64.tar.gz)
+- Extract downloaded rootfs tar.gz file, for better compatibility, `/data/storage/el2/base/files/ubuntu_rootfs` is recommended.
+```shell
+mkdir -p /data/storage/el2/base/files/ubuntu_rootfs
+tar xvf ubuntu-base-24.04.3-base-arm64.tar.gz -C /data/storage/el2/base/files/ubuntu_rootfs
+```
+- append `APT::Sandbox::User "root";` to `/etc/apt/apt.conf.d/01-vendor-ubuntu` file in ubuntu root filesyste
+```shell
+cd /data/storage/el2/base/files/ubuntu_rootfs
+echo 'APT::Sandbox::User "root";' > etc/apt/apt.conf.d/01-vendor-ubuntu
+```
+- Run `qemu-vroot-aarch64` to run bash shell in root-filesystem
+```shell
+cd /data/storage/el2/base/files/ubuntu_rootfs
+qemu-vroot-aarch64 -E PATH=/bin:/usr/bin:/sbin -E HOME=/root -L ./ ./bin/bash -c 'cd && bash'
+```
+- run `apt update`, the apt package manager works fine, you can install packages by `apt`
 
 ## Usage (if you are a Mac user):
 

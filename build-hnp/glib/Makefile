@@ -6,15 +6,15 @@ all: download/glib
 	cd temp && cp -vr ../download/glib glib
 	cd temp/glib && rm cross.txt || true
 	cd temp/glib && echo "[binaries]" >> cross.txt
-	cd temp/glib && echo "c = '${OHOS_SDK_HOME}/native/llvm/bin/aarch64-unknown-linux-ohos-clang'" >> cross.txt
-	cd temp/glib && echo "cpp = '${OHOS_SDK_HOME}/native/llvm/bin/aarch64-unknown-linux-ohos-clang++'" >> cross.txt
+	cd temp/glib && echo "c = '${OHOS_SDK_HOME}/native/llvm/bin/$(OHOS_ARCH)-unknown-linux-ohos-clang'" >> cross.txt
+	cd temp/glib && echo "cpp = '${OHOS_SDK_HOME}/native/llvm/bin/$(OHOS_ARCH)-unknown-linux-ohos-clang++'" >> cross.txt
 	cd temp/glib && echo "ar = '${OHOS_SDK_HOME}/native/llvm/bin/llvm-ar'" >> cross.txt
 	cd temp/glib && echo "ld = '${OHOS_SDK_HOME}/native/llvm/bin/ld.lld'" >> cross.txt
 	cd temp/glib && echo "strip = '${OHOS_SDK_HOME}/native/llvm/bin/llvm-strip'" >> cross.txt
 	cd temp/glib && echo "[host_machine]" >> cross.txt
 	cd temp/glib && echo "system = 'linux'" >> cross.txt
-	cd temp/glib && echo "cpu_family = 'aarch64'" >> cross.txt
-	cd temp/glib && echo "cpu = 'aarch64'" >> cross.txt
+	cd temp/glib && echo "cpu_family = '$(OHOS_ARCH)'" >> cross.txt
+	cd temp/glib && echo "cpu = '$(OHOS_ARCH)'" >> cross.txt
 	cd temp/glib && echo "endian = 'little'" >> cross.txt
 	cd temp/glib && echo "[properties]" >> cross.txt
 	cd temp/glib && echo "needs_exe_wrapper = true" >> cross.txt
