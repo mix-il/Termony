@@ -2,20 +2,20 @@
 #include "terminal.h"
 #include <EGL/egl.h>
 #include <GLES3/gl32.h>
-#include <assert.h>
+#include <cassert>
 #include <cstdint>
+#include <cstdio>
 #include <deque>
-#include <fcntl.h>
 #include <map>
-#include <native_window/external_window.h>
+#include <set>
+#include <string>
+#include <vector>
+#include <fcntl.h>
 #include <poll.h>
 #include <pty.h>
-#include <set>
-#include <stdio.h>
-#include <string>
 #include <sys/time.h>
 #include <unistd.h>
-#include <vector>
+#include <native_window/external_window.h>
 
 #include "hilog/log.h"
 #undef LOG_TAG
@@ -224,6 +224,14 @@ std::string GetPaste() {
     return res;
 }
 
+napi_value OnForeground(napi_env env, napi_callback_info info) {
+    return nullptr;
+}
+
+napi_value OnBackground(napi_env env, napi_callback_info info) {
+    return nullptr;
+}
+
 EXTERN_C_START
 static napi_value Init(napi_env env, napi_value exports) {
     napi_property_descriptor desc[] = {
@@ -236,6 +244,8 @@ static napi_value Init(napi_env env, napi_value exports) {
         {"checkCopy", nullptr, CheckCopy, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"checkPaste", nullptr, CheckPaste, nullptr, nullptr, nullptr, napi_default, nullptr},
         {"pushPaste", nullptr, PushPaste, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"onForeground", nullptr, OnForeground, nullptr, nullptr, nullptr, napi_default, nullptr},
+        {"onBackground", nullptr, OnBackground, nullptr, nullptr, nullptr, napi_default, nullptr},
     };
     napi_define_properties(env, exports, sizeof(desc) / sizeof(desc[0]), desc);
     return exports;

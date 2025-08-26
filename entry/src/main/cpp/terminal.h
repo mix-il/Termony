@@ -2,13 +2,13 @@
 #define __TERMINAL_H__
 
 #include <cstdint>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string>
-#include <pthread.h>
 #include <deque>
+#include <string>
 #include <vector>
+#include <stdlib.h>
 #include <optional>
+#include <pthread.h>
+
 
 // font weight
 enum font_weight {
