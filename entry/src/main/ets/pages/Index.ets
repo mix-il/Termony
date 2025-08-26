@@ -82,6 +82,14 @@ struct Index {
       testNapi.send(new Uint8Array([0x0d]).buffer);
     })
 
+    // updating cursor position is complicated
+    this.imController.updateCursor({
+      top: 0,
+      left: 0,
+      width: 600,
+      height: 48,
+    })
+
     this.imControllerOnce = () => {}
   }
   timer: number = -1;

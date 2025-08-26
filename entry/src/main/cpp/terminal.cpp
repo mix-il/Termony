@@ -1431,7 +1431,8 @@ static void BuildFontAtlas() {
             }
             int col_start = bound * (num_rows - 1);
 
-            for (int i = 0; i < bits.rows; i++) {
+            // it is possible that rows >= font_height
+            for (int i = 0; i < bits.rows && i < bound; i++) {
                 for (int j = 0; j < bits.width; j++) {
                     bitmap[
                         atlas_width * (col_start + i)
