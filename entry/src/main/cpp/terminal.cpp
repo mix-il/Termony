@@ -110,24 +110,34 @@ static int buffer_width = 0;
 static int buffer_height = 0;
 static int
 #ifdef STANDALONE
+
+// turn on scale=2
+#if 1
 // values are pixels for scale=2
 // create window width 1200 is 2400 pixels
 // font must be rendered in pixel size
 font_height = 40,
 font_width = 20,
 max_font_width = 40,
-baseline_height = 6;
+baseline_height = 10;
 #define FONT_SCALE (2)
+#else
+font_height = 20,
+font_width = 12,
+max_font_width = 20,
+baseline_height = 5;
+#define FONT_SCALE (1)
+#endif
 
 #else
-// 1vp = ?px
-// HMPC         1.8
-// Previewer    1.5
-// Emulator     1.25
-font_height = 36,
-font_width = 20,
-max_font_width = 36,
-baseline_height = 6;
+// 1vp = ?px is affected by display scale settings
+// HMPC         150% to 270%
+// Previewer    125%
+// Emulator     106.25% 125% 145% 166.25% 187.5%
+font_height = 40,
+font_width = 22,
+max_font_width = 40,
+baseline_height = 10;
 // Noto Sans Mono is 3:5
 // 2.5/3 = 0.833
 

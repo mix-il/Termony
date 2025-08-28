@@ -1,5 +1,5 @@
 // build with:
-// g++ test.cpp terminal.cpp -I/usr/include/freetype2 -DSTANDALONE -DTESTING -o test -lCatch2Main -lCatch2 -lfreetype -lGLESv2 -lglfw
+// clang++ -std=c++17 test.cpp terminal.cpp -I/usr/include/freetype2 -DSTANDALONE -DTESTING -lCatch2Main -lCatch2 -lfreetype -lutf8proc -lGLESv2 -lglfw -o test
 #include "terminal.h"
 #include <catch2/catch_test_macros.hpp>
 #include <cstdio>
