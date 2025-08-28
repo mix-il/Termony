@@ -1,3 +1,4 @@
 clang++ -std=c++17 -g \
-    terminal.cpp -I/usr/include/freetype2 -DSTANDALONE -lfreetype -lutf8proc -lGLESv2 -lglfw \
-    -o /tmp/terminal
+    -DSTANDALONE \
+    -I/usr/include/freetype2 -lfreetype -lutf8proc -lGLESv2 -lglfw \
+    terminal.cpp -o /tmp/terminal

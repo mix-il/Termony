@@ -11,28 +11,27 @@
 
 
 // font weight
-enum font_weight {
+enum font_class {
     regular = 0,
     bold = 1,
-    NUM_WEIGHT,
+    NUM_FONT_CLASS,
 };
 
 struct font_spec {
     const char *path;
     struct {
-        font_weight weight;
-        int ttc_index;
+        font_class type = font_class::regular;
+        int ttc_index = 0;
         std::optional<long> variable_width;
         std::optional<long> variable_weight;
     } opts;
-    font_weight & weight = opts.weight;
 };
 
 // make sure conform to ANSI
 enum term_colors {
     black, red, green, yellow, blue, magenta, cyan, white,
     brblack, brred, brgreen, bryellow, brblue, brmagenta, brcyan, brwhite,
-    max_term_color
+    NUM_TERM_COLORS
 };
 
 #define PACK_RGB(r,g,b) ((uint32_t(r&0xff)<<16) | (uint32_t(g&0xff)<<8) | uint32_t(b)&0xff)
@@ -68,8 +67,7 @@ struct term_style {
         }
     };
     color fore, back;
-    // font weight
-    font_weight weight = regular;
+    font_class type = regular;
     // blinking
     bool blink = false;
     // constuctor

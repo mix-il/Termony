@@ -67,7 +67,7 @@ void hiprintf(int level, const char * fmt, ...) {
 // Pt: text parameter of printable characters
 
 // solarized light
-static uint32_t predefined_colors[max_term_color] = {
+static uint32_t predefined_colors[NUM_TERM_COLORS] = {
     [black] = PACK_RGB( 7, 54, 66 ),
     [red] = PACK_RGB( 220, 50, 47 ),
     [green] = PACK_RGB( 13, 153, 0 ),
@@ -105,29 +105,55 @@ static std::vector<std::string> SplitString(const std::string &str, const std::s
     return result;
 }
 
-// viewport width/height
-static int vw100 = 0;
-static int vh100 = 0;
-static GLint surface_location = -1;
-static GLint render_pass_location = -1;
+// viewport width/height = [font_width, font_height] . [num_cols, num_rows]
+static int buffer_width = 0;
+static int buffer_height = 0;
+static int
 #ifdef STANDALONE
-// and this is scale = 1.0, too small on a HiDPI display
-static int font_height = 24;
-static int font_width = 12;
-static int max_font_width = 24;
-static int baseline_height = 5;
+// values are pixels for scale=2
+// create window width 1200 is 2400 pixels
+// font must be rendered in pixel size
+font_height = 40,
+font_width = 20,
+max_font_width = 40,
+baseline_height = 6;
+#define FONT_SCALE (2)
+
 #else
-// ohos screen is scaled but not 200% i think
-static int font_height = 48;
-static int font_width = 24;
-static int max_font_width = 48;
-static int baseline_height = 10;
+// 1vp = ?px
+// HMPC         1.8
+// Previewer    1.5
+// Emulator     1.25
+font_height = 36,
+font_width = 20,
+max_font_width = 36,
+baseline_height = 6;
+// Noto Sans Mono is 3:5
+// 2.5/3 = 0.833
+
 #endif
 
-// scroll offset in y axis
-static float scroll_offset = 0;
+static std::vector<struct font_spec> fonts {
+#ifdef STANDALONE
+    {"/usr/share/fonts/noto/NotoSansMono-Regular.ttf", {font_class::regular}},
+    {"/usr/share/fonts/noto/NotoSansMono-Bold.ttf", {font_class::bold}},
+    {"/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc", {.type=font_class::regular, .ttc_index=2}}
+#else
+    {
+        "/system/fonts/NotoSansMono[wdth,wght].ttf",
+        {.variable_width = 83 << 16, .variable_weight = 400 << 16}
+    },
+    {
+        "/system/fonts/NotoSansMono[wdth,wght].ttf",
+        {.type = font_class::bold, .variable_width = 83 << 16, .variable_weight = 700 << 16}
+    },
+    {"/system/fonts/NotoSansCJK-Regular.ttc", {.ttc_index=2}} // 0=JP, 1=KR
+#endif
+};
 
 const int MAX_HISTORY_LINES = 5000;
+// scroll offset in y axis
+static float scroll_offset = 0;
 
 constexpr uint32_t TrueColorFrom(uint8_t index) {
     return color_map_256[index];
@@ -195,6 +221,9 @@ void terminal_context::InsertUtf8(uint32_t codepoint) {
     int cw = char_width(codepoint);
     // don't insert zero-width characters
     if (cw <= 0) return;
+    // 3-width character is rare and unsupported by default font
+    if (cw > 2) cw = 2;
+
     // can fit if just equal num_cols
     if (col + cw > num_cols) {
         if (enable_wrap) {
@@ -214,16 +243,10 @@ void terminal_context::InsertUtf8(uint32_t codepoint) {
         // place the wide char
         buffer[row][col].code = codepoint;
         buffer[row][col++].style = current_style;
-        // and cw-2 spacers
-        for (int i=1; i < cw-1 && col < num_cols; i++) {
-            buffer[row][col].code = term_char::WIDE_TAIL;
-            buffer[row][col++].style = current_style;
-        }
-        // final spacer can't be inserted
+        // if spacer can't be inserted
         if (col == num_cols) return;
         codepoint = term_char::WIDE_TAIL;
     }
-    LOG_INFO("column: %d (%d)", col, cw);
     buffer[row][col].code = codepoint;
     buffer[row][col++].style = current_style;
 }
@@ -661,7 +684,7 @@ void terminal_context::HandleCSI(uint8_t current) {
                     current_style = term_style();
                 } else if (param == 1) {
                     // set bold, CSI 1 m
-                    current_style.weight = font_weight::bold;
+                    current_style.type = font_class::bold;
                 } else if (param == 2) {
                     // set faint, CSI 2 m
                     // TODO
@@ -686,7 +709,7 @@ void terminal_context::HandleCSI(uint8_t current) {
                     // TODO
                 } else if (param == 22) {
                     // set not bold faint, CSI 22 m
-                    current_style.weight = font_weight::regular;
+                    current_style.type = font_class::regular;
                 } else if (param == 24) {
                     // set not underlined, CSI 24 m
                     // TODO
@@ -1241,18 +1264,6 @@ void terminal_context::Fork() {
 
 static terminal_context term;
 
-// https://learnopengl.com/In-Practice/Text-Rendering
-struct ivec2 {
-    int x;
-    int y;
-
-    ivec2(int x, int y) {
-        this->x = x;
-        this->y = y;
-    }
-    ivec2() { this->x = this->y = 0; }
-};
-
 // glyph info
 struct character {
     // location within the large texture
@@ -1270,7 +1281,7 @@ struct character {
 
 // record info for each character
 // map from (codepoint, font weight) to character
-static std::map<std::pair<uint32_t, enum font_weight>, struct character> characters;
+static std::map<std::pair<uint32_t, enum font_class>, struct character> characters;
 // code points to load from the font
 static std::set<uint32_t> codepoints_to_load;
 // do we need to reload font due to missing glyphs?
@@ -1283,8 +1294,8 @@ static int atlas_width = 8192;
 static void ResizeTo(int new_term_row, int new_term_col, bool update_viewport = true) {
     // update viewport
     if (update_viewport) {
-        vw100 = new_term_col * font_width;
-        vh100 = new_term_row * font_height;
+        buffer_width = new_term_col * font_width;
+        buffer_height = new_term_row * font_height;
     }
 
     term.ResizeTo(new_term_row, new_term_col);
@@ -1333,28 +1344,9 @@ static void BuildFontAtlas() {
     assert(err == 0);
 
     decltype(characters) newChars;
-    
-    std::vector<struct font_spec> fonts = {
-#ifdef STANDALONE
-        {"/usr/share/fonts/noto/NotoSansMono-Regular.ttf", {font_weight::regular}},
-        {"/usr/share/fonts/noto/NotoSansMono-Bold.ttf", {font_weight::bold}},
-        {"/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc", {.weight=font_weight::regular, .ttc_index=0}}
-#else
-        {
-            "/system/fonts/NotoSansMono[wdth,wght].ttf",
-            {.variable_width = 88 << 16, .variable_weight = 400 << 16}
-        },
-        {
-            "/system/fonts/NotoSansMono[wdth,wght].ttf",
-            {.weight = font_weight::bold, .variable_width = 88 << 16, .variable_weight = 700 << 16}
-        },
-        {"/system/fonts/NotoSansCJK-Regular.ttc", {.ttc_index=2}} // 0=JP, 1=KR
-#endif
-    };
-
     // save glyph for all characters of all weights
     // only one channel
-    int bound = font_height, num_rows = 1, row_pointer = 0;
+    int bound = 40, num_rows = 1, row_pointer = 0;
     std::vector<uint8_t> bitmap(bound * atlas_width, 0);
 
     for (const auto & fnt : fonts) {
@@ -1387,29 +1379,34 @@ static void BuildFontAtlas() {
                     "YMin: %ld YMax: %ld XScale: %ld YScale: %ld",
                     face->ascender, face->descender, face->height, face->bbox.xMin, face->bbox.xMax, face->bbox.yMin,
                     face->bbox.yMax, face->size->metrics.x_scale, face->size->metrics.y_scale);
-        
+
         for (auto charCode : codepoints_to_load) {
             // already loaded
-            if (newChars.count({charCode, fnt.opts.weight}))
+            if (newChars.count({charCode, fnt.opts.type}))
                 continue;
-            FT_ULong glyphIndex = FT_Get_Char_Index(face, charCode);
-            // allow NUL to be loaded
-            if (!charCode || glyphIndex) {
-                FT_Load_Glyph(face, glyphIndex, FT_LOAD_RENDER);
+            if (charCode == 0) {
+                FT_Load_Glyph(face, 0, FT_LOAD_RENDER);
             }
             else {
-                if (&fnt == &fonts.back()) {
-                    newChars[{charCode, font_weight::regular}] = newChars[{0, font_weight::regular}];
+                FT_ULong glyphIndex = FT_Get_Char_Index(face, charCode);
+                if (glyphIndex) {
+                    FT_Load_Glyph(face, glyphIndex, FT_LOAD_RENDER);
                 }
-                continue;
+                else {
+                    if (&fnt == &fonts.back()) {
+                        newChars[{charCode, fnt.opts.type}] = newChars[{0, font_class::regular}];
+                    }
+                    continue;
+                }
             }
 
             LOG_INFO(
-                        "Weight: %d Char: %d(0x%x) Glyph: %d %d Left: "
-                        "%d "
+                        "Class: %d Char: %d(0x%x)"
+                        "Glyph: %dx%d "
+                        "Left: %d "
                         "Top: %d "
                         "Advance: %ld",
-                        fnt.weight, charCode, charCode, face->glyph->bitmap.width, face->glyph->bitmap.rows, face->glyph->bitmap_left,
+                        fnt.opts.type, charCode, charCode, face->glyph->bitmap.width, face->glyph->bitmap.rows, face->glyph->bitmap_left,
                         face->glyph->bitmap_top, face->glyph->advance.x);
 
             auto glyph = face->glyph;
@@ -1454,13 +1451,10 @@ static void BuildFontAtlas() {
                 .width = int(bits.width),
                 .height = int(bits.rows),
             };
-            newChars.insert(std::make_pair(std::make_pair(charCode, fnt.weight), character));
+            newChars[{charCode, fnt.opts.type}] = character;
         }
-
-
         FT_Done_Face(face);
     }
-
     FT_Done_FreeType(ft);
 
     int atlas_height = bound * num_rows;
@@ -1492,10 +1486,14 @@ static void BuildFontAtlas() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    
+
+    newChars[{term_char::WIDE_TAIL, font_class::regular}] = newChars[{' ', font_class::regular}];
     characters = newChars;
 }
 
+// are only used in Draw and RenderWorker
+static GLint surface_location = -1;
+static GLint render_pass_location = -1;
 static GLuint program_id;
 static GLuint vertex_array;
 // vec4 vertex
@@ -1520,10 +1518,10 @@ static void Draw() {
 
     // update surface size
     pthread_mutex_lock(&term.lock);
-    int aligned_width = vw100 / font_width * font_width;
-    int aligned_height = vh100 / font_height * font_height;
+    int aligned_width = buffer_width / font_width * font_width;
+    int aligned_height = buffer_height / font_height * font_height;
     glUniform2f(surface_location, aligned_width, aligned_height);
-    glViewport(0, vh100 - aligned_height, aligned_width, aligned_height);
+    glViewport(0, buffer_height - aligned_height, aligned_width, aligned_height);
 
     // set texture
     glActiveTexture(GL_TEXTURE0);
@@ -1532,7 +1530,7 @@ static void Draw() {
     // bind our vertex array
     glBindVertexArray(vertex_array);
 
-    int max_lines = vh100 / font_height;
+    int max_lines = buffer_height / font_height;
     // vec4 vertex
     static std::vector<GLfloat> vertex_pass0_data;
     static std::vector<GLfloat> vertex_pass1_data;
@@ -1558,7 +1556,7 @@ static void Draw() {
     }
 
     for (int i = 0; i < max_lines; i++) {
-        // (aligned_height - font_height) is terminal[0] when scroll_offset is zero
+        // (aligned_height - font_height) is buffer[0] when scroll_offset is zero
         float x = 0.0;
         float y = aligned_height - (i + 1) * font_height;
         int i_row = i - scroll_rows;
@@ -1574,18 +1572,18 @@ static void Draw() {
         int cur_col = 0;
         for (auto c : row) {
             uint32_t codepoint = c.code;
-            auto key = std::pair<uint32_t, enum font_weight>(c.code, c.style.weight);
+            auto key = std::pair<uint32_t, enum font_class>(c.code, c.style.type);
             auto it = characters.find(key);
             if (it == characters.end())
-                it = characters.find(std::make_pair(c.code, font_weight::regular));
+                it = characters.find(std::make_pair(c.code, font_class::regular));
             if (it == characters.end()) {
                 // reload font to locate it
-                LOG_WARN("Missing character: %d of weight %d", c.code, c.style.weight);
+                LOG_WARN("Missing character: %d of weight %d", c.code, c.style.type);
                 need_rebuild_atlas = true;
                 codepoints_to_load.insert(c.code);
 
                 // we don't have the character, fallback to .notdef
-                it = characters.find(std::pair<uint32_t, enum font_weight>(0, c.style.weight));
+                it = characters.find(std::pair<uint32_t, enum font_class>(0, c.style.type));
                 assert(it != characters.end());
             }
 
@@ -1632,7 +1630,9 @@ static void Draw() {
                 c.style.back.put_f3(&g_background_color_buffer_data[i*3]);
             }
 
-            if ((term.show_cursor && i_row == term.row && cur_col == term.col) ^ term.reverse_video) {
+            if (term.reverse_video ^
+(term.show_cursor && i_row == term.row &&
+(cur_col == term.col || (codepoint == term_char::WIDE_TAIL && cur_col == term.col+1)))) {
                 // invert all colors
                 for (int i = 0; i < 18; i++) {
                     g_text_color_buffer_data[i] = 1.0 - g_text_color_buffer_data[i];
@@ -1691,24 +1691,24 @@ static void *RenderWorker(void *) {
 
     // build vertex and fragment shader
     GLuint vertex_shader_id = glCreateShader(GL_VERTEX_SHADER);
-    char const *vertex_source = "#version 320 es\n"
-                                "\n"
-                                "in vec4 vertex;\n"
-                                "in vec3 textColor;\n"
-                                "in vec3 backgroundColor;\n"
-                                "out vec2 texCoords;\n"
-                                "out vec3 fragTextColor;\n"
-                                "out vec3 fragBackgroundColor;\n"
-                                "uniform vec2 surface;\n"
-                                "void main() {\n"
-                                "  gl_Position.x = vertex.x / surface.x * 2.0f - 1.0f;\n"
-                                "  gl_Position.y = vertex.y / surface.y * 2.0f - 1.0f;\n"
-                                "  gl_Position.z = 0.0;\n"
-                                "  gl_Position.w = 1.0;\n"
-                                "  texCoords = vertex.zw;\n"
-                                "  fragTextColor = textColor;\n"
-                                "  fragBackgroundColor = backgroundColor;\n"
-                                "}";
+    char const *vertex_source = R"(#version 320 es
+
+in vec4 vertex;
+in vec3 textColor;
+in vec3 backgroundColor;
+out vec2 texCoords;
+out vec3 fragTextColor;
+out vec3 fragBackgroundColor;
+uniform vec2 surface;
+void main() {
+  gl_Position.x = vertex.x / surface.x * 2.0f - 1.0f;
+  gl_Position.y = vertex.y / surface.y * 2.0f - 1.0f;
+  gl_Position.z = 0.0;
+  gl_Position.w = 1.0;
+  texCoords = vertex.zw;
+  fragTextColor = textColor;
+  fragBackgroundColor = backgroundColor;
+})";
     glShaderSource(vertex_shader_id, 1, &vertex_source, NULL);
     glCompileShader(vertex_shader_id);
 
@@ -1721,23 +1721,23 @@ static void *RenderWorker(void *) {
     }
 
     GLuint fragment_shader_id = glCreateShader(GL_FRAGMENT_SHADER);
-    char const *fragment_source = "#version 320 es\n"
-                                  "\n"
-                                  "precision lowp float;\n"
-                                  "in vec2 texCoords;\n"
-                                  "in vec3 fragTextColor;\n"
-                                  "in vec3 fragBackgroundColor;\n"
-                                  "out vec4 color;\n"
-                                  "uniform sampler2D text;\n"
-                                  "uniform int renderPass;\n"
-                                  "void main() {\n"
-                                  "  if (renderPass == 0) {\n"
-                                  "    color = vec4(fragBackgroundColor, 1.0);\n"
-                                  "  } else {\n"
-                                  "    float alpha = texture(text, texCoords).r;\n"
-                                  "    color = vec4(fragTextColor, 1.0) * alpha;\n"
-                                  "  }\n"
-                                  "}";
+    char const *fragment_source = R"(#version 320 es
+
+precision lowp float;
+in vec2 texCoords;
+in vec3 fragTextColor;
+in vec3 fragBackgroundColor;
+out vec4 color;
+uniform sampler2D text;
+uniform int renderPass;
+void main() {
+  if (renderPass == 0) {
+    color = vec4(fragBackgroundColor, 1.0);
+  } else {
+    float alpha = texture(text, texCoords).r;
+    color = vec4(fragTextColor, 1.0) * alpha;
+  }
+})";
     // blending is done by opengl (GL_ONE + GL_ONE_MINUS_SRC_ALPHA):
     // final = src * 1 + dest * (1 - src.a)
     // first pass: src = (fragBackgroundColor, 1.0), dest = (1.0, 1.0, 1.0, 1.0), final = (fragBackgroundColor, 1.0)
@@ -1886,10 +1886,10 @@ static void *RenderWorker(void *) {
 // on resize
 void Resize(int new_width, int new_height) {
     pthread_mutex_lock(&term.lock);
-    vw100 = new_width;
-    vh100 = new_height;
+    buffer_width = new_width;
+    buffer_height = new_height;
 
-    ResizeTo(vh100 / font_height, vw100 / font_width, false);
+    ResizeTo(buffer_height / font_height, buffer_width / font_width, false);
     pthread_mutex_unlock(&term.lock);
 }
 
@@ -1996,7 +1996,8 @@ int main() {
     int window_width = 80 * font_width;
     int window_height = 30 * font_height;
     window =
-        glfwCreateWindow(window_width, window_height, "Terminal", nullptr, nullptr);
+        glfwCreateWindow(window_width / FONT_SCALE, window_height / FONT_SCALE, "Terminal", nullptr, nullptr);
+    // fix wrong viewport on scale=2
     glfwSetKeyCallback(window, KeyCallback);
     glfwSetCharCallback(window, CharCallback);
 
