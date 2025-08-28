@@ -4,6 +4,6 @@
 [submodule "entry/src/main/cpp/alacritty"]
 	path = entry/src/main/cpp/alacritty
 	url = https://github.com/alacritty/alacritty.git
-[submodule "utf8proc"]
+[submodule "entry/src/main/cpp/utf8proc"]
 	path = entry/src/main/cpp/utf8proc
-	url = https://github.com/JuliaStrings/utf8proc
+	url = https://github.com/JuliaStrings/utf8proc.git
