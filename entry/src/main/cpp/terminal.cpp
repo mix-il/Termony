@@ -1394,20 +1394,15 @@ static void BuildFontAtlas() {
             // already loaded
             if (newChars.count({charCode, fnt.opts.type}))
                 continue;
-            if (charCode == 0) {
-                FT_Load_Glyph(face, 0, FT_LOAD_RENDER);
+            FT_ULong glyphIndex = charCode ? FT_Get_Char_Index(face, charCode) : 0;
+            if (!charCode || glyphIndex) {
+                FT_Load_Glyph(face, glyphIndex, FT_LOAD_RENDER);
             }
             else {
-                FT_ULong glyphIndex = FT_Get_Char_Index(face, charCode);
-                if (glyphIndex) {
-                    FT_Load_Glyph(face, glyphIndex, FT_LOAD_RENDER);
+                if (&fnt == &fonts.back()) {
+                    newChars[{charCode, fnt.opts.type}] = newChars[{0, font_class::regular}];
                 }
-                else {
-                    if (&fnt == &fonts.back()) {
-                        newChars[{charCode, fnt.opts.type}] = newChars[{0, font_class::regular}];
-                    }
-                    continue;
-                }
+                continue;
             }
 
             LOG_INFO(
@@ -1789,7 +1784,7 @@ void main() {
     glGenTextures(1, &atlas_texture_id);
     // load common characters initially
     codepoints_to_load.insert(0);
-    for (uint32_t i = 32; i < 128; i++) {
+    for (uint32_t i = 32; i < 127; i++) {
         codepoints_to_load.insert(i);
     }
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &atlas_width);
@@ -1881,7 +1876,7 @@ void main() {
             for (auto t : time) {
                 sum += t;
             }
-            //LOG_INFO("FPS: %d, %ld ms per draw", fps, sum / fps);
+            LOG_INFO("FPS: %d, %ld ms per draw", fps, sum / fps);
             fps = 0;
             time.clear();
         }
