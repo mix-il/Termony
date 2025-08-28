@@ -18,3 +18,4 @@ arkuix-sdk.zip
 *.hnp
 .vscode
 /build-profile.json5
+oh-package-lock.json5
