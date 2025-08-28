@@ -1002,7 +1002,7 @@ void terminal_context::Parse(uint8_t input) {
         if (input == '\\' && escape_buffer.size() > 0 && escape_buffer[escape_buffer.size() - 1] == '\x1b') {
             // ST
             escape_state = state_idle;
-        } else if (input >= ' ' && input < 127 && input == '\x1b') {
+        } else if (input == '\x1b' || input >= ' ' && input < 127) {
             // printable character
             escape_buffer += input;
         } else {
