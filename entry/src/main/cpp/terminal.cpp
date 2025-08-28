@@ -140,7 +140,9 @@ max_font_width = 40,
 baseline_height = 10;
 // Noto Sans Mono is 3:5
 // 2.5/3 = 0.833
-
+// design variables in 16.16 fixed point
+// variable width: 62.5 ~ 100
+// variable weight: 100 ~ 900
 #endif
 
 static std::vector<struct font_spec> fonts {
@@ -1290,7 +1292,7 @@ struct character {
 };
 
 // record info for each character
-// map from (codepoint, font weight) to character
+// map from (codepoint, font class) to character
 static std::map<std::pair<uint32_t, enum font_class>, struct character> characters;
 // code points to load from the font
 static std::set<uint32_t> codepoints_to_load;
@@ -1336,16 +1338,19 @@ void SendData(uint8_t *data, size_t length) {
     term.WriteFull(data, length);
 }
 
-// load font
-// texture contains all glyphs of all weights:
-// fixed width of max_font_width, variable height based on face->glyph->bitmap.rows
-// glyph goes in vertical, possibly not filling the whole row space:
-//    0.0       1.0
-// 0.0 +------+--+
-//     | 0x00 |  |
-// 0.5 +------+--+
-//     | 0x01    |
-// 1.0 +------+--+
+// build font texture
+// for every entry in fonts, every character in codepoints_to_load
+// fixed row height (bound), variable width based on face->glyph->bitmap.width
+// glyphs are placed from left to right in a row
+// creates new row if required
+//    0.0                       1.0
+// 0.0 +---------+---+---+-----+
+//     | .notdef |' '| ! | ... |
+// 0.5 +---------+---+---+-----+
+//     |                       |
+// 1.0 +-----------------------+
+// if a codepoint cannot be found in any font
+// it is not included in texture, points to .notdef
 static void BuildFontAtlas() {
     need_rebuild_atlas = false;
 
@@ -1383,12 +1388,13 @@ static void BuildFontAtlas() {
         }
         
         FT_Set_Pixel_Sizes(face, 0, font_height);
-        // Note: in 26.6 fractional pixel format
         LOG_INFO(
                     "Ascender: %d Descender: %d Height: %d XMin: %ld XMax: %ld "
                     "YMin: %ld YMax: %ld XScale: %ld YScale: %ld",
-                    face->ascender, face->descender, face->height, face->bbox.xMin, face->bbox.xMax, face->bbox.yMin,
-                    face->bbox.yMax, face->size->metrics.x_scale, face->size->metrics.y_scale);
+                    face->ascender, face->descender, face->height,
+                    face->bbox.xMin, face->bbox.xMax, face->bbox.yMin, face->bbox.yMax,
+                    face->size->metrics.x_scale, face->size->metrics.y_scale);
+        // Note: FT_Fixed in 26.6 fractional pixel format
 
         for (auto charCode : codepoints_to_load) {
             // already loaded
@@ -1406,7 +1412,7 @@ static void BuildFontAtlas() {
             }
 
             LOG_INFO(
-                        "Class: %d Char: %d(0x%x)"
+                        "Class: %d Char: %d(0x%x) "
                         "Glyph: %dx%d "
                         "Left: %d "
                         "Top: %d "
@@ -1583,7 +1589,7 @@ static void Draw() {
                 it = characters.find(std::make_pair(c.code, font_class::regular));
             if (it == characters.end()) {
                 // reload font to locate it
-                LOG_WARN("Missing character: %d of weight %d", c.code, c.style.type);
+                LOG_WARN("Missing character: %d of class %d", c.code, c.style.type);
                 need_rebuild_atlas = true;
                 codepoints_to_load.insert(c.code);
 
@@ -1638,14 +1644,14 @@ static void Draw() {
             if (term.reverse_video ^
 (term.show_cursor && i_row == term.row &&
 (cur_col == term.col || (codepoint == term_char::WIDE_TAIL && cur_col == term.col+1)))) {
-                // invert all colors
+                // invert text and bg colors
                 for (int i = 0; i < 18; i++) {
                     g_text_color_buffer_data[i] = 1.0 - g_text_color_buffer_data[i];
                     g_background_color_buffer_data[i] = 1.0 - g_background_color_buffer_data[i];
                 }
             }
 
-            // blink: for every 1s, in 0.5s, text color equals to back ground color
+            // blink: every 0.5s in 1s, text color = background color
             if (c.style.blink && current_msec % 1000 > 500) {
                 for (int i = 0; i < 18; i++) {
                     g_text_color_buffer_data[i] = g_background_color_buffer_data[i];

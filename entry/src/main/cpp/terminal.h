@@ -10,10 +10,12 @@
 #include <pthread.h>
 
 
-// font weight
+// font weight, italic
 enum font_class {
     regular = 0,
     bold = 1,
+    italic = 2,
+    bolditalic = 3,
     NUM_FONT_CLASS,
 };
 
